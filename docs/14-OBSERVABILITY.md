@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 14. 관측성·운영
@@ -18,7 +18,7 @@ updated: 2026-10-28
 ## 관리자 화면 지표 (5개)
 이 화면은 데이터 수집 관리 `/admin/ingestion`이다(화면 명세는 [[06-UI-UX|06 UI]] §5.8, [[16-DECISIONS|ADR-021]]).
 
-> [!note] 구현 상태 (main `8cfaac31`)
+> [!note] 구현 상태
 > `/admin/ingestion`에 수집 실행 이력·실행 상세(적재·격리·오류·호출 수)·수동 수집·서비스별 수집 현황이 있다(1번). 2·3번은 대시보드 "공공조달 요약" 띠의 분석 대기·추천(`BID`) 권고로 일부 보인다. 4·5번과 metrics endpoint는 없다.
 
 관리자 화면은 `memberships.sol_role=ADMIN` 사용자의 세션으로 읽고, 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 그 조직 행만 보여 준다. `outbox_events`는 화면 역할에 권한·정책이 없다(`20261019000006`). 5번 적체 건수를 화면에 어떻게 집계할지는 정하지 않았다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
@@ -54,7 +54,7 @@ updated: 2026-10-28
 
 - 4 Source 요약과 10 API 서비스(partition)별로 연결·인증·마지막 수집/성공·fetched/new/updated/duplicate/error/quarantine을 구분한다. 인증키 발급·인증 성공·정상 0건·장애·미검증은 별개 상태다. 상태 값은 레지스트리와 화면이 정본이다.
 - 통계 GET은 저장된 DB 결과만 읽고 수집·탐침을 실행하지 않는다. 마지막 run 하나를 기관 전체 정상으로 표시하지 않는다. source별 고유 공고·고유 사업기회·반복 fetched·HTTP 호출 수는 다른 지표다.
-- 정상은 최근 60분 이내 COMPLETE 성공 기준이고, 기관 요약은 비활성·미완료 서비스도 반영한다. 서비스별 장애 격리는 main `162a09ab`에 있다.
+- 정상은 최근 60분 이내 COMPLETE 성공 기준이고, 기관 요약은 비활성·미완료 서비스도 반영한다. 서비스별 장애 격리(한 서비스의 인증 오류·한도 소진이 다른 서비스를 멈추지 않음)는 구현돼 있다([[07-DATA-PIPELINE|07 수집]]).
 - 구현·적용 기록: [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md), [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md).
 
 ## 관련 문서

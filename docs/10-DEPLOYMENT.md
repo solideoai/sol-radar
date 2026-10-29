@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 10. 배포·실행 프로필
@@ -19,57 +19,49 @@ updated: 2026-10-28
 |---|---|
 | Vercel | web 하나(`vercel.json`, 내부 ai 서비스·binding 없음). `SOL_DEPLOYMENT_ROLE=frontend`로 분석·수집 요청을 회사 redis-api에 HTTPS로 넘긴다. 함수 지역은 Supabase DB(`ap-southeast-2` 시드니)와 같은 `syd1`이다(`vercel.json` `regions`). 기본값 `iad1`(버지니아)에서는 Supabase 호출 한 번이 평균 573ms라 화면 이동이 2~4초 걸렸다(2026-10-28 Supabase edge 로그 실측) |
 | Supabase 클라우드 | DB·Auth·Storage(비공개 버킷 `bid-documents`·`bid-parsed`, [[16-DECISIONS\|ADR-048]]) |
-| 회사 서버 | 기존 Redis `:6379`, 기존 Nginx `/redis/` → `127.0.0.1:6380` redis-api, AI gateway, Worker 3종(아래 "회사 Compose 프로젝트") |
-| 회사 GPU 서버 | 회사 vLLM API(`Qwen3.8-Flash-Next-AWQ-INT4`), model-router + `sol_decision.serve`(Bosun v3.1 0.6B, `:8009`). 아래 "회사 GPU 추론 엔드포인트" |
+| 회사 서버 | 기존 Redis `:6379`, 기존 Nginx `/redis/` → `127.0.0.1:6380` redis-api, AI gateway, 전용 Worker 4종(ingest·analysis·documents·부처 공고). 알림 전용 Worker는 준비만 했다(아래 "회사 Compose 프로젝트") |
+| 회사 GPU | 회사 vLLM API(`Qwen3.8-Flash-Next-AWQ-INT4`, 회사 운영), `sol_decision.serve`(Bosun v3.1 0.6B, AI gateway와 같은 호스트 `127.0.0.1:8009`). 아래 "회사 GPU 추론 엔드포인트" |
 
-2026-10-27 운영 상태:
+운영 상태(현재 값·확인 시각·건수는 [[PROGRESS|진행 상황]] 운영 상태 표가 정본이다):
 
-- `https://www.solideos-radar.com/health/ready`가 200이다(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다.
-- 나라장터 정기 수집은 회사 ingest 전용 Worker의 BullMQ Job Scheduler `g2b-scheduled`다(`pattern "0 */3 * * *"`, `tz "Asia/Seoul"`, `web/server/ingestion/ingest-schedule.ts:9`). 기동 직후 수집은 없다. 실공고는 약 592건이다([[07-DATA-PIPELINE|07 수집]] §2.2).
+- `https://www.solideos-radar.com/health/ready`는 `db`·`redis`·`storage`·`ai`를 본다. `ai`는 회사 AI gateway가 보고한 provider 값이고 운영은 `local`이다.
+- 정기 수집은 회사 ingest 전용 Worker의 BullMQ Job Scheduler다. 나라장터 `g2b-scheduled`와 외부 서비스 `<key>-scheduled`(LH·KEPCO·K-water 입찰공고)가 같은 일정(`pattern "0 */3 * * *"`, `tz "Asia/Seoul"`, `web/server/ingestion/ingest-schedule.ts:9`)으로 돈다. 기업마당은 부처 공고 전용 Worker의 `bizinfo-scheduled`다. 기동 직후 수집은 없다. 출처별 설정은 [[07-DATA-PIPELINE|07 수집]] §2.2다.
 - 회사 redis-api에는 `SOL_INGEST_MODE=live`가 있다. 수동 수집 판정만 live이고 `SOL_RUN_MODE`는 그대로다. 관리자 [지금 불러오기]는 `GET /api/v1/admin/ingestion/manual-gate`의 gate(사용자 60분·전역 공유 10분·하루 20회)를 거친다([[05-API-SPEC|05]] §2).
 - Vercel의 `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`)이 화면 기본 출처를 정한다. 값이 없거나 틀리면 실행 모드를 따른다(`live` → `live`, `mock`·`fixture` → `demo`). DEMO 배지는 `?origin=demo`일 때만 뜬다. 분석 단위의 모드·AI 표시는 공고 상세 분석 요약 띠에 있다([[06-UI-UX|06]] §4).
 - 운영 DEMO 공고 19건은 그대로다. 그중 16건의 마감을 +15일 옮겼다([실행 기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다([[16-DECISIONS|ADR-054]]). 운영 DB에 백업 스키마 `demo_cleanup_20261026`이 있다.
-- 실공고 분석은 0건이다. 첨부 텍스트가 없는 live 공고는 `409 ANALYSIS_SOURCE_MISSING`으로 막힌다(`web/server/bids/bids.service.ts:125`). 아래 "첨부 처리 운영 반영"의 회사 반영이 끝나야 풀린다.
+- live 공고는 자동 분석되지 않는다. 사람이 [분석 실행]을 누르면 분석한다. 본문이 비고 파싱된 첨부도 없는 공고는 `409 ANALYSIS_SOURCE_MISSING`이다(`web/server/bids/bids.service.ts:125`). 첨부는 아래 "첨부 처리"의 Documents Worker가 받는다. 실공고 분석 결과는 [AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)에 있다.
 - GitHub Actions는 2026-10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다. CI green을 근거로 쓰지 않는다([[11-TESTING|11 테스트]] §2).
 
 **발표 경로 D1**([[16-DECISIONS|ADR-054]]): 본편은 덱과 녹화 클립이다. 녹화 촬영과 질의응답 라이브는 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 보인다. 발표 전 `pnpm demo:reset`은 하지 않는다. 당일 확인은 아래 "D1 당일 운영 확인", S5·S6 장애 장면의 녹화는 "대체 경로·녹화용(S5·S6) 기동 절차"다. 날짜는 [[12-ROADMAP|12 로드맵]]이 정본이다.
 
-## 첨부 처리 운영 반영
+## 첨부 처리
 
-첨부 다운로드·파서·documents Worker·가입 동의 저장·카카오 live 가드 코드는 main에 있다. 근거: [구현 증거](evidence/attachment-pipeline/20261027-implementation.md), [파서 실표본 확인](evidence/parser/20261027-parser-check.md), [live 가드 검증](evidence/live-guards/20261027.md).
+회사 Documents 전용 Worker가 live 공고 첨부를 나라장터에서 받아 비공개 Storage(`bid-documents`)에 두고, 회사 AI gateway `POST /parse`로 뽑은 텍스트를 `bid-parsed`에 저장한다. 2026-10-28부터 운영 중이다([수집 서비스 회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md) §1·§3). 처리 건수는 [[PROGRESS|진행 상황]] 운영 상태 표다. 코드 근거는 [구현 증거](evidence/attachment-pipeline/20261027-implementation.md)·[파서 실표본 확인](evidence/parser/20261027-parser-check.md)이고, 운영 DB에는 `20261027000500`(documents 처리 리스 함수 5개)·`000600`(가입 동의 `user_consents`)이 적용돼 있다([[04-DATABASE|04 DB]] §7).
 
-| 단계 | 상태 |
-|---|---|
-| Vercel web(main `8cfaac31`) | 배포 완료. 분석 준비 판정이 첨부 텍스트를 본다 |
-| 운영 DB `20261027000500`(documents 처리 리스 함수 5개)·`000600`(가입 동의 `user_consents`) | 적용 완료([[04-DATABASE\|04 DB]] §7) |
-| 버킷 `bid-documents`·`bid-parsed` | 비공개 확인 |
-| 회사 반영 | 진행 중. [회사 반영 실행서](plans/2026-10-27-company-rollout-attachments.md)의 D0 읽기 확인을 기다린다 |
-
-회사 반영 순서는 실행서 §2~§9다: D0 읽기 확인 → Git 갱신 → redis-api 재생성 → ingest Worker 재생성 → AI gateway 파서 반영 → Analysis Worker 교체 → Documents Worker 기동 → 확인. **[승인]** 단계는 운영을 바꾸므로 사용자 승인 뒤에 한다.
-
-- gateway 파서 반영이 Documents Worker보다 먼저다. 파서 없는 gateway로 Documents Worker를 띄우면 원본만 받고 파싱은 약 2시간 미루다 `PENDING`으로 남는다. 반영 뒤 gateway `GET /health`의 `parsers`가 `pdfplumber@0.11.10`·`sol-hwpx@1`·`sol-hwp5@1+olefile@0.47`을 보여야 한다.
-- Analysis Worker 교체도 Documents Worker보다 먼저다. 옛 Analysis Worker는 첨부 텍스트를 읽지 않고 본문 없는 분석을 만든다. 교체는 덮어쓰기 파일로 SHA 태그 이미지를 만든다(아래 표, 회사 실행서 §8.6).
-- 반영 전에 회사 Worker의 `NOTIFY_KAKAO_PROVIDER` 값을 확인한다. live + 빈 값은 카카오 발송 꺼짐이다(아래 "env 파일 위치").
-- 되돌리기는 이전 이미지로 다시 띄운다. Documents Worker는 `stop`만 한다. 받은 원본·텍스트·`bid_documents` 상태는 지우지 않는다(회사 실행서 §8.7).
+- 처리 범위·속도·실패 기록·되돌리기는 [회사 실행서](../infra/company/README.md) §8이다. 공고당 상위 3건(`.pdf`·`.hwp`·`.hwpx`)만 받고 범위 밖 첨부는 `PENDING`으로 남는다.
+- gateway를 다시 만들 때는 `GET /health`의 `parsers`가 `pdfplumber@0.11.10`·`sol-hwpx@1`·`sol-hwp5@1+olefile@0.47`인지 본다. 파서 없는 gateway면 Documents Worker는 원본만 받고 파싱을 약 2시간 미루다 `PENDING`으로 둔다.
+- 되돌리기는 Documents Worker `stop`이다. 받은 원본·텍스트·`bid_documents` 상태는 지우지 않는다.
 
 ## 회사 Compose 프로젝트
 
-회사 서버에서 사람이 실행한다. 명령·승인 단계의 정본은 [회사 런타임 배포](../infra/company/README.md)와 [회사 반영 실행서](plans/2026-10-27-company-rollout-attachments.md)다.
+회사 서버에서 사람이 실행한다. 명령·승인 단계의 정본은 [회사 런타임 배포](../infra/company/README.md)다. 회사 반영 기록은 `docs/evidence/company-rollout/`이다.
 
 | 파일 | 프로젝트 | 서비스·이미지 | 진입점·등록 job | 지킬 것 |
 |---|---|---|---|---|
-| `infra/compose.company.yaml` | `sol-radar-gateway` | `redis-api`(`web/Dockerfile`, `127.0.0.1:6380:3000`), `ai-gateway`(`services/ai/Dockerfile`, 포트 없음), `worker`(전체) | redis-api: `SOL_DEPLOYMENT_ROLE=redis-api`, 허용 8경로. worker: `worker/main.ts` 전체 등록 | 프로젝트 `up` 금지(회사 실행서 §7.11). redis-api만 따로 다시 만든다([격리 배포 실행서](plans/2026-10-27-ingest-source-isolation-deploy.md) 6) |
+| `infra/compose.company.yaml` | `sol-radar-gateway`(checkout `sol-radar-app`) | `redis-api`(`web/Dockerfile`, `127.0.0.1:6380:3000`). 같은 파일의 `ai-gateway`·`worker`(전체)는 운영에서 쓰지 않는다 | redis-api: `SOL_DEPLOYMENT_ROLE=redis-api`, 허용 8경로 | 프로젝트 `up` 금지(회사 실행서 §7.11). redis-api만 `--no-deps`로 다시 만든다 |
+| 회사 전용 `infra/compose.ai-worker.company.yaml`(저장소에 없음) | `sol-radar-ai-worker`(배포 checkout `sol-radar-deploy`) | `ai-gateway`, `sol-radar-ai-gateway:<SHA>`(회사 덮어쓰기 파일로 태그 지정) | `/health`·`/parse`·`/extract`·`/kev`·`/explain`·`/insight`. 결정 모델은 같은 호스트 `127.0.0.1:8009` | 배포 checkout은 회사 전용 carry 커밋(dependency reporter)을 유지한다. 이 컨테이너만 다시 만든다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)) |
 | `infra/compose.ingest-only.company.yaml` | `sol-radar-ingest` | `ingest-worker`, `sol-radar-ingest-worker:<SHA>` | `worker/ingest-only-main.ts`. ingest만(`g2b-scheduled` + 외부 `<key>-scheduled`). documents 큐에 넣지 않는다(`documents: false`, `ingest-only-main.ts:48`). 정기 창 상한 1440분(`SCHEDULED_WINDOW_CAP_MINUTES`, `ingest-only-main.ts:43`), `--once` 창 상한도 1440분(44행) | `SOL_RUN_MODE=live` 고정. `--check`·`--status`·`--once`·`--unschedule`(회사 실행서 §7) |
 | `infra/compose.analysis-only.company.yaml` | `sol-radar-analysis-only` | `analysis-worker`, `sol-radar-ai-worker-worker:latest`(회사 원본) | `worker/analysis-only-main.ts`. analysis 큐 + 멈춘 분석 복구 | 회사가 준 원본 파일이다. `restart: "no"` |
 | + `infra/compose.analysis-only.sha.company.yaml` | (위 덮어쓰기) | 이미지 `sol-radar-analysis-worker:<SHA>`, `web/worker/Dockerfile` 빌드, 종료 유예 180초 | 위와 같다 | `latest` 태그를 빌드·태그하지 않는다(회사 실행서 §8.6) |
 | `infra/compose.documents-only.company.yaml` | `sol-radar-documents` | `documents-worker`, `sol-radar-documents-worker:<SHA>` | `worker/documents-only-main.ts`. documents 큐 소비자 + 60초 복구 회차 | live가 아니면 exit 1. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(회사 실행서 §8) |
 | `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 기동 전이다. live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
+| `infra/compose.program-notices-only.company.yaml` | `sol-radar-program-notices` | `program-notices-worker`, `sol-radar-program-notices-worker:<SHA>` | `worker/program-notices-only-main.ts`. 기업마당 지원사업 공고 정기 수집 `bizinfo-scheduled`(KST 3시간 정각). 자기 큐(`program-notices`)만 쓰고 ingest 큐·일정은 건드리지 않는다 | `SOL_RUN_MODE=live` 고정. `BIZINFO_API_KEY`는 `.env.worker.local`. 전체 Worker와 같은 DB에서 함께 띄우지 않는다(회사 실행서 §10) |
 
-- Worker 셋의 `AI_GATEWAY_URL`은 `http://172.20.0.1:8000`이다(`infra/compose.documents-only.company.yaml:28`). redis-api는 `http://ai-gateway:8000`이다(`infra/compose.company.yaml:20`). 둘이 같은 gateway인지는 미확인이다(회사 실행서 §2 D0).
+- ingest·analysis·documents 전용 Worker의 `AI_GATEWAY_URL`은 `http://172.20.0.1:8000`이다(`infra/compose.documents-only.company.yaml:28`). 부처 공고 Worker는 gateway를 부르지 않는다. redis-api는 `http://ai-gateway:8000`이다(`infra/compose.company.yaml:20`). 둘이 같은 gateway인지는 미확인이다(회사 실행서 §2 D0).
 - Documents Worker 처리량은 env `DOCUMENTS_MAX_PER_BID`(기본 3)·`DOCUMENTS_ROUND_MAX_REVISIONS`(10)·`DOCUMENTS_FETCH_INTERVAL_MS`(2000)·`DOCUMENTS_CONCURRENCY`(2, 최대 2)다. 문서 리스는 600초다([[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약").
-- notify·deadline 등록은 전체 Worker(`web/worker/main.ts:908-915`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents 전용 Worker에는 없다(코드 확인). 그래서 notify 전용 Worker를 기동하기 전에는 운영 알림이 처리되지 않는다. 처음 기동하면 쌓인 outbox가 한꺼번에 처리된다. 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
+- notify·deadline 등록은 전체 Worker(`web/worker/main.ts`의 `WORKER_REGISTRATIONS`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents·부처 공고 전용 Worker에는 없다(코드 확인). 그래서 notify 전용 Worker를 기동하기 전에는 운영 알림이 처리되지 않는다. 처음 기동하면 쌓인 outbox가 한꺼번에 처리된다. 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
 - 환경 파일은 `infra/.env.redis-api.local`·`.env.ai-gateway.local`·`.env.worker.local`이다. 키 이름은 `infra/env/redis-api.env.example`·`company-ai.env.example`·`company-worker.env.example`·`company.env.example`에 있다(회사 실행서 §2).
-- 회사 GPU 서버의 `infra/compose.gpu.yaml`(`sol-radar-gpu`, `model-router`)은 아래 "회사 GPU 추론 엔드포인트"다.
+- `infra/compose.gpu.yaml`(`sol-radar-gpu`, `model-router`)은 설계만 있고 운영에 등록하지 않았다. 아래 "회사 GPU 추론 엔드포인트"다.
 
 ## D1 당일 운영 확인
 
@@ -77,8 +69,8 @@ updated: 2026-10-28
 
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
-3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 43 보류(`WATCH`), 11-03부터 37 보류다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 비추천(`NO_BID`)이다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
-4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 지금은 실공고 분석이 0건이라(위 "운영 구성" `409 ANALYSIS_SOURCE_MISSING`) 첨부 처리 회사 반영 뒤에만 찍는다. run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
+3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 11-02까지 43 보류(`WATCH`), 11-03부터 37 보류다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 비추천(`NO_BID`)이다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
+4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 운영에 분석된 실공고 run이 있다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 촬영 때 run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
 5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
    - 리허설 중에 FX-02를 재분석하지 않는다. 하면 43 보류가 저장되어 "미분석 → 재분석" 장면이 사라진다.
@@ -99,7 +91,7 @@ updated: 2026-10-28
 - 모순된 값이면 `pnpm check:env`와 gateway가 기동을 거부한다: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`, 모드와 상관없이 `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`([[16-DECISIONS|ADR-030]] B11).
 - 자동 대체 `AI_FALLBACK_TO_MOCK`은 해커톤 동안 만들지 않아 어느 모드든 `true`면 기동을 거부한다. 모드 전환은 사람이 env를 바꾸고 Worker·gateway를 재시작해서 한다([[03-AI-PIPELINE|03]] §8).
 - hosted 공급자는 없다. 승인 게이트(`AI_HOSTED_APPROVED`, `infra/run-modes.json`·`pnpm check:env`·gateway 기동 거부)만 있다. `infra/env/`에 hosted 예시 파일은 없다. 비용이 들므로 사용자 승인 전에는 만들거나 부르지 않는다([[16-DECISIONS|ADR-010]]).
-- 한국어 state 평가(E2)는 미결정이다([[21-MODEL-TRAINING|21 모델 학습]]). 결정 서버(8009)는 한글 state를 422 `STATE_NOT_ENGLISH`로 거절하고 공유 8009에 `DECISION_ALLOW_KO_STATE`를 켜지 않는다. 데모·운영 gateway에는 `KEV_ALLOW_KO_STATE`를 켜지 않는다.
+- 한국어 state 평가(E2)는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]이다. 결정 서버(8009)는 한글 state를 422 `STATE_NOT_ENGLISH`로 거절하고 공유 8009에 `DECISION_ALLOW_KO_STATE`를 켜지 않는다. 데모·운영 gateway에는 `KEV_ALLOW_KO_STATE`를 켜지 않는다.
 - 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(ADR-019). live 분석은 "실제 공고 × 가상 회사 프로필"이다.
 
 | 프로필 | 대상 | 기동 |
@@ -114,7 +106,7 @@ updated: 2026-10-28
 |---|---|
 | Vercel web | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `API_CURSOR_SECRET`(32자 이상), `SOL_RUN_MODE`, 선택 `SOL_DEFAULT_ORIGIN`, `SOL_DEPLOYMENT_ROLE=frontend`, `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`(32바이트 이상 난수) |
 | 회사 redis-api | `SOL_DEPLOYMENT_ROLE=redis-api`, 같은 Supabase URL/anon·실행 모드·cursor secret, 사설 TCP `REDIS_URL`, 같은 `REDIS_API_TOKEN`, `SOL_INGEST_MODE=live`(없으면 `SOL_RUN_MODE`) |
-| 회사 Worker | Supabase URL, `SUPABASE_SERVICE_ROLE_KEY`, 사설 TCP `REDIS_URL`, `AI_GATEWAY_URL`, 실행 모드, G2B 서비스키 |
+| 회사 Worker | Supabase URL, `SUPABASE_SERVICE_ROLE_KEY`, 사설 TCP `REDIS_URL`, `AI_GATEWAY_URL`, 실행 모드, G2B 서비스키. 부처 공고 Worker는 `BIZINFO_API_KEY` |
 | 공통 Storage 이름 | `SUPABASE_STORAGE_RAW_BUCKET=bid-documents`, `SUPABASE_STORAGE_PARSED_BUCKET=bid-parsed`(기본값) |
 
 - Vercel·redis-api에는 service role·G2B·GPU 키를 넣지 않는다. Vercel에는 `REDIS_URL`도 넣지 않는다. frontend·redis-api는 service role이 있으면 기동을 거부하고, frontend는 `REDIS_URL`이 있으면 거부한다(`web/app/_lib/deployment-role.ts:45-47`).
@@ -142,7 +134,7 @@ updated: 2026-10-28
   - Worker: `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. 회사 키 이름은 `infra/env/company-worker.env.example:14-18`, 로컬은 `compose.yaml` worker `environment`에 있다.
   - web: `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`(`web/.env.example`). 연결 Route Handler는 `/api/v1/me/kakao-notify/connect`·`callback`·`test`다.
   - `mock`은 외부 호출 없이 보낸 것으로 친다. `memo`는 실발송이고 키 넷이 모두 있어야 하며 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트(AES-256-GCM)여야 한다. 틀리면 Worker가 Redis 연결 전에 키 이름만 알리고 멈춘다. 그 밖의 값도 기동을 멈춘다.
-  - 빈 값은 실행 모드에 따라 다르다. `mock`·`fixture`는 mock이다. `live`면 카카오 발송을 끄고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도 뒤 `DEAD`가 되고 발송 기록은 생기지 않는다. live에서 `mock`을 직접 적으면 경고(`notify.kakao.mock_in_live`)를 남긴다. 이 동작은 main에 있고 회사 Worker 반영 전이다([live 가드 검증](evidence/live-guards/20261027.md)).
+  - 빈 값은 실행 모드에 따라 다르다. `mock`·`fixture`는 mock이다. `live`면 카카오 발송을 끄고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도 뒤 `DEAD`가 되고 발송 기록은 생기지 않는다. live에서 `mock`을 직접 적으면 경고(`notify.kakao.mock_in_live`)를 남긴다. 운영에는 알림 Worker가 없어 이 동작이 돌 곳이 없다. notify 전용 Worker를 띄우면 적용된다([live 가드 검증](evidence/live-guards/20261027.md)).
   - `KAKAO_TOKEN_ENC_KEY`는 web이 암호화하고 Worker가 복호화하므로 두 쪽이 같은 값이다. 바꾸면 모든 연결을 다시 해야 한다. 키·시크릿은 서버 전용이다([[09-SECURITY|09 보안]] "카카오톡 알림").
   - 운영 카카오 연결·발송은 0건이다. 실발송은 사용자가 `memo`로 바꿀 때만 일어난다. 시험은 `mock`이다.
 
@@ -198,14 +190,13 @@ seed는 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). �
 ```mermaid
 flowchart LR
  subgraph CO["회사 서버 · Compose (운영)"]
-  W["Worker 3종 · redis-api"] --> G["AI gateway :8000"]
+  W["전용 Worker · redis-api"] --> G["AI gateway :8000"]
+  K["sol_decision.serve 127.0.0.1:8009<br/>Bosun v3.1 0.6B (Compose 밖, 같은 호스트)"]
  end
  LG["노트북 ai-gateway<br/>(대체 경로)"]
  subgraph GPU["회사 GPU 서버 · 회사 운영 · 외부 접근 불가"]
   V["회사 vLLM API<br/>/vllm/v1 · Qwen3.8-Flash-Next-AWQ-INT4"]
-  EP["회사 nginx · /sol-radar<br/>(설계만, 미등록)"] --> RT["model-router 127.0.0.1:8080<br/>infra/gpu"]
-  RT -- "/kev" --> K["sol_decision.serve 127.0.0.1:8009<br/>Bosun v3.1 0.6B"]
-  P["PaddleOCR vLLM (회사)"]
+  EP["회사 nginx · /sol-radar<br/>(설계만, 미등록)"] --> RT["model-router 127.0.0.1:8080<br/>infra/gpu (미등록)"]
  end
  G & LG -- "HTTPS · Bearer QWEN_API_KEY<br/>/extract /explain" --> V
  G -- "같은 호스트 루프백 http · Bearer KEV_API_KEY<br/>/kev (운영)" --> K
@@ -217,18 +208,18 @@ flowchart LR
 - **회사 GPU 서버에서 띄우는 것**(회사 운영, 인수 문서 `infra/gpu/README.md`): 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux)이다. `sol_decision.serve`는 아래 명령으로 호스트에 직접 띄운다. vLLM은 띄우지 않는다.
 - **회사 nginx 설정**(등록되지 않았다, 2026-10-27 사용자 확인): `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`, `client_max_body_size 20m`, `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`다.
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 패키지 sha256 대조, `nvidia-smi` 실측은 회사가 한다. GPU 배치·메모리 계획·서버 계정은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §3·§4와 `infra/gpu/README.md` "GPU 1 공유"가 정본이다. 우리가 하는 검증은 gateway 기동 때의 레지스트리 대조([[03-AI-PIPELINE|03]] §11)와 지연 실측이다.
-- **GPU 1 공유**: `sol_decision`이 쓰는 물리 GPU 1은 전용이 아니고 회사 PaddleOCR vLLM이 상주한다. 우리 절차로 GPU 0·1·2의 어떤 프로세스도 종료·이동하지 않고, GPU 0·2는 쓰지 않는다(ADR-034 10번). 메모리가 모자라면 회사에 보고하고 멈춘다.
+- **GPU 1 사용**: `sol_decision`은 물리 GPU 1을 쓴다. SOL RADAR는 회사 PaddleOCR을 쓰지 않는다. 회사 컨테이너는 우리 것이 아니므로 GPU 0·1·2의 어떤 프로세스도 종료·이동하지 않고, GPU 0·2는 쓰지 않는다. GPU 1 학습·서빙 전에 `nvidia-smi`로 메모리를 확인하고, 모자라면 회사에 보고하고 멈춘다([[16-DECISIONS|ADR-066]] 7번, ADR-034 10번).
 - **미확인**: 포트 8080 라우터의 실제 실행(8009 결정 서버는 2026-10-27 회사 호스트에서 실행 중임을 확인했고, gateway `/health`가 `registryMatch: true`였다. [기록](evidence/company-public-profile/20261027/prod-rollout.md)), 회사 vLLM이 어느 GPU에서 어떤 양자화로 도는지, 노트북 `ai-gateway`에서 공개 HTTPS로 나가는 경로(G1, 대체 경로용)는 미확인이다.
 - **보안**: TLS 필수(검증을 끄지 않는다), API 키 필수, 키는 서버 env 파일에만 둔다. URL은 문서에 적고 키 값은 적지 않는다. 회사 GPU로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
-- **평가·학습**(E0~E4, LoRA F1·F2)은 미결정이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22]]다. 데모 모델은 공개 Bosun이다. Qwen 파인튜닝은 하지 않는다. 클라우드 GPU 임대는 비용 승인 대상이다(ADR-010).
+- **평가·학습**(E0~E4, LoRA F1·F2)은 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22]]다. 데모 모델은 공개 Bosun이다. Qwen 파인튜닝은 하지 않는다. 클라우드 GPU 임대는 비용 승인 대상이다(ADR-010).
 
 결정 서버 기동 명령(회사가 실행하는 참고 구성. 키 값은 셸 변수로만):
 
 ```bash
-export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1        # 물리 GPU 1 (PaddleOCR 와 공유). 가시성만 제한한다
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1        # 물리 GPU 1. 가시성만 제한한다
 # .venv-bosun. --package 는 고정 snapshot(리비전 5e78a37c). manifest.json sha256 대조 실패 시 기동 거부, 다운로드 금지
 HF_HUB_OFFLINE=1 DECISION_API_KEY="$DECISION_API_KEY" python -m sol_decision.serve --package <snapshot dir> --host 127.0.0.1 --port 8009
-docker compose -f infra/compose.gpu.yaml up -d        # model-router (Linux, host 네트워크)
+docker compose -f infra/compose.gpu.yaml up -d        # model-router (Linux, host 네트워크). 운영은 쓰지 않는다(gateway 가 8009 를 직접 부른다)
 ```
 
 연결 확인(G1·G2. 키 값은 env 변수 참조만 쓴다):
@@ -241,14 +232,14 @@ curl -sS --fail -H "Authorization: Bearer $KEV_API_KEY"  "$KEV_BASE_URL/v1/model
 curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 ```
 
-회사 Qwen API는 `services/ai/scripts/probe-qwen-api.py`로도 확인한다(사용자 확인 뒤 손으로만, 호출 예산을 쓴다). ① `GET /v1/models`의 `id` ② guided JSON ③ `--logprobs`면 `prompt_logprobs`를 본다. `--dry-run`은 요청 계획만 낸다. 종료 코드는 0 요청 보냄, 1 전송 실패, 2 키 없음, 3 URL 거부다. 키 값·Authorization 헤더는 출력하지 않는다. 절차는 [B2 런북](plans/2026-10-21-bosun-b2-runbook.md) §8이다(B2는 미결정).
+회사 Qwen API는 `services/ai/scripts/probe-qwen-api.py`로도 확인한다(사용자 확인 뒤 손으로만, 호출 예산을 쓴다). ① `GET /v1/models`의 `id` ② guided JSON ③ `--logprobs`면 `prompt_logprobs`를 본다. `--dry-run`은 요청 계획만 낸다. 종료 코드는 0 요청 보냄, 1 전송 실패, 2 키 없음, 3 URL 거부다. 키 값·Authorization 헤더는 출력하지 않는다. 사용법은 스크립트 머리 주석이다.
 
 > [!warning] 미검증 가정
 > - 운영 `/health/ready`가 `ai: local`이다. 전체 추출·부하 지연, 호출 한도, 회사 vLLM의 리비전·양자화·`prompt_logprobs` 지원은 미측정이다(ADR-034 1·8번). 우리는 `GET /v1/models`의 `id`를 레지스트리 `qwen3.8-flash-next`와 대조만 한다.
 > - Bosun 질문당 지연이 `KEV_TIMEOUT_MS` 5000 안인지는 미측정이다(16 미결정 24번). 넘으면 [[16-DECISIONS|ADR-033]] E4 규칙대로 기본값을 함께 바꾼다.
 > - 바깥 nginx의 접두어 처리와 Bearer 외 추가 인증 여부는 미확인이다. 다르면 ADR-025를 갱신한다.
 > - 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다. 새 모델의 사고 모드 기본값은 미확인이다.
-> - 결정 모델을 노트북 CPU로 돌리는 경로는 쓰지 않는다(미결정 8번, [[03-AI-PIPELINE|03]] §5.9). Bosun 0.6B CPU 추론은 미측정이다.
+> - 결정 모델을 노트북 CPU로 돌리는 경로는 쓰지 않는다([[03-AI-PIPELINE|03]] §5.9). Bosun 0.6B CPU 추론은 미측정이다.
 
 엔드포인트에 닿지 않으면(TLS·인증 실패 포함) `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`로 끝난다([[03-AI-PIPELINE|03]] §8). mock으로 조용히 바뀌지 않는다.
 
@@ -261,7 +252,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 - **기동 전 sha256 대조**: `--package`의 `manifest.json` sha256과 파일을 대조한다. 공개본 기준값은 `adapter/adapter_model.safetensors` `961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings.safetensors` `88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`이다. 레지스트리 `bosun-v3.1-0.6b` 항목의 `lora`·`decision_embeddings_sha256`과 같아야 한다. 다르면 `sol_decision.serve`가 exit 78로 기동을 거부한다(`services/decision/src/sol_decision/package.py`). 절차는 [[22-FINETUNE-RUNBOOK|22]] §2다.
 - **gateway 레지스트리 대조**: gateway는 기동 때 결정 서버 `GET /v1/models`의 `run`(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)·`base`(`Qwen/Qwen3-0.6B@c1899de`)·`lora`·`revision`(있으면)을 레지스트리와 대조한다. 다르면 `KEV_MODEL_ID(REGISTRY_MISMATCH)`로 기동을 거부한다([[03-AI-PIPELINE|03]] §11). `POST /v1/systemone`의 `model`은 서버 alias `bosun-v3.1-0.6b`와 같아야 하고 다르면 422다.
 - 두 검사가 필요한 이유: 공개본과 학습본 패키지 레이아웃이 같아 `--package` 경로 실수가 가능하다. 검사가 없으면 다른 패키지의 확률이 공개 Bosun 결과처럼 저장된다.
-- 리비전 `5e78a37c`와 Hanno 레지스트리 핀 `87cea31`의 `manifest.json` 대조, 첫 기동 로딩 시간·VRAM은 미결정(B2)이다.
+- 리비전 `5e78a37c`와 Hanno 레지스트리 핀 `87cea31`의 `manifest.json` 대조, 첫 기동 로딩 시간·VRAM은 미확인이다.
 
 ## 로컬 Compose 서비스 (대체 경로)
 
@@ -282,7 +273,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 
 ## 파서 런타임
 
-형식마다 기본 어댑터가 있다(main 병합, 회사 gateway 재빌드 전, [[03-AI-PIPELINE|03]] §10.1·§10.2). 형식별 최종 선택은 실제 RFP 샘플 비교(03 §10.3) 뒤다.
+형식마다 기본 어댑터가 있다([[03-AI-PIPELINE|03]] §10.1·§10.2). 운영 회사 gateway `GET /health`의 `parsers`에 3종이 있다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 형식별 최종 선택은 실제 RFP 샘플 비교(03 §10.3) 뒤다.
 
 - 의존성은 `services/ai/pyproject.toml`의 pdfplumber·olefile(와 그 의존)뿐이다. Python 밖 런타임은 없다. Dockerfile은 그대로이고 `uv sync --frozen`이 설치하므로 **gateway 이미지를 다시 빌드해야 파서가 들어간다**.
 - 어댑터는 요청마다 격리 하위 프로세스(`python -I`, 빈 환경 변수)로 돈다. 동시 2개, 문서당 90초, Linux에서 주소 공간 2 GiB다.
@@ -351,7 +342,7 @@ S6에서 쓰는 AI 장애 주입은 대체 경로의 **ai-gateway 컨테이너 �
 7. 키·시크릿·암호화 키 값은 사용자가 서버 env 파일에 직접 넣는다. 값은 문서·커밋·로그에 쓰지 않는다.
 
 - **S0 수신 시험**(설계 §11, 사용자 몫): 사용자 휴대폰으로 나에게 보내기 한 통을 보내 알림이 울리는지, `talk_message`가 검수 없이 되는지, 피드 모양, 원문 도메인 등록 가능 여부를 본다. 알림이 울리지 않으면 멈추고 사용자에게 묻는다.
-- **수동 실발송 1회**(U10): 첨부 처리 운영 반영 뒤 실공고 S-LIVE와 함께 `memo`로 한 건을 보내 휴대폰 수신을 녹화한다([[16-DECISIONS|ADR-054]]). D1이라 `demo:reset`은 하지 않는다. 녹화 뒤 `mock`으로 되돌린다. 절차서는 [S-LIVE·카카오 실행서](evidence/demo-day/20261024-slive-check/20261025-slive-kakao-runbook.md)다.
+- **수동 실발송 1회**(U10): 알림 전용 Worker 기동(회사 실행서 §9.4·§9.6) 뒤 실공고 S-LIVE와 함께 `memo`로 한 건을 보내 휴대폰 수신을 녹화한다([[16-DECISIONS|ADR-054]]). D1이라 `demo:reset`은 하지 않는다. 녹화 뒤 `mock`으로 되돌린다. 절차서는 [S-LIVE·카카오 실행서](evidence/demo-day/20261024-slive-check/20261025-slive-kakao-runbook.md)다.
 
 ## Redis HTTPS Gateway (ADR-045)
 
@@ -379,7 +370,7 @@ S6에서 쓰는 AI 장애 주입은 대체 경로의 **ai-gateway 컨테이너 �
   - `select status, count(*) from public.score_runs where idempotency_key is not null and not starts_with(idempotency_key, org_id::text || ':') group by status;`
   - 상태와 상관없이 본다. FK 두 개(`extraction_id`·`requested_by`)가 `on delete set null`이라 끝난 행도 UPDATE되어 check 위반(23514)이 날 수 있다.
   - 행이 나오면 정리한 뒤 `validate constraint`를 새 마이그레이션으로 둔다. `NOT VALID`여도 새로 쓰는 행은 검사된다.
-- 오래 남은 g2b 수집 run 정리(16 미결정 25번, [[07-DATA-PIPELINE|07]] §2.7): `pnpm ops:close-stale-runs -- --env-file <path>`로 대상(30분 이상 `RUNNING`)을 먼저 보고 맞으면 `--apply`를 붙인다. 그 파일의 Supabase URL·service role 키만 읽는다. 인자 앞 `--`를 빼면 Node 24가 `--env-file`을 자기 옵션으로 읽는다. 클라우드 대상 `--apply`는 사용자 확인 뒤에만 한다. 기준은 `--older-than-minutes N`(기본 30, 30 미만 거부)이다.
+- 오래 남은 g2b 수집 run 정리(16 미결정 25번에서 결정·구현, [[07-DATA-PIPELINE|07]] §2.7): `pnpm ops:close-stale-runs -- --env-file <path>`로 대상(30분 이상 `RUNNING`)을 먼저 보고 맞으면 `--apply`를 붙인다. 그 파일의 Supabase URL·service role 키만 읽는다. 인자 앞 `--`를 빼면 Node 24가 `--env-file`을 자기 옵션으로 읽는다. 클라우드 대상 `--apply`는 사용자 확인 뒤에만 한다. 기준은 `--older-than-minutes N`(기본 30, 30 미만 거부)이다.
 - DB 백업·복구는 Supabase가 관리한다. 플랜별 주기·보존 기간·PITR 여부는 미검증이다.
 - 운영 모델 교체(Bosun 학습본 등)는 레지스트리 항목 추가 → 패키지 sha256 대조(회사)·gateway 대조 통과 → ADR 순서로 하고 사용자 승인 뒤에만 한다([[21-MODEL-TRAINING|21]] §5.4, [[16-DECISIONS|ADR-034]] 9번).
 - Vercel 요금·한도는 사용 팀 계약을 확인한다. 업그레이드는 비용 승인 대상이다.
@@ -407,6 +398,6 @@ S6에서 쓰는 AI 장애 주입은 대체 경로의 **ai-gateway 컨테이너 �
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
 - [[21-MODEL-TRAINING|21 모델 학습]] · [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — 평가·학습 절차, GPU 1 공유
-- [회사 런타임 배포](../infra/company/README.md) · [회사 반영 실행서](plans/2026-10-27-company-rollout-attachments.md) · [격리 배포 실행서](plans/2026-10-27-ingest-source-isolation-deploy.md)
+- [회사 런타임 배포](../infra/company/README.md) — 회사 Compose 프로젝트별 명령·승인 단계
 - [카카오 나에게 보내기 설계](plans/2026-10-20-kakao-memo-notify-design.md) — 카카오 앱 설정(§6)·S0 수신 시험(§11)
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — ADR-034 외부 사실(§1)·env(§5)
