@@ -151,7 +151,27 @@ PaddleOCR: 회사 컨테이너 `archicm-paddleocr-vl-prod`는 우리 것이 아�
 
 ## 9. 결과
 
-(통합 뒤 45가 적는다.)
+통합 브랜치 `feat/rec-insight` `92a27cd0`(2026-10-29, push 안 함). 증거는 `docs/evidence/rec-insight/README.md`.
+
+| 수용 기준 | 결과 |
+|---|---|
+| A1~A5 요청·중복·권한·장애·STALE·재분석 | 격리 로컬 스택(mock) a~g 통과(`83003280`). 보안 수정 뒤 재확인은 df 진행 중 |
+| A6 분석 결과·`/explain`·`/health` 그대로 | 골든·gateway 시험 통과(전체 verify) |
+| A7 Bosun `staffAvailability` | ac Task 3·4 시험 통과 |
+| A8 전체 검증·스크린샷 | `pnpm verify` exit 0(루트 291, web 954, build, services/ai 264, decision 57). 1440·1280 스크린샷 20장 |
+| A9 문서 | ADR-066·ADR-034 §10 개정, 03·04·05·06·15·21·22·PROGRESS 반영 |
+
+계획과 달라진 것:
+
+- 보안 리뷰(security-auditor) 뒤 고쳤다:
+  - migration `20261029000200`: 제외 제약으로 모델 설명이 있는 run 에 PENDING 을 막았다. insert 정책에 같은 표를 읽는 조건을 넣으면 정책 재귀가 나서 제약을 썼다. `INJECTION_SUSPECTED` 도 받는다.
+  - 속도 제한은 큐에 넣는 요청을 모두 센다.
+  - relay 는 pollUrl 이 요청 경로와 같을 때만 받는다. 실패 job 은 바로 지운다.
+  - 인젝션 의심이면 모델을 부르지 않고, 공고 인용을 보내지 않는다.
+  - 숨은 문자·판정 취지 표현을 막고, 금지어를 더했다.
+  - mock `model` 은 `mock` 이다.
+- insight `promptHash` 는 `f623bb44…` 다.
+- 운영 반영(db:push·main push·회사 교체)은 사용자 승인 전이다.
 
 ## 관련 문서
 

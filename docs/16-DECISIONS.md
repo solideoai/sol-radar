@@ -103,7 +103,7 @@ updated: 2026-10-29
 - **선택지(1·2·5)**: Bosun 파인튜닝을 지금 하는 안은 해커톤 일정·GPU 승인·라벨 수 때문에 로드맵으로 미뤘다. 분석마다 Qwen 을 부르는 안은 회사 GPU 를 계속 쓰고 분석이 느려져 버렸다. 판정을 Bosun 에 맡기는 안은 ADR-034 2번과 맞지 않아 버렸다.
 - **바뀌지 않는 것**: 점수·권고·필수 자격 계산, 골든 시험, `/explain`·`/health` 응답 모양, 추출 `promptHash`(`fa2ff603…`), 유료 hosted 모델 금지, service role 은 worker 만.
 - **영향**: Bosun 의 실제 state·출력은 STAFF 줄이 생겨 바뀔 수 있다(골든 점수는 그대로). 추천 분석의 `promptHash` 는 `insight/v0.1`(`f623bb44…`)로 추출과 따로다.
-- **반영**: 표 `supabase/migrations/20261029000100_recommendation_insights.sql`([[04-DATABASE|04]]), 경로 `/api/v1/bids/{bidId}/analyses/{runId}/insight`([[05-API-SPEC|05]]), gateway `/insight`([[03-AI-PIPELINE|03]]·[[15-DATA-CONTRACTS|15]]), 화면 패널([[06-UI-UX|06]]).
+- **반영**: 표 `supabase/migrations/20261029000100_recommendation_insights.sql`·보안 보강 `20261029000200_recommendation_insights_guard.sql`([[04-DATABASE|04]]), 경로 `/api/v1/bids/{bidId}/analyses/{runId}/insight`([[05-API-SPEC|05]]), gateway `/insight`([[03-AI-PIPELINE|03]]·[[15-DATA-CONTRACTS|15]]), 화면 패널([[06-UI-UX|06]]).
 
 ## ADR-065 번역 검증의 비교 표현 넓히기와 누락 사유 로그
 
