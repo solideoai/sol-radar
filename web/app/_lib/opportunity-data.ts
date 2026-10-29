@@ -54,7 +54,8 @@ export async function loadOpportunitySources(origin: OpportunityQuery["origin"])
 }
 
 // client 는 캐시 키에 넣지 않는다. 원천 표 RLS 가 모두 is_active_user() 라 활동 회원 누구에게나 같은 값이고,
-// 호출 화면(/bids·/watchlist)이 먼저 requireWork 를 통과한다(next/dist/docs/…/04-functions/unstable_cache.md).
+// 호출 화면(/bids·/watchlist)이 먼저 requireWork 를 통과한다
+// (web/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/unstable_cache.md, ADR-070).
 export async function loadOpportunityFilters(origin: OpportunityQuery["origin"]) {
   const client = await opportunityClient();
   return unstable_cache(

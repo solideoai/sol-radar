@@ -26,10 +26,14 @@ vi.mock("next/cache", () => {
       },
   };
 });
-vi.mock("@/server/opportunities", () => ({
-  getOpportunityClient: async () => ({}),
-  getOpportunityFilterOptions,
-}));
+// 부를 때마다 내용이 다른 client 를 준다. client 가 캐시 키에 들어가면 JSON 이 달라져 호출이 3번이 된다.
+vi.mock("@/server/opportunities", () => {
+  let user = 0;
+  return {
+    getOpportunityClient: async () => ({ user: ++user }),
+    getOpportunityFilterOptions,
+  };
+});
 vi.mock("@/server/bids", () => ({}));
 vi.mock("@/app/_lib/opportunity-sources", () => ({}));
 
