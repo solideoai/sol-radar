@@ -54,6 +54,18 @@ it("redis-api health requires service authentication and a valid token reaches t
   expect(allowed.headers.get("x-middleware-next")).toBe("1");
 });
 
+it("redis-api passes an authenticated insight POST to its handler and denies the insight GET", async () => {
+  const token = "test-only-service-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const url =
+    "http://localhost/api/v1/bids/b1000000-0000-4000-8000-000000000001/analyses/c1000000-0000-4000-8000-000000000001/insight";
+  const headers = { "X-Sol-Service-Token": token, Authorization: "Bearer user-jwt" };
+  vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+  vi.stubEnv("REDIS_API_TOKEN", token);
+  const allowed = await proxy(new NextRequest(url, { method: "POST", headers }));
+  expect(allowed.headers.get("x-middleware-next")).toBe("1");
+  expect((await proxy(new NextRequest(url, { headers }))).status).toBe(404);
+});
+
 it("an unknown deployment role fails closed", async () => {
   vi.stubEnv("SOL_DEPLOYMENT_ROLE", "invalid-role");
   expect((await proxy(new NextRequest("http://localhost/api/v1/bids"))).status).toBe(503);
