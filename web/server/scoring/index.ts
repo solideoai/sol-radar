@@ -86,9 +86,10 @@ export {
   skillMatch,
   solScore,
   staffAvailability,
+  staffAvailabilityInput,
   strategicPreference,
 } from "./factors";
-export type { FactorOutcome } from "./factors";
+export type { FactorOutcome, StaffAvailabilityInput } from "./factors";
 export { decideRecommendation, mergeKev, toKevAssist } from "./decision";
 export type { KevMerge, RuleDecision, RulePath } from "./decision";
 export { canonicalJson, sha256Hex, snapshotHash } from "./snapshot-hash";
