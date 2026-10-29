@@ -27,17 +27,199 @@
   animation: caret 0.8s steps(1) infinite;
 }
 
-/* 멈춤 버튼을 누르면 안쪽 움직임(깜박임·도는 표시)도 그 자리에 멈춘다. */
-.paused * {
+/* 이전 장면은 패널이 들어오는 동안 뒤에 남고, 그 뒤에 숨긴다. */
+.scene {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 200ms ease-out 300ms,
+    visibility 0s linear 500ms;
+}
+
+.scene[data-active="true"] {
+  z-index: 1;
+  visibility: visible;
+  opacity: 1;
+  transition: none;
+  animation: scene-fade 240ms ease-out both;
+}
+
+.panel[data-active="true"] {
+  animation: panel-enter var(--panel-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes scene-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-enter {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.reveal {
+  opacity: 0;
+}
+
+.revealed {
+  opacity: 1;
+  animation: rise 320ms cubic-bezier(0.23, 1, 0.32, 1) var(--reveal-delay) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.check {
+  animation-duration: 180ms;
+}
+
+.insert {
+  animation-name: insert;
+  animation-duration: 300ms;
+}
+
+@keyframes insert {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.receipt {
+  transform-origin: top right;
+  animation-name: receipt;
+  animation-duration: 280ms;
+}
+
+@keyframes receipt {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.flash {
+  opacity: 0;
+  animation: flash 320ms ease-out both;
+}
+
+@keyframes flash {
+  from {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.evidenceSweep {
+  transform-origin: left;
+  animation: evidence-sweep 650ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes evidence-sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 커서와 같은 좌표계라 클릭 표시의 중심이 실제로 가리키는 점과 일치한다. */
+.cursorOverlay[data-pressed="true"] > div::before {
+  content: "";
+  position: absolute;
+  top: -16px;
+  left: -16px;
+  width: 32px;
+  height: 32px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  animation: click 360ms ease-out both;
+}
+
+@keyframes click {
+  from {
+    opacity: 0.8;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.notification {
+  animation: notification 400ms ease-out 320ms both;
+}
+
+@keyframes notification {
+  from,
+  to {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.8);
+  }
+}
+
+/* 숨은 장면의 장식은 멈추고 다음 바퀴에 처음부터 재생한다. */
+.scene:not([data-active="true"]) * {
+  animation: none;
+  transition: none;
+}
+
+/* keyframe은 그 자리에서 멈추고 transition의 숫자·색은 현재 단계의 끝값으로 정착한다. */
+.paused .scene[data-active="true"],
+.paused .cursorOverlay[data-pressed="true"] > div::before,
+.paused *,
+.paused *::before,
+.paused *::after {
   animation-play-state: paused;
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .count {
+  .frame .scene[data-active="true"],
+  .frame .cursorOverlay[data-pressed="true"] > div::before,
+  .frame *,
+  .frame *::before,
+  .frame *::after {
+    animation: none;
     transition: none;
   }
 
-  .caret {
-    animation: none;
+  .revealed {
+    opacity: 1;
+    transform: none;
   }
 }

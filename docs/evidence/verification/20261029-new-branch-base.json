@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-29",
+  "authorization": "User approved using origin/main as the comparison base for a new branch and requested pushing feat/landing-demo-motion.",
+  "previousFailure": {
+    "branch": "feat/landing-demo-motion",
+    "commit": "2aee7a62",
+    "reason": "New-branch push checked 980 inherited commits and rejected an existing main commit, 0cb51f4, for a 54-character header."
+  },
+  "change": {
+    "file": "scripts/check-commits.mjs",
+    "newBranch": "When BASE_SHA is all zeros, inspect refs/remotes/origin/main..HEAD_SHA.",
+    "existingBranch": "Continue inspecting BASE_SHA..HEAD_SHA.",
+    "missingBase": "Fail with git fetch origin main instructions.",
+    "unrelatedHistory": "Fail if origin/main and head have no common ancestor.",
+    "unchanged": "Header format and 50-character limit, policy checks, project checks, builds, E2E, audits and hooks."
+  },
+  "validation": {
+    "regressionBeforeFix": "Added three regression cases; all three failed against the original implementation.",
+    "targeted": "node --test scripts/check-commits.test.mjs scripts/pre-push.test.mjs: 33 passed.",
+    "changed": "pnpm verify:changed: passed; root 299 tests and web 117 files / 995 tests.",
+    "actualBranch": "EVENT_NAME=push BASE_SHA=0000000000000000000000000000000000000000 node scripts/check-commits.mjs: passed, origin/main..HEAD, 1 new commit at 2aee7a62.",
+    "developmentScope": "Recorded before committing this gate fix. The normal pre-commit and pre-push gates will also run."
+  }
+}

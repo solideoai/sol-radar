@@ -142,7 +142,57 @@ function runPr(repo, base, head, prTitle) {
   return { code, out: out.join("\n") };
 }
 
+function runNewBranch(repo, head) {
+  const out = [];
+  const code = main([], {
+    env: { EVENT_NAME: "push", BASE_SHA: "0".repeat(40), HEAD_SHA: head },
+    cwd: repo,
+    log: (line) => out.push(line),
+    error: (line) => out.push(line),
+  });
+  return { code, out: out.join("\n") };
+}
+
 describe("임시 저장소에서 검사", () => {
+  it("새 브랜치는 앞서간 origin/main의 기존 제목을 제외하고 새 커밋의 길이 위반은 막는다", () => {
+    const { repo } = makeRepo();
+    const legacy = commitAs(repo, HUMAN, "fix(ai): normalize qwen body document ID for citations");
+    const head = commitAs(repo, HUMAN, "feat: 업무 데모 개선");
+    git(repo, "switch", "-q", "-c", "remote-main", legacy);
+    const advanced = commitAs(repo, HUMAN, BOT_TITLE);
+    git(repo, "update-ref", "refs/remotes/origin/main", advanced);
+    git(repo, "switch", "-q", "main");
+
+    const valid = runNewBranch(repo, head);
+    assert.equal(valid.code, 0, valid.out);
+    assert.match(valid.out, /origin\/main/);
+    assert.match(valid.out, /커밋 1개/);
+
+    const invalidHead = commitAs(repo, HUMAN, BOT_TITLE);
+    const invalid = runNewBranch(repo, invalidHead);
+    assert.equal(invalid.code, 1, invalid.out);
+    assert.match(invalid.out, /커밋 2개/);
+    assert.match(invalid.out, /규칙 위반 1건/);
+    assert.match(invalid.out, new RegExp(`- ${invalidHead.slice(0, 7)} `));
+  });
+
+  it("새 브랜치의 origin/main이 없으면 기준을 받으라는 안내와 함께 실패한다", () => {
+    const { repo, base } = makeRepo();
+    const result = runNewBranch(repo, base);
+    assert.equal(result.code, 1, result.out);
+    assert.match(result.out, /git fetch origin main/);
+  });
+
+  it("새 브랜치와 origin/main이 서로 다른 이력이면 실패한다", () => {
+    const { repo, base } = makeRepo();
+    git(repo, "update-ref", "refs/remotes/origin/main", base);
+    git(repo, "checkout", "-q", "--orphan", "unrelated");
+    const head = commitAs(repo, HUMAN, "chore: 별도 이력");
+    const result = runNewBranch(repo, head);
+    assert.equal(result.code, 1, result.out);
+    assert.match(result.out, /공통 조상/);
+  });
+
   it("범위의 커밋마다 작성자 이메일을 함께 읽는다", () => {
     const { repo, base } = makeRepo();
     const head = commitAs(repo, DEPENDABOT, BOT_TITLE);

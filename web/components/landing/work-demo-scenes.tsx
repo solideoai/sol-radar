@@ -50,11 +50,10 @@ const OPENED = bidById("demo-1");
 const ALREADY_WATCHED = [bidById("demo-5"), bidById("demo-2")];
 const REMIND_DAYS_BEFORE = 3;
 
-// 나타나기: 아래에서 살짝 올라오며 보인다. 사라질 때는 지연 없이 바로 돌아간다(다음 바퀴 준비).
-const REVEAL = "transition-[opacity,translate] duration-400 ease-out motion-reduce:transition-none";
+// 단계 상태가 keyframe을 시작한다. CSS 변수를 써서 멈춤 중 지연 시간도 함께 멈춘다.
 const reveal = (on: boolean, delay = 0) => ({
-  className: cn(REVEAL, on ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-0"),
-  style: { transitionDelay: on ? `${delay}ms` : "0ms" },
+  className: cn(styles.reveal, on && styles.revealed),
+  style: { "--reveal-delay": `${delay}ms` } as React.CSSProperties,
 });
 
 function Reveal({
@@ -76,13 +75,25 @@ function Reveal({
   );
 }
 
-function ScenePanel({ active, children }: { active: boolean; children: React.ReactNode }) {
+function ScenePanel({
+  active,
+  panelDuration,
+  children,
+}: {
+  active: boolean;
+  panelDuration?: number;
+  children: React.ReactNode;
+}) {
   return (
     <div
+      data-active={active}
+      data-demo-panel={panelDuration === undefined ? "scene" : "slide"}
       className={cn(
-        "absolute inset-0 overflow-hidden px-7 pt-5 pb-6 transition-[opacity,translate,visibility] duration-400 ease-out motion-reduce:transition-none",
-        active ? "visible translate-y-0 opacity-100" : "invisible translate-y-2 opacity-0",
+        styles.scene,
+        panelDuration !== undefined && styles.panel,
+        "absolute inset-0 overflow-hidden bg-background px-7 pt-5 pb-6",
       )}
+      style={{ "--panel-duration": `${panelDuration ?? 0}ms` } as React.CSSProperties}
     >
       {children}
     </div>
@@ -210,8 +221,9 @@ function Stat({ label, value, foot }: { label: string; value: number; foot: stri
 }
 
 // ── 2. 수집 ──
-const ROW_START_MS = 200;
-const ROW_GAP_MS = 304;
+// 패널이 도착한 뒤 숫자와 완료 표시를 순서대로 시작한다.
+const ROW_START_MS = 520;
+const ROW_GAP_MS = 240;
 const COUNT_MS = 880;
 
 export function CollectScene({ active, step, pressed }: SceneProps) {
@@ -220,7 +232,7 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
   const said = step >= STEP.collectMessage;
   const lastDoneMs = ROW_START_MS + ROW_GAP_MS * (COLLECTED.length - 1) + COUNT_MS;
   return (
-    <ScenePanel active={active}>
+    <ScenePanel active={active} panelDuration={480}>
       <Breadcrumb parts={["업무", "대시보드", "수집 에이전트"]} />
       <div className="mt-2 flex items-center gap-3">
         <AgentAvatar />
@@ -238,8 +250,16 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
           return (
             <div
               key={source.name}
-              className="grid h-13 grid-cols-[148px_minmax(0,1fr)_96px_96px] items-center gap-4 border-b border-border px-4"
+              className="relative isolate grid h-13 grid-cols-[148px_minmax(0,1fr)_96px_96px] items-center gap-4 border-b border-border px-4"
             >
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute inset-0 -z-10 bg-selected opacity-0",
+                  active && collecting && styles.flash,
+                )}
+                style={{ animationDelay: `${doneMs}ms` }}
+              />
               <span className="flex h-7 w-30 items-center">
                 <Image
                   src={source.logo.src}
@@ -289,7 +309,7 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
           <span />
         </div>
       </div>
-      <Reveal on={collecting} className="mt-5 flex items-start gap-3">
+      <Reveal on={collecting} delay={520} className="mt-5 flex items-start gap-3">
         <AgentAvatar />
         <div className="min-h-16 pt-1">
           {!typing && !said && (
@@ -369,7 +389,7 @@ export function TableScene({ active, step, pressed }: SceneProps) {
           <span>권고</span>
         </div>
         {RELATED.map((bid, index) => {
-          const shown = reveal(listed, 120 + index * 136);
+          const shown = reveal(listed, 240 + index * 120);
           const opened = bid.id === OPENED.id;
           return (
             <div
@@ -379,8 +399,7 @@ export function TableScene({ active, step, pressed }: SceneProps) {
                 shown.className,
                 "grid h-13 items-center gap-3 border-t border-border px-4",
                 TABLE_COLUMNS,
-                opened && hovered && "bg-muted/60",
-                opened && pressed === "bid-row" && "bg-selected",
+                opened && hovered && "bg-selected",
               )}
             >
               <span className="w-fit rounded-md border border-border px-1.5 type-label whitespace-nowrap text-foreground">
@@ -437,7 +456,7 @@ const CHECK_STATUS: Record<QualificationStatus, { label: string; icon: LucideIco
     NEEDS_REVIEW: { label: "확인 필요", icon: CircleHelpIcon, tone: "text-warning" },
     NOT_SATISFIED: { label: "미충족", icon: CircleXIcon, tone: "text-destructive" },
   };
-const CHECK_START_MS = 280;
+const CHECK_START_MS = 560;
 const CHECK_GAP_MS = 520;
 
 export function DetailScene({ active, step, pressed }: SceneProps) {
@@ -447,7 +466,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
   const bubble = step >= STEP.detailBubble;
   const bid = OPENED;
   return (
-    <ScenePanel active={active}>
+    <ScenePanel active={active} panelDuration={500}>
       <Breadcrumb parts={["업무", "입찰 공고"]} />
       <p className="mt-1.5 type-heading-lg text-foreground">{bid.title}</p>
       <p className="mt-0.5 type-label-lg text-muted-foreground">
@@ -471,8 +490,16 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
               return (
                 <li
                   key={check.requirement}
-                  className="grid grid-cols-[92px_minmax(0,1fr)] items-start gap-3 border-t border-border py-2.5"
+                  className="relative isolate grid grid-cols-[92px_minmax(0,1fr)] items-start gap-3 border-t border-border py-2.5"
                 >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "pointer-events-none absolute inset-0 -z-10 bg-selected opacity-0",
+                      active && judging && styles.flash,
+                    )}
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
                   <span className="relative h-6">
                     <span
                       className={cn(
@@ -486,11 +513,12 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                     </span>
                     <span
                       className={cn(
-                        "absolute inset-0 flex items-center gap-1.5 type-body font-semibold whitespace-nowrap transition-opacity duration-240 motion-reduce:transition-none",
+                        "absolute inset-0 flex items-center gap-1.5 type-body font-semibold whitespace-nowrap",
+                        reveal(judging, delay).className,
+                        styles.check,
                         status.tone,
-                        judging ? "opacity-100" : "opacity-0",
                       )}
-                      style={{ transitionDelay: judging ? `${delay}ms` : "0ms" }}
+                      style={reveal(judging, delay).style}
                     >
                       <status.icon aria-hidden className="size-4" />
                       {status.label}
@@ -502,10 +530,19 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                       <span className="shrink-0 font-semibold">공고문 p.{check.evidence.page}</span>
                       <span
                         className={cn(
-                          "rounded-sm px-0.5 transition-[background-color,box-shadow] duration-400 motion-reduce:transition-none",
-                          highlight ? "bg-brand/15 ring-1 ring-brand/40" : "bg-brand/8",
+                          "relative isolate rounded-sm bg-brand/8 px-0.5",
+                          highlight && "ring-1 ring-brand/40",
                         )}
                       >
+                        {highlight && (
+                          <span
+                            aria-hidden
+                            className={cn(
+                              styles.evidenceSweep,
+                              "pointer-events-none absolute inset-0 -z-10 rounded-sm bg-selected",
+                            )}
+                          />
+                        )}
                         「{check.evidence.quote}」
                       </span>
                     </p>
@@ -604,8 +641,11 @@ export function WatchlistScene({ active, step, pressed }: SceneProps) {
       <p className="mt-0.5 type-body text-muted-foreground">마감과 알림을 함께 봅니다.</p>
       <Reveal
         on={added}
-        delay={160}
-        className="absolute top-5 right-6 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 type-label-lg"
+        delay={560}
+        className={cn(
+          styles.receipt,
+          "absolute top-5 right-6 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 type-label-lg",
+        )}
       >
         <CircleCheckIcon aria-hidden className="size-4.5 text-success" />
         <span className="font-semibold text-foreground">관심 공고에 담았어요</span>
@@ -619,8 +659,11 @@ export function WatchlistScene({ active, step, pressed }: SceneProps) {
           return (
             <li
               key={bid.id}
+              style={fresh ? reveal(added, 240).style : undefined}
               className={cn(
-                "flex items-center gap-4 px-4 py-3 transition-colors duration-560 motion-reduce:transition-none",
+                "flex items-center gap-4 px-4 py-3",
+                fresh && reveal(added, 240).className,
+                fresh && styles.insert,
                 fresh && added && "bg-selected/60",
               )}
             >

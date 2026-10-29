@@ -16,7 +16,8 @@
 //
 // 범위가 애매할 때도 조용히 통과시키지 않고, 무엇을 검사했는지 출력한다.
 //   - 범위에 새 커밋이 없다: 0개를 검사했다고 알리고 통과한다(PR 제목은 그래도 본다).
-//   - BASE_SHA 가 0000…(새 브랜치 push): 비교할 이전 커밋이 없으니 HEAD_SHA 까지 이력 전체를 본다.
+//   - BASE_SHA 가 0000…(새 브랜치 push): origin/main 이후 그 브랜치에만 있는 커밋을 본다.
+//     origin/main 이 없거나 공통 조상이 없으면 실패한다. 기준은 git fetch origin main 으로 받는다.
 //   - BASE_SHA 가 이력에 없다(force push 로 덮였거나 얕은 체크아웃): 무엇이 새 커밋인지 몰라 실패한다.
 //     같은 push 는 check-policy 의 diff 도 실패한다.
 // 종료 코드: 0 통과, 1 규칙 위반·범위를 알 수 없음, 2 잘못된 입력.
@@ -88,12 +89,19 @@ const hasCommit = (root, sha) => git(root, ["cat-file", "-e", `${sha}^{commit}`]
 export function commitsInRange(root, base, head) {
   if (!hasCommit(root, head)) throw new Error(`검사할 커밋 ${short(head)} 이 이력에 없습니다.`);
   const newBranch = NO_BASE.test(base);
-  if (!newBranch && !hasCommit(root, base))
+  const comparisonBase = newBranch ? "refs/remotes/origin/main" : base;
+  if (!hasCommit(root, comparisonBase))
     throw new Error(
-      `비교 기준 ${short(base)} 이 이력에 없습니다(force push 로 덮였거나 얕은 체크아웃). ` +
-        "어느 커밋이 새로 들어왔는지 알 수 없어 실패로 둡니다.",
+      newBranch
+        ? "새 브랜치의 비교 기준 origin/main 이 없습니다. git fetch origin main 후 다시 검사하세요."
+        : `비교 기준 ${short(base)} 이 이력에 없습니다(force push 로 덮였거나 얕은 체크아웃). ` +
+            "어느 커밋이 새로 들어왔는지 알 수 없어 실패로 둡니다.",
     );
-  const range = newBranch ? head : `${base}..${head}`;
+  if (newBranch && git(root, ["merge-base", comparisonBase, head]).status !== 0)
+    throw new Error(
+      "새 브랜치와 origin/main 의 공통 조상이 없습니다. 원격 이력을 받은 뒤 다시 검사하세요.",
+    );
+  const range = `${comparisonBase}..${head}`;
   const result = git(root, ["log", "-z", "--format=%H%n%ae%n%B", range, "--"]);
   if (result.status !== 0) throw new Error(result.stderr.trim() || "git log 실패");
   const commits = result.stdout
@@ -106,9 +114,7 @@ export function commitsInRange(root, base, head) {
     })
     .reverse();
   return {
-    label: newBranch
-      ? `새 브랜치라 비교 기준이 없어 ${short(head)} 까지 이력 전체`
-      : `${short(base)}..${short(head)}`,
+    label: newBranch ? `새 브랜치: origin/main..${short(head)}` : `${short(base)}..${short(head)}`,
     commits,
   };
 }
