@@ -131,7 +131,7 @@ interface ExplainRequest {
   scoreBreakdown: unknown;                 // 점수 분해·권고·recommendationBasis(05)·reviewFlags(필수. 규칙 엔진 플래그 + 파이프라인 플래그)
   evidence: EvidenceRef[];                 // 설명에 쓸 수 있는 공고 인용
   kevSummary: KevAssist | null;            // 참고 지표. 없으면 null
-  documentIssues: { documentId: string; downloadStatus: string; parseStatus: string; errorCode: string | null }[];  // 실패·부분 파싱 첨부. 문장에 반드시 밝힌다(§8)
+  documentIssues: { documentId: string; downloadStatus: string; parseStatus: string; errorCode: string | null }[];  // 실패·부분 파싱 첨부. 문장에 반드시 밝힌다(§8). live 분석이 300초 기다려도 처리가 끝나지 않은 첨부는 errorCode DOCUMENTS_WAIT_TIMEOUT(ADR-056)
 }
 interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boolean }   // fallback=true면 템플릿 문장. 지금은 모든 모드가 fallback=true(Qwen 설명 미구현)
 ```
@@ -920,7 +920,7 @@ interface ParseResult {
 ### 10.3 실제 RFP 샘플 비교 (P0-0 ④ → P0-3)
 
 > [!warning] 미작성
-> 아래 사람 작성 기준표(형식마다 10건 이상)와 지표 비교는 아직 없다. 실표본 6건(PDF·HWPX·HWP 각 2건)으로 동작만 확인했다(6건 모두 `PARSED`, 표 셀·병합 주소 보존, 같은 공고의 HWP↔PDF 낱말 일치 0.980·0.957, [파서 실표본 확인](evidence/parser/20261027-parser-check.md)). 실제 gateway `/parse`에 실표본 6건을 다시 보내 worker 쪽 응답 계약(zod)을 모두 통과했다(전부 `PARSED`, 문서당 0.2~1.7초). 표본 6건에 `SFR-001` 꼴 요구사항 번호가 없어 번호 재현율은 재지 못했다. 아래 4번 결정 규칙("조건을 못 넘은 형식은 언제나 `PARTIAL`")은 **구현되지 않았다**. 지금 코드는 §10.4 품질 신호에 걸리지 않으면 `PARSED`를 낸다. 이 차이를 어떻게 할지는 사람이 정한다.
+> 아래 사람 작성 기준표(형식마다 10건 이상)와 지표 비교는 아직 없다. 실표본 6건(PDF·HWPX·HWP 각 2건)으로 동작만 확인했다(6건 모두 `PARSED`, 표 셀·병합 주소 보존, 같은 공고의 HWP↔PDF 낱말 일치 0.980·0.957, [파서 실표본 확인](evidence/parser/20261027-parser-check.md)). 실제 gateway `/parse`에 실표본 6건을 다시 보내 worker 쪽 응답 계약(zod)을 모두 통과했다(전부 `PARSED`, 문서당 0.2~1.7초). 표본 6건에 `SFR-001` 꼴 요구사항 번호가 없어 번호 재현율은 재지 못했다. 아래 4번 결정 규칙("조건을 못 넘은 형식은 언제나 `PARTIAL`")은 **구현되지 않았다**. 지금 코드는 §10.4 품질 신호에 걸리지 않으면 `PARSED`를 낸다. 사용자는 코드를 바꾸지 않고 이 규칙을 해커톤 뒤 벤치마크 뒤에 적용하기로 했다([[16-DECISIONS|ADR-068]] 1번).
 
 1. **샘플**: live 공고 첨부에서 형식마다 10건 이상 고른다(HWP·HWPX·PDF 각각).
    - 표가 많은 문서(요구사항 총괄표, 평가표, 금액표)와 자격 조항이 긴 문서를 일부러 넣는다.
@@ -942,6 +942,7 @@ interface ParseResult {
    - 형식마다 자격 조항 재현율과 요구사항 번호 재현율이 가장 높은 어댑터를 고른다. 같으면 표본 셀 정확도, 그다음 런타임 단순성(Python 안 > 하위 프로세스)으로 정한다.
    - 그 형식을 "지원"으로 표시하는 조건: 샘플에서 자격 조항 누락 0건, 요구사항 번호 재현율 0.95 이상.
    - 조건을 못 넘은 형식은 파싱은 하되 언제나 `PARTIAL`로 표시한다. 그 형식의 첨부에 의존하는 항목은 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)다.
+   - **적용 시점**([[16-DECISIONS|ADR-068]] 1번): 이 판정은 해커톤 뒤 표본 벤치마크를 돌린 뒤 적용한다. 그 전에는 gateway `/parse`가 돌려준 상태(`PARSED`·`PARTIAL`)를 그대로 저장하는 지금 구현(`web/worker/documents-job.ts`)이 계약이다. 형식 단위 "지원" 표시는 아직 하지 않는다.
 5. **기록**: 결과 표는 `docs/evidence/phase-0/parser-benchmark.md`(미작성)에 둔다. 형식별 선택은 [[16-DECISIONS|16 ADR]] 미결정 4번·20번에 기록한다. 실제 RFP 원문은 증거에 넣지 않고 지표와 문서 id만 넣는다.
 
 ### 10.4 운영 중 부분 파싱 감지

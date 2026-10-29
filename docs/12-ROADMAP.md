@@ -98,7 +98,7 @@ updated: 2026-10-29
 |ID|작업|Phase / P0|상태|
 |---|---|---|---|
 |C0|Phase 0 마감: Compose 통합 기동·증거·main 병합|0 / P0-1|완료|
-|C1|P0-0: ① API 4종 실제 GET ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]) G1~G6 ④ 파서 후보 비교. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|①② 완료(2026-10-19). ③ Qwen probe 통과(2026-10-21). 운영 실모델 분석은 DEMO 재분석([[16-DECISIONS\|ADR-059]])과 실공고 3건([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))이다. ④ 파서는 구현됐고, 실표본 비교·"지원" 판정 규칙은 남음([[03-AI-PIPELINE\|03]] §10.3)|
+|C1|P0-0: ① API 4종 실제 GET ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]) G1~G6 ④ 파서 후보 비교. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|①② 완료(2026-10-19). ③ Qwen probe 통과(2026-10-21). 운영 실모델 분석은 DEMO 재분석([[16-DECISIONS\|ADR-059]])과 실공고 3건([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))이다. ④ 파서는 구현됐고, 실표본 비교·"지원" 판정은 해커톤 뒤([[03-AI-PIPELINE\|03]] §10.3, [[16-DECISIONS\|ADR-068]] 1번)|
 |C2|Phase 1 DB·RLS·`sol_role`·`pnpm demo:reset`|1|완료|
 |C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|완료. 운영 3시간 정기 수집(나라장터·LH·KEPCO·K-water 입찰공고, 기업마당은 전용 Worker). 첨부 다운로드·파싱은 Documents Worker가 회사에서 운영 중이다([기록](evidence/company-rollout/20261028/sources-rollout.md)). 건수는 [[PROGRESS]]|
 |C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·200명 입력|4 / P0-5·P0-7|완료|

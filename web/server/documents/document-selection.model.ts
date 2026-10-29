@@ -87,3 +87,25 @@ export function scopeSkipReasonOf(
     return "DEADLINE_PASSED";
   return null;
 }
+
+type DocumentState = { downloadStatus: string; parseStatus: string | null };
+
+/** documents job 이 아직 처리할 문서인가. 받지 않았거나, 받았는데 파싱 전이다 */
+export const needsDocumentWork = (document: DocumentState): boolean =>
+  document.downloadStatus === "PENDING" ||
+  (document.downloadStatus === "OK" && document.parseStatus === "PENDING");
+
+/**
+ * documents job 이 이 revision 에서 아직 처리할 첨부. documents job 과 같은 규칙이다: 범위 밖 공고면 없고,
+ * 범위 안이면 정렬 상위 maxPerBid 건 가운데 처리 전인 것. 범위 밖 첨부(형식 밖·상한 밖)는 PENDING 으로 남아도 들지 않는다(ADR-055).
+ * 분석이 첨부 처리를 기다릴지 정할 때 쓴다(ADR-056 대안 A).
+ */
+export function pendingDocumentsOf<T extends Named & DocumentState>(
+  revision: { notice: ScopeNotice; revision: number; documents: readonly T[] },
+  maxPerBid: number,
+  expectDemo: boolean,
+  now: Date,
+): T[] {
+  if (scopeSkipReasonOf(revision.notice, revision.revision, expectDemo, now) !== null) return [];
+  return selectDocuments(revision.documents, maxPerBid).filter(needsDocumentWork);
+}

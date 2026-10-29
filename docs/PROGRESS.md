@@ -15,7 +15,7 @@ updated: 2026-10-29
 ## 현재 상태 요약 (2026-10-29)
 
 - 공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 발표는 덱 20분 + 녹화 클립이다. D1 운영 사이트(`https://www.solideos-radar.com` + `?origin=demo`)는 녹화 촬영 경로이자 질의응답 라이브다. 발표 전 `pnpm demo:reset`은 하지 않는다.
-- 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화, C9 D1 리허설·촬영, C1 ④ 파서 "지원" 판정이다. 제출물(X4)은 초안이다.
+- 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 44 run, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
 - 운영에서 실공고를 수집·첨부 파싱·분석한다. 수집 출처는 나라장터·LH·KEPCO·K-water 입찰공고와 기업마당 부처 공고다. 실공고 분석과 추천 분석(ADR-066)이 운영에서 돈다(아래 운영 상태).
 - 운영에 알림 Worker가 없어 인앱·카카오·마감 알림이 처리되지 않는다. 기동은 승인 뒤다(아래 "알림 처리" 행).
 - X6 파인튜닝과 실험 E0~E3·X1·X2는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다.
@@ -45,13 +45,10 @@ updated: 2026-10-29
 ### 사용자 결정 대기
 
 1. [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표 확인.
-2. [[16-DECISIONS|ADR-055]](제안): 범위 밖 첨부를 `PENDING`으로 두고 우리 쪽 장애는 미루는 documents 계약 변경을 받아들일지.
-3. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
-4. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
-5. KEPCO 첨부 주소(`http://srm.kepco.net`)를 첨부 허용 목록에 넣을지. 지금은 모두 `ATTACHMENT_URL_BLOCKED`다.
 
 ### 남은 일
 
+- [[16-DECISIONS|ADR-056]] 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다) 코드는 `269679e7`이다. main 병합 뒤 회사 Analysis Worker 재생성(`infra/company/README.md` §8.6, 승인 뒤)으로 운영에 들어간다.
 - 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표(사용자 확인 전)에 있다. 순서는 알림 전용 Worker 회사 기동(승인 뒤) → 카카오 연결·S0 수신 시험 → D1 리허설·촬영(S-LIVE·카카오 실수신, 로컬 Compose의 S5·S6) → 덱·녹화 클립 완성 → 제출 → 발표다.
 - 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 43(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]).
 - 덱 pptx(`docs/submission/deck/sol-radar-deck.pptx`, git 밖)는 [[slides-spec|덱 제작 명세]]와 18장을 대조해 맞췄다. 그림·포스터는 옛 mock 화면이라 촬영 뒤 바꾼다. 명세가 정본이다.
@@ -90,7 +87,7 @@ updated: 2026-10-29
 | ID | 기능 | 상태 | 근거 |
 |---|---|---|---|
 | C0 | Phase 0 마감: Compose·gateway 골격·health | 완료 | [통합 기동](evidence/phase-0/c0-integration-20261019.md) |
-| C1 | P0-0 외부 의존성 ①~④ | ①②③ 완료(운영 실모델 분석). ④ 파서 구현·운영 반영, "지원" 판정 규칙은 남음(사용자 결정 대기 4) | [점검표](evidence/phase-0/external-deps.md) |
+| C1 | P0-0 외부 의존성 ①~④ | ①②③ 완료(운영 실모델 분석). ④ 파서 구현·운영 반영. "지원" 판정은 해커톤 뒤 벤치마크 뒤 적용([[16-DECISIONS|ADR-068]] 1번) | [점검표](evidence/phase-0/external-deps.md) |
 | C2 | DB·RLS·`sol_role`·`pnpm demo:reset` | 완료. 운영 DB migration 66개 | [[04-DATABASE\|04]] |
 | C3 | 수집·정규화·revision·documents job·첨부 다운로드 | 완료. 운영 3시간 정기 수집, Documents Worker 운영 중 | [회사 반영](evidence/company-rollout/20261028/sources-rollout.md) |
 | C4 | 규칙 엔진·골든 94/72/68·인력 200명 입력 | 완료. FX-15 68, 가용 95.5 FTE([[16-DECISIONS\|ADR-043]]) | [골든](evidence/phase-4/goldens-report.txt) |
@@ -124,7 +121,7 @@ updated: 2026-10-29
 | 수집 장애 격리 | 외부 서비스별 키·한도 상태, 준비된 서비스만 정기 수집 | 운영 중. 켠 외부 서비스는 LH·KEPCO·K-water 입찰공고 | [기록](evidence/ingestion/20261027-source-isolation/summary.md) |
 | 공공 입찰 확장 | 사업기회 연결·11열 목록·수집 운영([[16-DECISIONS\|ADR-047]]) | main·운영. 남은 외부 3종은 서비스별 검증 뒤 켠다 | [[2026-10-28-all-sources-activation\|계획]] |
 | LH 입찰공고 | 정규화, LH 한정 인증·데이터 없음 판정, EUC-KR 응답 읽기 | 운영 수집 중 | [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md) |
-| KEPCO·K-water 입찰공고 | KEPCO 전자입찰 계약·K-water 입찰공고 정규화와 정기 수집 | 운영 수집 중. KEPCO 첨부 주소 허용은 사용자 결정 대기 5 | [회사 반영](evidence/company-rollout/20261028/sources-rollout.md) |
+| KEPCO·K-water 입찰공고 | KEPCO 전자입찰 계약·K-water 입찰공고 정규화와 정기 수집 | 운영 수집 중. KEPCO 첨부 주소는 해커톤 동안 막아 둔다([[16-DECISIONS|ADR-068]] 3번) | [회사 반영](evidence/company-rollout/20261028/sources-rollout.md) |
 | 회사 공개 프로필 | 운영 DB 공개 자료 프로필(revision 5), `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | 운영 반영. DEMO 18건이 이 프로필로 분석됐다 | [운영 반영](evidence/company-public-profile/20261027/prod-rollout.md) |
 | 프로필 사진 | 비공개 버킷 `profile-photos`, 가입 신청 승인([[16-DECISIONS\|ADR-051]]) | 운영 적용. 기존 직원 찾기(U8)·재신청 진입점(U10) 화면은 없다 | [기록](evidence/integration/20261025-prod-apply-db-storage.md) |
 | 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]) | 완료, 운영 DB 적용 | [[07-DATA-PIPELINE\|07]] |
@@ -138,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 - 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
 - 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
 - 2026-10-29 · 추천 분석 운영 반영: 운영 DB `20261029000100`·`000200`, Vercel, 회사 AI gateway·Analysis Worker·redis-api 재생성 · `db-verify` 통과, `/health/ready` 200, 운영 화면 실공고·DEMO 각 1건 `DONE`·`MODEL`([기록](evidence/company-rollout/20261029/rec-insight-rollout.md))
@@ -147,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 회사 AI gateway 두 번 교체(첨부 조립 v0.2 [[16-DECISIONS|ADR-064]], 번역 비교 표현 [[16-DECISIONS|ADR-065]], 인용 300자)와 실공고 3건 분석 · gateway `/health` ok·`registryMatch: true`·파서 3종([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))
 - 2026-10-28 · 운영 조직도 0명 부서 해소와 본부·그룹 직속 직원([[16-DECISIONS|ADR-063]]) · `pnpm verify:changed` exit 0, 조직도 브라우저 시험 1440·1280 통과([증거](evidence/org-rebalance-20261028/))
 - 2026-10-28 · 운영 화면 이동 지연 조치(함수 지역 `syd1`, 렌더 조회 합치기) · Supabase 호출 한 번 p50 660→16ms([기록](evidence/deployment/20261028-region-latency.md))
-- 2026-10-28 · 화면 UI 개편과 권고 표기 추천·보류·비추천([[16-DECISIONS|ADR-061]]·[[16-DECISIONS|ADR-062]]) 운영 배포 · 랜딩 1440·1280 넘침·콘솔 오류 0([증거](evidence/ui-refresh/README.md))
 
 ## 관련 문서
 
