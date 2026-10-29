@@ -38,4 +38,7 @@ updated: 2026-10-29
 - `NODE_EXTRA_CA_CERTS=… bash scripts/db-push.sh --check`: 미적용 1개(`20261029001000`)만 확인한 뒤 적용 → `✓ 20261029001000_enrich_demo_project_history.sql`.
 - `bash scripts/db-verify.sh`: `DB 연결·마이그레이션 69개·RLS 활성화·화면 역할 권한·뷰·함수 확인`.
 - 적용 뒤 운영 읽기: 200행 모두 `synthetic-people/v2`, 1인당 3~5건, 첫 항목에 `client` 있음 200행.
-- main push 의 pre-push 게이트에서 `e2e/landing-showcase.spec.ts:142`(업무 데모 행 누름 360ms 단계를 12초 안에 기다림)가 기계 부하(load 22~47) 때 두 번 시간 초과로 실패했다. 같은 커밋에서 그 spec 만 돌리면 10 passed 였다. 랜딩 코드는 이 작업에서 바꾸지 않았다. 게이트는 우회하지 않았다.
+- main push 의 pre-push 게이트에서 `e2e/landing-showcase.spec.ts:142`(업무 데모 행 누름 360ms 단계를 12초 안에 기다림)가 기계 부하(load 22~47) 때 세 번 실패했다. 같은 커밋에서 그 spec 만 돌리면 10 passed 였다. 랜딩 코드는 이 작업에서 바꾸지 않았다. 게이트는 우회하지 않았다.
+- 사용자 결정으로 그 시험을 보강했다(`e7cd5915`): 페이지 안 MutationObserver 가 단계가 바뀌는 순간 목표·커서 상자를 재고, 한 바퀴를 보는 제한 시간을 45→90초로 늘렸다. 단언은 그대로다. `--repeat-each=8 --workers=8`(load 33)에서 수정 전 8 failed, 수정 뒤 8 passed, spec 전체 10 passed.
+- main push 는 같은 main 에 org-search 를 병합한 sol-radar-c0 이 했다(`a9d3a107..e7cd5915`, pre-push 통과). Vercel 은 그 뒤 커밋 `c8b4a504` 를 운영에 배포했다(GitHub 상태 `Vercel success`, 2026-10-30 00:24 KST). `/health/ready` 200.
+- 운영의 로그인 뒤 서랍 화면은 보지 못했다. Playwright MCP 를 다른 세션이 쓰고 있었고, 운영 계정 비밀번호는 `.env` 에만 있어 읽지 않았다. 배포 커밋에 서랍 코드(`6622f487`)가 들어 있고 운영 DB 가 v2 인 것까지 확인했다.
