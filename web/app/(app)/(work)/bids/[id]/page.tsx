@@ -17,7 +17,7 @@ import {
   type AnalysisView,
   type BidDetail,
 } from "@/server/bids";
-import { INSIGHT_POLL_LIMIT_MS, INSIGHT_REQUEST_ROLES } from "@/server/insight";
+import { getInsight, INSIGHT_POLL_LIMIT_MS, INSIGHT_REQUEST_ROLES } from "@/server/insight";
 import { getWatchSummary } from "@/server/watchlist";
 import { getMembersPage } from "@/server/organization";
 import { assessmentLabel } from "./assessment-labels";
@@ -83,6 +83,14 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   const previousScored = scoredLatest
     ? null
     : (historyItems.find((analysis) => SCORED.has(analysis.status)) ?? null);
+  // 추천 분석 패널은 최신 run 이 점수 run 일 때만 그리므로 그 run 의 최신 1건만 읽는다.
+  // 보조 값이라 읽지 못하면 없음으로 그린다.
+  const initialInsight = scoredLatest
+    ? await getInsight(work, id, latest.id).catch(() => {
+        console.error(JSON.stringify({ event: "bid_detail_insight_failed", bidId: id }));
+        return null;
+      })
+    : null;
 
   const members =
     membersPage.status === "team"
@@ -114,9 +122,8 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       watch={watch}
       projectEntry={projectEntry.ok ? projectEntry.data : null}
       changedAt={changedAt}
-      // 추천 분석 첫 값은 0f 의 getInsight(Task 7)가 통합되면 그 run 의 최신 1건으로 채운다. 그 전에는 없음이다.
       insight={{
-        initial: null,
+        initial: initialInsight,
         pollLimitMs: INSIGHT_POLL_LIMIT_MS,
         canRequest: INSIGHT_REQUEST_ROLES.some((role) => role === work.role),
       }}
