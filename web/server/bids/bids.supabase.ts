@@ -77,7 +77,9 @@ function decisionFilter(decisions: BidListQuery["decision"]): string {
 // countOnly 를 주면 행 없이 건수만 읽는다(head + count exact).
 function filteredBids(db: Db, query: BidListQuery, countOnly?: { count: "exact"; head: true }) {
   const source = query.watched === "me" ? "watched_bid_list_items" : "bid_list_items";
-  const base = db.from(source).select("*", countOnly).in("status", query.status);
+  const selected = db.from(source).select("*", countOnly).in("status", query.status);
+  // IT 범위 밖 공고는 고르기 목록에서 숨긴다(ADR-069). 관심 목록은 범위 밖이어도 보인다.
+  const base = query.watched === "me" ? selected : selected.eq("it_scope", true);
   // live 는 저장된 source 가 데모 수집기(fixture)가 아닌 것만이다(출처 미확인 행은 실제 공고로 세지 않는다).
   const byOrigin =
     query.origin === "all"

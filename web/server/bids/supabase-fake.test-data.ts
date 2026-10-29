@@ -177,6 +177,7 @@ export function listRow(patch: Partial<BidListItemRow> = {}): BidListItemRow {
     latest_decided_at: null,
     latest_reviewer_display_name: null,
     latest_reviewer_email: null,
+    it_scope: true,
     ...patch,
   };
 }
