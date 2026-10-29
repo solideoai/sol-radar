@@ -313,7 +313,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 
 - **모드 전환**: `live` → `fixture` → `mock` 순서로 바꾸고 재시작한다. 모드마다 `checks.ai`·분석 요약 띠·DEMO 배지·gateway `runMode`를 보고 소요 시간을 기록한다.
 - **모순 env 거부**: 위 "실행 모드와 프로필"의 네 조합으로 `pnpm check:env`와 gateway가 기동을 거부하는지 본다.
-- **live 호출 예산**: 공공 API 호출 수가 일일 한도(개발계정 서비스당 1,000건/일) 안인지 관리자 수집 화면으로 본다([[07-DATA-PIPELINE|07 수집]]).
+- **live 호출 예산**: 공공 API 호출 수가 일일 한도(개발계정 기능(오퍼레이션)마다 1,000건/일. 나라장터 목록·보조 3종은 따로 센다, [기록](evidence/ingestion/20261029-g2b-aux-budget.md)) 안인지 관리자 수집 화면으로 본다([[07-DATA-PIPELINE|07 수집]]).
 
 ## 장애 주입 (S6 녹화)
 

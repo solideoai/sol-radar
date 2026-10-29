@@ -61,7 +61,7 @@ updated: 2026-10-29
 |회사 역량 열람 (`/company`, `GET /company-profile`·`/revisions`, ADR-052)|ADMIN, EXECUTIVE|
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
-|회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
+|회사 프로필 개정 (화면·`PUT` 없음. 운영자 CLI `pnpm ops:company-profile`을 사람이 로컬에서 실행, [[16-DECISIONS\|ADR-052]] 8번)|ADMIN(`--created-by`가 그 조직 ADMIN이어야 한다)|
 |사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
 |수동 수집 실행·수집 결과 조회|ADMIN. 예외: 대시보드 수집 신선도용 `latest_ingest_run(text)`은 업무 역할이 있으면 누구나 출처별 최신 run 한 건의 상태·시각·요약만 읽는다([[04-DATABASE\|04]] §3.6)|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
