@@ -159,6 +159,16 @@ test("주요 기능 설명은 가운뎃점으로 줄을 시작하지 않는다",
   }
 });
 
+// 회귀: 1280 에서 “들어갈 사업인지” 뒤의 조사 "를"이 닫는 따옴표와 떨어져 줄 맨 앞으로 내려갔다.
+test("비교 표 설명은 조사로 줄을 시작하지 않는다", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  const description = page.getByRole("region", { name: SECTIONS[2].title }).locator("h2 + p");
+  const starts = await lineStartsOf(description);
+  expect(starts).not.toContain("를");
+  expect(starts).not.toContain("와");
+});
+
 test("작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다", async ({ page }) => {
   await page.goto("/");
   const analysis = page.getByRole("region", { name: SECTIONS[1].title });
