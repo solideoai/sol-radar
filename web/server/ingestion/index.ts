@@ -215,12 +215,15 @@ export {
   QUOTA_SOURCE_KEY,
   QUOTA_STORE_UNAVAILABLE_ERROR_CODE,
   SEED_ANCHOR_MISSING,
+  refillG2bAux,
   runIngest,
 } from "./ingestion.service";
 export type {
   IdFor,
   IngestRunResult,
   QuarantinedRecord,
+  RefillG2bAuxInput,
+  RefillG2bAuxResult,
   RunIngestInput,
   SavedBidRevision,
 } from "./ingestion.service";

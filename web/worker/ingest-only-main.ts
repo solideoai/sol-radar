@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
-import { INGEST_QUEUE } from "@/server/ingestion";
+import { INGEST_QUEUE, type RefillG2bAuxResult } from "@/server/ingestion";
 import { readWorkerEnv } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
 import { INGEST_SCHEDULE_LABEL, readRunMode } from "@/worker/ingest-queue";
@@ -12,6 +12,7 @@ import {
   defaultWorkerDeps,
   describeIngestConfig,
   errorCode,
+  runG2bAuxRefillOnce,
   runG2bIngestOnce,
   startWorker,
   type IngestOnceResult,
@@ -25,6 +26,7 @@ import {
 // documents 큐에는 소비자가 없어 첨부 job 도 넣지 않는다(첨부 행은 DB 에 PENDING 으로 남는다, main.ts ingestJobDepsOf).
 //
 // 명령: (없음) 정기 수집 기동 · --check 설정 확인 · --status 큐 읽기 · --once --window-minutes N 1회 수집 · --unschedule 정기 일정 전부 삭제
+// · --refill-aux --limit N 보조 조회가 빠진 나라장터 공고 N건까지 같은 revision 에 채우기(사용자 결정 2026-10-29)
 
 type Env = Record<string, string | undefined>;
 export type ShutdownSignal = "SIGTERM" | "SIGINT";
@@ -42,6 +44,8 @@ type G2bOnceJobData = {
  */
 export const SCHEDULED_WINDOW_CAP_MINUTES = 1440;
 export const ONCE_MAX_WINDOW_MINUTES = 1440;
+/** --refill-aux 한 번에 고를 공고 수 상한. 오퍼레이션별 하루 한도(1,000)보다 크지 않게 둔다 */
+export const REFILL_MAX_LIMIT = 1000;
 
 export const ingestOnlyRegistrations = (log: (line: string) => void): WorkerRegistration[] => [
   createIngestWorkerRegistration({
@@ -54,6 +58,7 @@ export const ingestOnlyRegistrations = (log: (line: string) => void): WorkerRegi
 export type IngestOnlyDeps = {
   workerDeps: WorkerDeps;
   runOnce: (env: Env, data: G2bOnceJobData) => Promise<IngestOnceResult>;
+  refillAux: (env: Env, limit: number) => Promise<RefillG2bAuxResult>;
   onSignal: (signal: ShutdownSignal, listener: () => void) => void;
   exit: (code: number) => void;
   log: (line: string) => void;
@@ -91,6 +96,8 @@ export const defaultIngestOnlyDeps: IngestOnlyDeps = {
     ),
   },
   runOnce: (env, data) => withOneShotRedis(env, (redis) => runG2bIngestOnce(env, redis, data)),
+  refillAux: (env, limit) =>
+    withOneShotRedis(env, (redis) => runG2bAuxRefillOnce(env, redis, limit)),
   onSignal: (signal, listener) => {
     process.once(signal, listener);
   },
@@ -111,39 +118,63 @@ type Command =
   | { kind: "check" }
   | { kind: "status" }
   | { kind: "unschedule" }
-  | { kind: "once"; windowMinutes: number };
+  | { kind: "once"; windowMinutes: number }
+  | { kind: "refillAux"; limit: number };
 
-const MODE_FLAGS = ["--check", "--status", "--unschedule", "--once"] as const;
+const MODE_FLAGS = ["--check", "--status", "--unschedule", "--once", "--refill-aux"] as const;
 const WINDOW_FLAG = "--window-minutes";
+const LIMIT_FLAG = "--limit";
 const USAGE =
-  "사용법: ingest-only-main.ts [--check | --status | --unschedule | --once --window-minutes <1~1440>]";
+  "사용법: ingest-only-main.ts [--check | --status | --unschedule | --once --window-minutes <1~1440> | --refill-aux --limit <1~1000>]";
+
+/** 값을 받는 인자(flag 와 바로 뒤 값)를 떼어 낸다 */
+function takeValueFlag(
+  argv: readonly string[],
+  flag: string,
+): { present: boolean; value: string | undefined; rest: readonly string[] } {
+  const index = argv.indexOf(flag);
+  if (index === -1) return { present: false, value: undefined, rest: argv };
+  return {
+    present: true,
+    value: argv[index + 1],
+    rest: argv.filter((_, at) => at !== index && at !== index + 1),
+  };
+}
+
+const positiveIntOf = (value: string | undefined): number =>
+  value !== undefined && /^[1-9]\d*$/.test(value) ? Number(value) : 0;
 
 // 인자 값은 오류에 싣지 않는다. 틀리면 사용법만 알린다.
 function parseCommand(argv: readonly string[]): Command {
-  const windowIndex = argv.indexOf(WINDOW_FLAG);
-  const hasWindow = windowIndex !== -1;
-  const windowValue = hasWindow ? argv[windowIndex + 1] : undefined;
-  const rest = hasWindow
-    ? argv.filter((_, index) => index !== windowIndex && index !== windowIndex + 1)
-    : argv;
+  const window = takeValueFlag(argv, WINDOW_FLAG);
+  const limit = takeValueFlag(window.rest, LIMIT_FLAG);
+  const rest = limit.rest;
   const modes = rest.filter((arg) => (MODE_FLAGS as readonly string[]).includes(arg));
   if (modes.length !== rest.length || modes.length > 1) throw new Error(USAGE);
   const mode = modes[0];
-  if (mode !== "--once") {
-    if (hasWindow) throw new Error(USAGE);
-    if (mode === "--check") return { kind: "check" };
-    if (mode === "--status") return { kind: "status" };
-    if (mode === "--unschedule") return { kind: "unschedule" };
-    return { kind: "run" };
+  if ((mode !== "--once" && window.present) || (mode !== "--refill-aux" && limit.present))
+    throw new Error(USAGE);
+  if (mode === "--once") {
+    const minutes = positiveIntOf(window.value);
+    if (minutes < 1 || minutes > ONCE_MAX_WINDOW_MINUTES) {
+      throw new Error(
+        `--once 에는 ${WINDOW_FLAG} 1~${ONCE_MAX_WINDOW_MINUTES} 가 필요하다. ${USAGE}`,
+      );
+    }
+    return { kind: "once", windowMinutes: minutes };
   }
-  const minutes =
-    windowValue !== undefined && /^[1-9]\d*$/.test(windowValue) ? Number(windowValue) : 0;
-  if (minutes < 1 || minutes > ONCE_MAX_WINDOW_MINUTES) {
-    throw new Error(
-      `--once 에는 ${WINDOW_FLAG} 1~${ONCE_MAX_WINDOW_MINUTES} 가 필요하다. ${USAGE}`,
-    );
+  if (mode === "--refill-aux") {
+    const count = positiveIntOf(limit.value);
+    if (count < 1 || count > REFILL_MAX_LIMIT)
+      throw new Error(
+        `--refill-aux 에는 ${LIMIT_FLAG} 1~${REFILL_MAX_LIMIT} 가 필요하다. ${USAGE}`,
+      );
+    return { kind: "refillAux", limit: count };
   }
-  return { kind: "once", windowMinutes: minutes };
+  if (mode === "--check") return { kind: "check" };
+  if (mode === "--status") return { kind: "status" };
+  if (mode === "--unschedule") return { kind: "unschedule" };
+  return { kind: "run" };
 }
 
 const MINUTE_MS = 60_000;
@@ -244,6 +275,33 @@ async function runOnce(env: Env, windowMinutes: number, deps: IngestOnlyDeps): P
   return result.status === "SUCCEEDED" || result.status === "PARTIAL";
 }
 
+// --refill-aux: 보조 조회가 빠진 나라장터 공고를 같은 revision 에 채운다. 실제 API 를 부른다(오퍼레이션별 예약으로 일 한도를 지킨다).
+// 새 revision·변경 이벤트를 만들지 않는다. 정기 수집 몫을 쓰지 않게 그날 마지막 회차(21시) 뒤에 돌린다.
+async function refillAux(env: Env, limit: number, deps: IngestOnlyDeps): Promise<boolean> {
+  assertLiveRunMode(env);
+  await deps.workerDeps.checkReadiness(readWorkerEnv(env));
+  deps.log(`ingest-only 보조 조회 다시 채우기 시작: 최대 ${limit}건`);
+  const result = await deps.refillAux(env, limit).catch((error: unknown) => {
+    throw new Error(`ingest-only 보조 조회 다시 채우기 실패: ${describeRedisError(error)}`);
+  });
+  const failures = Object.entries(result.failures)
+    .map(([key, count]) => `${key}=${count}`)
+    .join(",");
+  deps.log(
+    [
+      `ingest-only 보조 조회 다시 채우기 결과: checked=${result.checked}`,
+      `refilled=${result.refilled}`,
+      `incomplete=${result.incomplete}`,
+      `closed=${result.closed}`,
+      `conflicted=${result.conflicted}`,
+      `calls=${result.calls}`,
+      `stoppedBy=${result.stoppedBy ?? "-"}`,
+      `failures=${failures === "" ? "-" : failures}`,
+    ].join(" "),
+  );
+  return result.stoppedBy !== "QUOTA_UNAVAILABLE";
+}
+
 async function startIngestOnly(env: Env, deps: IngestOnlyDeps): Promise<void> {
   assertLiveRunMode(env);
   const handle = await startWorker(env, deps.workerDeps);
@@ -281,6 +339,10 @@ export async function runIngestOnly(
     if (command.kind === "unschedule") await unscheduleIngest(env, deps);
     if (command.kind === "once") {
       deps.exit((await runOnce(env, command.windowMinutes, deps)) ? 0 : 1);
+      return;
+    }
+    if (command.kind === "refillAux") {
+      deps.exit((await refillAux(env, command.limit, deps)) ? 0 : 1);
       return;
     }
     deps.exit(0);

@@ -10,7 +10,11 @@ import type {
   StartedRun,
   StartRunInput,
 } from "./ingestion.port";
-import { normalizedBidSchema, type StructuredRequirement } from "./normalized-bid.model";
+import {
+  normalizedBidSchema,
+  type NormalizedBid,
+  type StructuredRequirement,
+} from "./normalized-bid.model";
 import type { StoredRevision } from "./revision";
 
 // ── 저장 포트 ↔ DB 행·RPC 인자 변환(순수, 6-2). Supabase 구현은 이 규칙만 부르고 판단하지 않는다 ──
@@ -160,6 +164,29 @@ export const toStructuredRequirementInserts = (
     value: jsonCopy(row.value),
     source_operation: row.sourceOperation,
   }));
+
+/** 다시 채우기(refillAux): 같은 revision 행의 normalized·checksum 갱신 값 */
+export const toRefilledRevisionUpdate = (
+  bid: NormalizedBid,
+): Pick<TablesInsert<"bid_revisions">, "normalized" | "checksum"> => ({
+  normalized: jsonCopy(bid),
+  checksum: bid.checksum,
+});
+
+/** 다시 채우기(refillAux): 그 revision 에 아직 없는 원본 url 의 첨부 행. download_status 는 기본값 PENDING 이다 */
+export const toNewDocumentInserts = (
+  ids: { bidId: string; revisionId: string },
+  attachments: NormalizedBid["attachments"],
+  knownUrls: ReadonlySet<string>,
+): TablesInsert<"bid_documents">[] =>
+  attachments
+    .filter(({ url }) => !knownUrls.has(url))
+    .map(({ name, url }) => ({
+      bid_id: ids.bidId,
+      revision_id: ids.revisionId,
+      name,
+      original_url: url,
+    }));
 
 const EMPTY_SUMMARY: IngestSummary = {
   created: 0,

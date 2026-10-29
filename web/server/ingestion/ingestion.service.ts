@@ -14,28 +14,31 @@ import {
   type IngestCompleteness,
   type SourceRecord,
 } from "./connector.model";
-import type { G2bAuxFetcher } from "./g2b-aux";
+import type { G2bAuxFailure, G2bAuxFetcher } from "./g2b-aux";
 import type {
   IngestionRepo,
   IngestRunItemInput,
   IngestRunStatus,
   IngestSummary,
+  RefillAuxInput,
   StartedRun,
   StartRunInput,
 } from "./ingestion.port";
 import { normalizeFixtureRecord, type NormalizeOutcome } from "./normalize";
 import { normalizeG2bBidNotice } from "./normalize-g2b";
 import {
+  AUX_REGISTRY_KEYS,
   auxLookupOf,
   isAuxIncomplete,
   listOnlyRevision,
   mergeG2bAux,
+  refilledRevision,
   registeredAtOf,
   skippedQuotaLookup,
   withAuxLookup,
 } from "./normalize-g2b-aux";
 import type { BidSource, NormalizedBidDraft } from "./normalized-bid.model";
-import { quotaKey, quotaState, type QuotaState } from "./quota";
+import { quotaKey, quotaState, scopedServiceId, type QuotaState } from "./quota";
 import type { IngestQuota } from "./quota-store";
 import { redactSecrets, redactUrl } from "./redaction";
 import { decideRevision, type ChangeDecision, type StoredRevision } from "./revision";
@@ -67,8 +70,9 @@ export type RunIngestInput = {
   aux?: G2bAuxFetcher;
   /**
    * 공공 API 호출 예산(07 §2.2). 실제 HTTP마다 원자적으로 1회를 예약한다. 거절/저장소 장애면 송신하지 않는다.
-   * 공고 앞에서 AUXILIARY_STOPPED(한도의 90%) 이상이면 보조 조회를 건너뛴다(auxLookup SKIPPED_QUOTA).
-   * 없으면(시험·녹음 재생) 예산을 보지 않는다. live Worker는 누락을 거절한다. 결과코드 22 중단은 항상 적용한다.
+   * 일일 한도는 목록과 보조 조회 오퍼레이션마다 따로 센다(quota.ts scopedServiceId, 사용자 확인 2026-10-29).
+   * 공고 앞에서 보조 오퍼레이션 하나라도 AUXILIARY_STOPPED(한도의 90%) 이상이면 보조 조회를 건너뛴다(auxLookup SKIPPED_QUOTA).
+   * 없으면(시험·녹음 재생) 예산을 보지 않는다. live Worker는 누락을 거절한다. 결과코드 22 처리는 항상 적용한다.
    */
   quota?: IngestQuota;
 };
@@ -137,7 +141,7 @@ type RequestBudget = {
   lastRequestAt: Date | null;
 };
 
-function requestBudget(input: RunIngestInput): RequestBudget | null {
+function requestBudget(input: Pick<RunIngestInput, "quota" | "now">): RequestBudget | null {
   const { quota, now } = input;
   if (quota === undefined) return null;
   const unavailable: ConnectorFailure = {
@@ -147,14 +151,15 @@ function requestBudget(input: RunIngestInput): RequestBudget | null {
   const budget: RequestBudget = {
     calls: 0,
     lastRequestAt: null,
-    async beforeRequest() {
+    async beforeRequest(scope) {
+      const serviceId = scopedServiceId(quota.serviceId, scope);
       try {
         // Redis 응답을 기다리는 동안 KST 날짜가 바뀌면 새 날짜에도 예약한다.
         // 이전 예약은 실제 송신 여부가 불확실한 예약과 마찬가지로 환불하지 않는다.
         for (let attempt = 0; attempt < 2; attempt++) {
           const at = now();
-          const reserved = await quota.store.reserve(quota.serviceId, at);
-          if (quotaKey(quota.serviceId, at) !== quotaKey(quota.serviceId, now())) continue;
+          const reserved = await quota.store.reserve(serviceId, at);
+          if (quotaKey(serviceId, at) !== quotaKey(serviceId, now())) continue;
           if (reserved === false)
             return { kind: "QUOTA_EXCEEDED", detail: "일일 호출 예산을 예약할 수 없다" };
           if (reserved !== true) return unavailable;
@@ -177,7 +182,7 @@ type PageResult = {
   quarantined: QuarantinedRecord[];
   /** 이 run 이 쓴 공공 API 호출 수(목록 쪽 + 보조 조회, 재시도 포함). 이어 가는 run 은 저장된 값부터 센다 */
   quotaUsed: number;
-  /** 보조 조회의 예산 소진/예약 실패. 같은 run의 남은 공고·다음 쪽을 부르지 않는다. */
+  /** 보조 조회의 예산 저장소 장애. 같은 run의 남은 공고·다음 쪽을 부르지 않는다(한도 초과는 그 오퍼레이션만 막는다). */
   halted: ConnectorFailure | null;
 };
 
@@ -302,11 +307,14 @@ const isSkipped = (
 /** unavailable: 저장소를 읽지 못해 상태를 EXHAUSTED 로 닫은 경우(used 는 NaN) */
 type QuotaStatus = { state: QuotaState; used: number; unavailable: boolean };
 
-async function quotaStatusOf(context: RunContext, at: Date): Promise<QuotaStatus> {
-  const { quota } = context;
+async function quotaStatusOf(
+  quota: IngestQuota | null,
+  at: Date,
+  scope?: string,
+): Promise<QuotaStatus> {
   if (quota === null) return { state: "OK", used: 0, unavailable: false };
   try {
-    const used = await quota.store.get(quota.serviceId, at);
+    const used = await quota.store.get(scopedServiceId(quota.serviceId, scope), at);
     return { state: quotaState(used, quota.dailyLimit), used, unavailable: false };
   } catch {
     // 저장소(Redis)에 닿지 못했다. 예산을 모르면 남았다고 낙관하지 않는다 — 소진과 같이 닫는다(07 §2.2).
@@ -317,6 +325,50 @@ async function quotaStatusOf(context: RunContext, at: Date): Promise<QuotaStatus
 
 const isQuotaFailure = (failure: ConnectorFailure): boolean =>
   failure.kind === "QUOTA_EXCEEDED" || failure.kind === "QUOTA_UNAVAILABLE";
+
+/** 보조 오퍼레이션 3개의 예산 중 가장 나쁜 상태. 하나라도 OK 가 아니면 그 공고의 보조 조회를 부르지 않는다 */
+async function auxQuotaStatusOf(quota: IngestQuota | null, at: Date): Promise<QuotaStatus> {
+  const statuses = await Promise.all(
+    AUX_REGISTRY_KEYS.map((scope) => quotaStatusOf(quota, at, scope)),
+  );
+  return (
+    statuses.find(({ unavailable }) => unavailable) ??
+    statuses.find(({ state }) => state === "EXHAUSTED") ??
+    statuses.find(({ state }) => state !== "OK") ?? { state: "OK", used: 0, unavailable: false }
+  );
+}
+
+const AUX_QUOTA_UNAVAILABLE: ConnectorFailure = {
+  kind: "QUOTA_UNAVAILABLE",
+  detail: "보조 조회의 호출 예산 저장소를 읽지 못했다",
+};
+
+/**
+ * 보조 조회 결과의 예산 실패를 처리한다. 공급자 22 는 그 오퍼레이션 카운터만 소진시키고(다른 오퍼레이션·목록은 계속),
+ * 예약 저장소 장애만 run 을 멈춘다(돌려준 값). 소진 표시를 쓰지 못해도 저장소 장애다.
+ */
+async function settleAuxQuota(
+  quota: IngestQuota | null,
+  budget: RequestBudget | null,
+  failures: readonly G2bAuxFailure[],
+  at: Date,
+): Promise<ConnectorFailure | null> {
+  const unavailable = failures.find(({ failure }) => failure.kind === "QUOTA_UNAVAILABLE");
+  if (unavailable !== undefined) return unavailable.failure;
+  if (quota === null) return null;
+  for (const { registryKey, failure } of failures) {
+    if (failure.resultCode !== "22") continue;
+    try {
+      await quota.store.markExhausted(
+        scopedServiceId(quota.serviceId, registryKey),
+        budget?.lastRequestAt ?? at,
+      );
+    } catch {
+      return AUX_QUOTA_UNAVAILABLE;
+    }
+  }
+  return null;
+}
 
 /** 공급자 코드 22만 카운터를 소진시킨다. 로컬 예약 거절/저장소 장애도 기록하고 남은 호출을 멈춘다. */
 async function exhaustQuota(
@@ -343,7 +395,13 @@ async function exhaustQuota(
   });
 }
 
-type AuxDecision = { decision: ChangeDecision; calls: number; halted: ConnectorFailure | null };
+type AuxDecision = {
+  decision: ChangeDecision;
+  calls: number;
+  halted: ConnectorFailure | null;
+  /** 다시 채우기로 같은 revision 에 채울 값. decision 은 DUPLICATE 다(새 revision 없음) */
+  refill?: RefillAuxInput;
+};
 
 const settled = (decision: ChangeDecision): AuxDecision => ({ decision, calls: 0, halted: null });
 
@@ -352,7 +410,8 @@ const settled = (decision: ChangeDecision): AuxDecision => ({ decision, calls: 0
  * 1차 판정은 목록만으로 한다. 저장된 revision 의 보조 유래 부분을 뺀 모양과 비교해야 같은 공고의 재수집이
  * DUPLICATE 로 걸러진다(보조 결과가 checksum 에 들어 있어 그대로 비교하면 매번 CHANGED 가 된다).
  * 다시 채우기: 목록이 같아도 저장된 revision 의 보조 조회가 불완전(FAILED·SKIPPED_QUOTA)하면 다시 부르고,
- * 셋 다 받으면 CHANGED revision 으로 저장한다. 또 실패하면 revision 을 늘리지 않는다.
+ * 셋 다 받으면 새 revision 없이 그 revision 에 채운다(사용자 결정 2026-10-29, 변경 이력·이벤트가 생기지 않는다).
+ * 또 실패하면 아무것도 바꾸지 않는다.
  */
 async function withAux(
   context: RunContext,
@@ -370,9 +429,9 @@ async function withAux(
   const fetches = refills || (!isSkipped(listOnly) && listOnly.reanalyze);
   if (!fetches) return settled(listOnly);
 
-  const budgetStatus = await quotaStatusOf(context, fetchedAt);
+  const budgetStatus = await auxQuotaStatusOf(context.quota, fetchedAt);
   if (budgetStatus.state !== "OK") {
-    // 한도의 90% 에 닿았다. 다시 채우기는 미루고(revision 없음), 새 revision 은 건너뜀 표시로 저장한다.
+    // 보조 오퍼레이션 한도의 90% 에 닿았다. 다시 채우기는 미루고(revision 없음), 새 revision 은 건너뜀 표시로 저장한다.
     const decision = refills
       ? listOnly
       : decideRevision(previous, withAuxLookup(draft, skippedQuotaLookup()));
@@ -380,9 +439,7 @@ async function withAux(
       decision,
       calls: 0,
       // 저장소 장애를 정상적인 90% 중단으로 취급해 run을 성공 처리하지 않는다.
-      halted: budgetStatus.unavailable
-        ? { kind: "QUOTA_UNAVAILABLE", detail: "보조 조회의 호출 예산 저장소를 읽지 못했다" }
-        : null,
+      halted: budgetStatus.unavailable ? AUX_QUOTA_UNAVAILABLE : null,
     };
   }
 
@@ -402,10 +459,18 @@ async function withAux(
       redactedDetail: context.redact(failure.detail),
     });
   }
-  const halted = fetched.failures.find(({ failure }) => isQuotaFailure(failure))?.failure ?? null;
+  const halted = await settleAuxQuota(context.quota, context.budget, fetched.failures, fetchedAt);
   const lookup = auxLookupOf(fetched);
-  // 다시 채우기가 또 실패하면 이전 revision 이 그대로 확인 필요다. 늘리지 않는다.
-  if (refills && lookup.status !== "OK") return { decision: listOnly, calls, halted };
+  if (refills && previous !== null) {
+    // 다시 채우기가 또 실패하면 이전 revision 이 그대로 확인 필요다. 바꾸지 않는다.
+    if (lookup.status !== "OK") return { decision: listOnly, calls, halted };
+    return {
+      decision: listOnly,
+      calls,
+      halted,
+      refill: { previous, bid: refilledRevision(previous, fetched.rows) },
+    };
+  }
   // 2차 판정은 보조 결과까지 합친 모양으로 한다. 저장되는 checksum 은 이쪽이다.
   return {
     decision: decideRevision(previous, withAuxLookup(mergeG2bAux(draft, fetched.rows), lookup)),
@@ -459,10 +524,20 @@ async function ingestRecord(
   // 경고는 기록만 하고 적재는 계속한다(15 §6).
   for (const warning of outcome.warnings) await recordIssue(context, warning);
 
-  const { decision, calls, halted } = await decideRecord(context, record, outcome.draft, fetchedAt);
+  const { decision, calls, halted, refill } = await decideRecord(
+    context,
+    record,
+    outcome.draft,
+    fetchedAt,
+  );
   const withCalls: PageResult = { ...progress, quotaUsed: progress.quotaUsed + calls, halted };
   // 이전 차수(STALE)는 이미 더 새 차수가 있는 공고의 재수신이라 중복과 같이 센다(summary 키를 늘리지 않는다, 5-E).
   if (decision.kind === "DUPLICATE" || decision.kind === "STALE") {
+    if (refill !== undefined) {
+      if (!repo.refillAux) throw new Error("수집 저장소: 보조 조회 다시 채우기가 없다");
+      await repo.refillAux(refill);
+    }
+    // 다시 채운 revision 도 같은 id 로 다시 투영한다(화면 행은 그대로 하나다).
     if (decision.kind === "DUPLICATE")
       await repo.ensureRevisionProjection?.(outcome.draft.source, outcome.draft.noticeId);
     const inserted = await recordRunItem(
@@ -539,7 +614,7 @@ async function ingestPage(
       : ((await context.input.repo.recordPayload?.(context.runId, page.capture)) ?? null);
   for (const record of page.records) {
     progress = await ingestRecord(context, record, progress, payloadId);
-    // 22 를 받았다. 다음 공고의 보조 조회도 같은 답이라 여기서 멈춘다(저장한 공고는 그대로다).
+    // 예산 저장소 장애다. 다음 공고의 예산도 확인할 수 없어 여기서 멈춘다(저장한 공고는 그대로다).
     if (progress.halted !== null) break;
   }
   return progress;
@@ -658,7 +733,7 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
   };
   for (;;) {
     const at = now();
-    const budget = await quotaStatusOf(context, at);
+    const budget = await quotaStatusOf(context.quota, at);
     if (budget.state === "EXHAUSTED") {
       await recordQuotaExhausted(context, budget);
       await closeFailed(context, cursor, progress);
@@ -799,4 +874,89 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
     { input, runId: started.runId, anchor, redact, countsCalls: false, quota: null, budget: null },
     started,
   );
+}
+
+// ── 보조 조회 다시 채우기(사용자 결정 2026-10-29). 회사 서버의 일회용 명령(worker/ingest-only-main.ts --refill-aux)이 부른다 ──
+// 예산이 모자라 보조 조회를 건너뛴(SKIPPED_QUOTA)·실패한(FAILED) 최신 revision 에 보조 결과만 채운다. 새 revision·이벤트는 없다.
+// 정기 수집과 같은 예산(오퍼레이션별 한도, 90% 에서 멈춤)을 쓴다. 정기 수집 몫을 쓰지 않게 그날 마지막 회차(21시) 뒤에 돌린다.
+// 마감이 지난 공고는 부르지 않는다.
+export type RefillG2bAuxInput = {
+  repo: IngestionRepo;
+  aux: G2bAuxFetcher;
+  quota: IngestQuota;
+  now: () => Date;
+  /** 이번에 고를 revision 수 상한(1~1000) */
+  limit: number;
+};
+
+export type RefillG2bAuxResult = {
+  /** 고른 revision 수(최신 차수·보조 빠짐) */
+  checked: number;
+  refilled: number;
+  /** 다시 불렀지만 셋 다 받지 못했다(그대로 둔다) */
+  incomplete: number;
+  /** 마감이 지나 부르지 않았다 */
+  closed: number;
+  /** 그사이 행이 바뀌어 쓰지 않았다 */
+  conflicted: number;
+  calls: number;
+  /** 다 돌기 전에 멈춘 이유. QUOTA: 보조 오퍼레이션 예산의 90%, QUOTA_UNAVAILABLE: 예산 저장소 장애 */
+  stoppedBy: "QUOTA" | "QUOTA_UNAVAILABLE" | null;
+  /** `${registryKey}:${오류 코드}` → 수. 원문은 싣지 않는다 */
+  failures: Record<string, number>;
+};
+
+export async function refillG2bAux(input: RefillG2bAuxInput): Promise<RefillG2bAuxResult> {
+  const { repo, aux, quota, now, limit } = input;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
+    throw new Error("refillG2bAux: limit 은 1~1000 이다");
+  if (!repo.findAuxIncompleteRevisions || !repo.refillAux)
+    throw new Error("수집 저장소: 보조 조회 다시 채우기가 없다");
+  const budget = requestBudget({ quota, now });
+  const candidates = await repo.findAuxIncompleteRevisions("g2b-bid-notice", limit);
+  const result: RefillG2bAuxResult = {
+    checked: candidates.length,
+    refilled: 0,
+    incomplete: 0,
+    closed: 0,
+    conflicted: 0,
+    calls: 0,
+    stoppedBy: null,
+    failures: {},
+  };
+  for (const { previous, rawPayload } of candidates) {
+    const at = now();
+    const { deadlineAt, noticeId, amendmentNo, fetchedAt } = previous.normalized;
+    if (deadlineAt !== null && Date.parse(deadlineAt) <= at.getTime()) {
+      result.closed += 1;
+      continue;
+    }
+    const status = await auxQuotaStatusOf(quota, at);
+    if (status.state !== "OK") {
+      result.stoppedBy = status.unavailable ? "QUOTA_UNAVAILABLE" : "QUOTA";
+      break;
+    }
+    const before = budget?.calls ?? 0;
+    const fetched = await aux.fetchAux({
+      noticeId,
+      amendmentNo: amendmentNo ?? null,
+      registeredAt: registeredAtOf(rawPayload, new Date(fetchedAt)),
+      ...(budget === null ? {} : { beforeRequest: budget.beforeRequest }),
+    });
+    result.calls += budget === null ? fetched.calls : budget.calls - before;
+    for (const { registryKey, failure } of fetched.failures) {
+      const key = `${registryKey}:${ingestErrorCodeOf(failure)}`;
+      result.failures[key] = (result.failures[key] ?? 0) + 1;
+    }
+    const halted = await settleAuxQuota(quota, budget, fetched.failures, at);
+    if (auxLookupOf(fetched).status !== "OK") result.incomplete += 1;
+    else if (await repo.refillAux({ previous, bid: refilledRevision(previous, fetched.rows) }))
+      result.refilled += 1;
+    else result.conflicted += 1;
+    if (halted !== null) {
+      result.stoppedBy = "QUOTA_UNAVAILABLE";
+      break;
+    }
+  }
+  return result;
 }

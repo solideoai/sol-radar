@@ -1,7 +1,7 @@
 import "server-only";
 import type { IngestCompleteness, PageCapture } from "./connector.model";
 import type { FixtureBatch } from "./fixture.model";
-import type { BidSource } from "./normalized-bid.model";
+import type { BidSource, NormalizedBid } from "./normalized-bid.model";
 import type { ChangeDecision, StoredRevision } from "./revision";
 
 // ── 수집 저장 포트. 수집 흐름(service)이 기대하는 저장 동작만 적는다 ──
@@ -92,6 +92,19 @@ export type SavedRevision = {
   revisionCreatedAt: string;
 };
 
+/** 보조 조회가 빠진(auxLookup FAILED·SKIPPED_QUOTA) 최신 revision. 다시 채우기 명령이 고른다 */
+export type AuxIncompleteRevision = {
+  previous: StoredRevision;
+  /** 저장한 목록 원본(raw_payload). 보조 조회 기간의 기준 시각(rgstDt)을 읽는다 */
+  rawPayload: Record<string, unknown>;
+};
+
+/**
+ * 보조 조회 다시 채우기(사용자 결정 2026-10-29). 새 revision·outbox 이벤트를 만들지 않고 previous 행에 채운다.
+ * bid 는 previous 와 같은 revision 번호의 NormalizedBid 다(normalize-g2b-aux.ts refilledRevision).
+ */
+export type RefillAuxInput = { previous: StoredRevision; bid: NormalizedBid };
+
 export type IngestRunItemInput = {
   sourceRecordKey: string;
   payloadHash: string;
@@ -132,6 +145,17 @@ export type IngestionRepo = {
    * 그 뒤 decision.bid.structuredQualifications 를 bid_structured_requirements 에 revision 단위로 쓴다(UNIQUE(revision_id, kind, seq) upsert)
    */
   saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
+  /**
+   * previous 행(같은 bid·revision·checksum)에 보조 결과를 채운다. 구조화 자격은 그 revision 것을 다시 쓰고,
+   * 첨부는 없던 url 만 더하고(PENDING), 같은 revision id 로 다시 투영한 뒤 마지막에 normalized·checksum 을 바꾼다.
+   * 그 행이 없거나 그사이 바뀌었으면(checksum 다름) false 다
+   */
+  refillAux?(input: RefillAuxInput): Promise<boolean>;
+  /** source 의 최신 revision 중 보조 조회가 빠진 것. 최근 수집 순, limit 개까지 */
+  findAuxIncompleteRevisions?(
+    source: "g2b-bid-notice",
+    limit: number,
+  ): Promise<AuxIncompleteRevision[]>;
   recordError(runId: string, error: IngestErrorInput): Promise<void>;
   /** quotaUsed 는 공공 API 를 부른 run(g2b)만 준다. 주지 않으면 ingest_runs.quota_used 를 건드리지 않는다(fixture 는 0) */
   saveCheckpoint(

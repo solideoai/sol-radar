@@ -178,10 +178,17 @@ const liveEnv = {
 const noRunOnce = vi.fn<IngestOnlyDeps["runOnce"]>(async () => {
   throw new Error("runOnce 는 부르지 않는다");
 });
+const noRefillAux = vi.fn<IngestOnlyDeps["refillAux"]>(async () => {
+  throw new Error("refillAux 는 부르지 않는다");
+});
 
 // 준비 확인(Redis·Supabase ping)과 heartbeat 파일만 가짜로 두고, Worker 생성은 ingest 전용 등록을 그대로 쓴다.
 const testDeps = (
-  overrides: { workerDeps?: Partial<WorkerDeps>; runOnce?: IngestOnlyDeps["runOnce"] } = {},
+  overrides: {
+    workerDeps?: Partial<WorkerDeps>;
+    runOnce?: IngestOnlyDeps["runOnce"];
+    refillAux?: IngestOnlyDeps["refillAux"];
+  } = {},
 ) => {
   const signals = new EventEmitter();
   const log = vi.fn<(line: string) => void>();
@@ -197,6 +204,7 @@ const testDeps = (
       ...overrides.workerDeps,
     },
     runOnce: overrides.runOnce ?? noRunOnce,
+    refillAux: overrides.refillAux ?? noRefillAux,
     onSignal,
     exit: vi.fn(),
     log,
@@ -624,6 +632,59 @@ describe("ingest 전용 worker 1회 명령", () => {
     expect(deps.exit).toHaveBeenCalledWith(0);
     expect(fake.schedulers.size).toBe(0);
     expect(fake.workers).toEqual([]);
+  });
+
+  it.each([
+    [["--refill-aux"]],
+    [["--refill-aux", "--limit", "0"]],
+    [["--refill-aux", "--limit", "1001"]],
+    [["--limit", "10"]],
+    [["--once", "--window-minutes", "60", "--limit", "10"]],
+    [["--refill-aux", "--limit", "10", "--window-minutes", "60"]],
+  ])("%j 는 다시 채우지 않고 exit 1", async (argv) => {
+    const { deps } = testDeps();
+    await runIngestOnly(argv, liveEnv, deps);
+    expect(deps.exit).toHaveBeenCalledWith(1);
+    expect(noRefillAux).not.toHaveBeenCalled();
+    expect(noRunOnce).not.toHaveBeenCalled();
+  });
+
+  it("--refill-aux --limit 300 은 일정 없이 다시 채우기를 1회 돌리고 요약만 출력한다", async () => {
+    const refillAux = vi.fn<IngestOnlyDeps["refillAux"]>(async () => ({
+      checked: 5,
+      refilled: 3,
+      incomplete: 1,
+      closed: 1,
+      conflicted: 0,
+      calls: 12,
+      stoppedBy: "QUOTA",
+      failures: { "g2b-bid-region:API_HTTP_ERROR": 1 },
+    }));
+    const { deps } = testDeps({ refillAux });
+    await runIngestOnly(["--refill-aux", "--limit", "300"], liveEnv, deps);
+    expect(refillAux.mock.calls).toEqual([[liveEnv, 300]]);
+    expect(deps.log.mock.calls.flat().join("\n")).toContain(
+      "checked=5 refilled=3 incomplete=1 closed=1 conflicted=0 calls=12 stoppedBy=QUOTA failures=g2b-bid-region:API_HTTP_ERROR=1",
+    );
+    expect(deps.exit).toHaveBeenCalledWith(0);
+    expect(fake.schedulers.size).toBe(0);
+    expect(fake.workers).toEqual([]);
+  });
+
+  it("--refill-aux 가 예산 저장소 장애로 멈추면 exit 1", async () => {
+    const refillAux = vi.fn<IngestOnlyDeps["refillAux"]>(async () => ({
+      checked: 2,
+      refilled: 0,
+      incomplete: 0,
+      closed: 0,
+      conflicted: 0,
+      calls: 0,
+      stoppedBy: "QUOTA_UNAVAILABLE",
+      failures: {},
+    }));
+    const { deps } = testDeps({ refillAux });
+    await runIngestOnly(["--refill-aux", "--limit", "2"], liveEnv, deps);
+    expect(deps.exit).toHaveBeenCalledWith(1);
   });
 
   it("--once 가 Redis 오류로 실패하면 오류 이름·코드만 남기고 접속 주소는 찍지 않는다", async () => {
