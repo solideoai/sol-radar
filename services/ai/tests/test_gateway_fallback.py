@@ -1,11 +1,11 @@
 """G6: AI_FAULT_INJECT 장애 대체(03 §3·§8·§9, K3·K4·K9).
 
 값 5개: kev_timeout·qwen_error·qwen_unreachable·kev_unreachable·gateway_down. AI_PROVIDER=mock 에서만 유효.
-개별 실패는 HTTP 200 본문으로, gateway_down 만 /extract·/kev·/explain 에 503 {"errorCode","message"}.
+개별 실패는 HTTP 200 본문으로, gateway_down 만 /extract·/kev·/explain·/insight 에 503 {"errorCode","message"}.
 """
 
 import pytest
-from support import KEV_ASSIST_KEYS, explain_request, extract_request, kev_request
+from support import KEV_ASSIST_KEYS, explain_request, extract_request, insight_request, kev_request
 
 FAULTS = ("kev_timeout", "qwen_error", "qwen_unreachable", "kev_unreachable", "gateway_down")
 PDF_BYTES = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
@@ -75,6 +75,7 @@ def test_g6_kev_fault_leaves_only_disclaimer_in_assist(make_client, monkeypatch,
         ("/extract", lambda: extract_request("FX-01")),
         ("/kev", lambda: kev_request("FX-01")),
         ("/explain", explain_request),
+        ("/insight", insight_request),
     ],
 )
 def test_g6_gateway_down_returns_503_ai_unavailable(make_client, monkeypatch, path, build):

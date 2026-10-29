@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.contracts import ExtractRequest, InsightRequest, KevRequest
 from sol_ai.deadline import Deadline
 
 
@@ -67,6 +67,16 @@ class TranslationAdapter(Protocol):
     def translate(self, values: dict[str, str], *, deadline: Deadline) -> str: ...
 
 
+@runtime_checkable
+class InsightAdapter(Protocol):
+    """추천 분석(POST /insight). 모델 원문 JSON 을 돌려준다. 검증·템플릿 대체는 sol_ai.insight 가 한다.
+
+    미접속은 ModelUnavailable, 응답했지만 쓸 수 없으면 ExtractionFailed. hosted(UnavailableQwen)는 이 기능이 없다.
+    """
+
+    def insight(self, request: InsightRequest, *, deadline: Deadline) -> str: ...
+
+
 @dataclass(frozen=True)
 class KevReply:
     """Kev wire 응답 본문과 응답 헤더의 요청 id(x-typesafe-request-id)."""
@@ -104,5 +114,5 @@ class Adapters:
     qwen: QwenAdapter
     # KEV_ENABLED=false 면 None
     kev: KevClient | None
-    # AI_FAULT_INJECT=gateway_down(mock 전용): /extract·/kev·/explain 이 503 AI_UNAVAILABLE
+    # AI_FAULT_INJECT=gateway_down(mock 전용): /extract·/kev·/explain·/insight 가 503 AI_UNAVAILABLE
     gateway_down: bool = False

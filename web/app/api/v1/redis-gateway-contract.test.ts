@@ -2,23 +2,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FAKE_SUPABASE_URL,
   FAKE_USERS,
+  ORG_01,
   fakeRequest,
   fakeSession,
   resetFakeSession,
 } from "@/app/api/v1/_lib/fake-session";
+import type { InsightRequestDeps } from "@/server/insight";
 import { POST as requestAnalysis } from "./bids/[id]/analyses/route";
+import {
+  GET as readInsightRoute,
+  POST as requestInsightRoute,
+} from "./bids/[id]/analyses/[runId]/insight/route";
 import { POST as requestIngestion } from "./admin/ingestion/runs/route";
 import { GET as getAnalysis } from "./analyses/[id]/route";
 import { GET as getAdminAiStatus } from "./admin/ai/status/route";
 import { GET as getManualGate } from "./admin/ingestion/manual-gate/route";
 
-const { tcpDeps, authGate } = vi.hoisted(() => ({
+const { tcpDeps, authGate, insightDeps } = vi.hoisted(() => ({
   authGate: { wait: null as Promise<void> | null },
   tcpDeps: vi.fn(() => {
     throw new Error("frontend must not construct local queue dependencies");
   }),
+  insightDeps: vi.fn<() => InsightRequestDeps>(() => {
+    throw new Error("시험이 insightDeps 를 정하지 않았다");
+  }),
 }));
 vi.mock("@/app/_lib/work-deps", () => ({ workDeps: tcpDeps }));
+vi.mock("@/app/_lib/insight-deps", () => ({ insightDeps }));
 vi.mock("@/app/_lib/ingestion-deps", () => ({ ingestionDeps: tcpDeps }));
 vi.mock("next/headers", async () => (await import("./_lib/fake-session")).fakeNextHeaders);
 vi.mock("@supabase/ssr", async () => {
@@ -431,5 +441,126 @@ describe("company API authenticates before business work", () => {
     );
     expect(result.status).toBe(401);
     expect(tcpDeps).not.toHaveBeenCalled();
+  });
+});
+
+// 추천 분석(ADR-066): POST 만 회사 API 로 중계하고, GET 은 어느 역할이든 사용자 세션(RLS)으로 직접 읽는다.
+describe("recommendation insight: POST relay, GET on RLS", () => {
+  const INSIGHT = "d1000000-0000-4000-8000-000000000001";
+  const INSIGHT_PATH = `/api/v1/bids/${BID}/analyses/${RUN}/insight`;
+  const params = { params: Promise.resolve({ id: BID, runId: RUN }) };
+  const insightRow = {
+    id: INSIGHT,
+    org_id: ORG_01,
+    score_run_id: RUN,
+    status: "PENDING",
+    source: null,
+    payload: null,
+    fallback_reason: null,
+    model_name: null,
+    error_code: null,
+    created_at: "2026-10-29T01:00:00.000Z",
+    finished_at: null,
+  };
+
+  it("frontend relays the POST to the company handler, which queues a PENDING row, and returns its 202", async () => {
+    fakeSession.cookie = FAKE_USERS.analyst.token;
+    const enqueue = vi.fn(async () => undefined);
+    insightDeps.mockImplementation(() => ({
+      repo: {
+        findRun: async () => ({ id: RUN, bidId: BID, status: "COMPLETED" }),
+        latestInsight: async () => null,
+        insertPending: async () => INSIGHT,
+      },
+      enqueue,
+      limiter: { hit: async () => ({ allowed: true }) },
+      onInfraError: () => undefined,
+    }));
+    const send = vi.fn<typeof fetch>(async (url, init) => {
+      expect(url).toBe(`https://acropolissg.com/redis${INSIGHT_PATH}`);
+      const headers = new Headers(init?.headers);
+      expect(headers.get("authorization")).toBe(`Bearer ${FAKE_USERS.analyst.token}`);
+      expect(headers.get("x-sol-service-token")).toBe(TOKEN);
+      expect(headers.has("cookie")).toBe(false);
+      vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+      return requestInsightRoute(
+        fakeRequest(INSIGHT_PATH, { method: "POST", headers: init?.headers, body: init?.body }),
+        params,
+      );
+    });
+    vi.stubGlobal("fetch", send);
+    const response = await requestInsightRoute(
+      fakeRequest(INSIGHT_PATH, {
+        method: "POST",
+        headers: { "X-Requested-With": "sol-radar", cookie: "private-refresh-cookie" },
+      }),
+      params,
+    );
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({
+      insightId: INSIGHT,
+      status: "PENDING",
+      deduplicated: false,
+      pollUrl: INSIGHT_PATH,
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+    // frontend 는 Redis 의존성을 만들지 않는다. 회사 handler 만 한 번 만든다.
+    expect(insightDeps).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledWith({ insightId: INSIGHT, orgId: ORG_01 });
+    expect(tcpDeps).not.toHaveBeenCalled();
+  });
+
+  it.each(["frontend", "standalone"])(
+    "%s reads the insight GET for a read-only role with the cookie session, without the company API",
+    async (role) => {
+      vi.stubEnv("SOL_DEPLOYMENT_ROLE", role);
+      fakeSession.cookie = FAKE_USERS.viewer.token;
+      fakeSession.tables = {
+        score_runs: [{ id: RUN, org_id: ORG_01, bid_id: BID, status: "COMPLETED" }],
+        recommendation_insights: [insightRow],
+      };
+      const send = vi.fn();
+      vi.stubGlobal("fetch", send);
+      const response = await readInsightRoute(fakeRequest(INSIGHT_PATH), params);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        insight: {
+          id: INSIGHT,
+          scoreRunId: RUN,
+          status: "PENDING",
+          source: null,
+          payload: null,
+          fallbackReason: null,
+          modelName: null,
+          errorCode: null,
+          createdAt: "2026-10-29T01:00:00.000Z",
+          finishedAt: null,
+        },
+      });
+      // 다른 공고 경로로 같은 run 을 물으면 404 다.
+      const otherBid = "b1000000-0000-4000-8000-000000000002";
+      const mismatch = await readInsightRoute(
+        fakeRequest(`/api/v1/bids/${otherBid}/analyses/${RUN}/insight`),
+        { params: Promise.resolve({ id: otherBid, runId: RUN }) },
+      );
+      expect(mismatch.status).toBe(404);
+      expect(send).not.toHaveBeenCalled();
+      expect(insightDeps).not.toHaveBeenCalled();
+    },
+  );
+
+  it("the company API does not serve the insight GET", async () => {
+    vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+    const response = await readInsightRoute(
+      fakeRequest(INSIGHT_PATH, {
+        headers: {
+          "X-Sol-Service-Token": TOKEN,
+          Authorization: `Bearer ${FAKE_USERS.viewer.token}`,
+        },
+      }),
+      params,
+    );
+    expect(response.status).toBe(404);
+    expect(insightDeps).not.toHaveBeenCalled();
   });
 });

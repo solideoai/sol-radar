@@ -2223,6 +2223,69 @@ export type Database = {
           },
         ]
       }
+      recommendation_insights: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          fallback_reason: string | null
+          finished_at: string | null
+          id: string
+          model_name: string | null
+          org_id: string
+          payload: Json | null
+          prompt_hash: string | null
+          requested_by: string
+          score_run_id: string
+          source: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          fallback_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          model_name?: string | null
+          org_id: string
+          payload?: Json | null
+          prompt_hash?: string | null
+          requested_by?: string
+          score_run_id: string
+          source?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          fallback_reason?: string | null
+          finished_at?: string | null
+          id?: string
+          model_name?: string | null
+          org_id?: string
+          payload?: Json | null
+          prompt_hash?: string | null
+          requested_by?: string
+          score_run_id?: string
+          source?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_insights_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_insights_score_run_fkey"
+            columns: ["score_run_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "score_runs"
+            referencedColumns: ["id", "org_id"]
+          },
+        ]
+      }
       requirement_assessments: {
         Row: {
           basis: string

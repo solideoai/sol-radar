@@ -53,7 +53,7 @@ updated: 2026-10-29
 |ADR-031|정본 반영 2차 C1~C16|채택|2026-10-19|본문(한 줄)|
 |ADR-032|정본 반영 3차 D1~D9·사실 정정 F1~F8|채택|2026-10-19|본문(한 줄)|
 |ADR-033|정본 반영 4차 E1~E11|채택 (E1은 ADR-055 제안이 개정을 요청)|2026-10-20|본문(한 줄)|
-|ADR-034|결정 모델 Bosun v3.1 0.6B, 추출·설명은 회사 운영 vLLM API(지금 `Qwen3.8-Flash-Next-AWQ-INT4`)|채택 (ADR-027 폐기, ADR-012·020·023·025 개정. 12·17번 일정은 ADR-054·057로 지움)|2026-10-20|본문|
+|ADR-034|결정 모델 Bosun v3.1 0.6B, 추출·설명은 회사 운영 vLLM API(지금 `Qwen3.8-Flash-Next-AWQ-INT4`)|채택 (ADR-027 폐기, ADR-012·020·023·025 개정. 12·17번 일정은 ADR-054·057로 지움. 10번 PaddleOCR 공유는 ADR-066으로 개정)|2026-10-20|본문|
 |ADR-035|정본 반영 5차 F1~F13|채택|2026-10-20|본문(한 줄)|
 |ADR-036|정본 반영 6차 1단계 G1~G20|채택|2026-10-20|본문(한 줄)|
 |ADR-037|데모 강화 컷: BOOST-2 가정 재계산(ADR-023 개정)|채택 (데모 장면은 ADR-059로 개정: S3 FX-03 → S4 FX-02)|2026-10-20|본문|
@@ -85,6 +85,25 @@ updated: 2026-10-29
 |ADR-063|본부·그룹 직속 직원 허용과 운영 조직도 인원 재배치(ADR-021 직원 소속 조항 개정)|채택|2026-10-28|본문|
 |ADR-064|추출 입력 첨부 조립 v0.2: 조각 나누기·문서마다 돌아가며 채우기·같은 문서 한 벌(`req-extract/v0.2`)|채택|2026-10-28|본문|
 |ADR-065|번역 검증의 비교 표현 넓히기와 누락 사유 로그(ADR-034 영어 state 원칙 유지)|채택|2026-10-29|본문|
+|ADR-066|버튼으로 부르는 추천 분석(Qwen 설명)·Bosun 인력 입력·연 1회 재학습 구조(ADR-034 GPU 조항 개정)|채택|2026-10-29|본문|
+
+## ADR-066 버튼으로 부르는 추천 분석(Qwen 설명)·Bosun 인력 입력·연 1회 재학습 구조
+
+**채택 (2026-10-29 사용자: "다 추천대로 하자").** 스펙은 `polaris/specs/in-progress/2026-10-29-recommendation-insight.md`, 계획은 [[2026-10-29-recommendation-insight|단계 계획]]이다.
+
+- **계기**: 사용자 원래 계획은 회사 자료(가상 인력 200명·솔리데오 기술·과거 수행 사업)로 Bosun 을 파인튜닝해 공고 적합도를 보고, Qwen 이 "왜 추천하는지·강점·보완할 점"을 설명하는 것이었다. 하지만 지금 설명은 `/explain` 템플릿 문장뿐이다. 회사 자료는 규칙 엔진 입력에는 있지만 설명에는 쓰이지 않는다.
+- **결정**:
+  1. **판정은 규칙 엔진이 한다.** Bosun 은 참고 의견(검토 플래그)으로만 보인다(ADR-034 2번 유지). Qwen 설명은 판정 이름(추천·보류·비추천·`BID`·`WATCH`·`NO_BID`)을 다시 쓰지 않는다.
+  2. **Qwen 은 버튼을 눌렀을 때만 부른다.** 분석된 모든 공고(추천·보류·비추천)의 상세 화면에 [추천 분석]을 둔다. 결과는 분석 run 마다 `recommendation_insights` 에 저장한다. 분석 job 의 `/explain`·`score_runs.explanation` 은 그대로다.
+  3. **흐름은 분석과 같은 비동기다.** Vercel relay 는 15초 안에 끝나야 하고 202 만 성공으로 받기 때문이다. 화면 POST → redis-api 가 PENDING 행과 BullMQ `insight` job → Analysis Worker 가 gateway `POST /insight` → DONE(MODEL·TEMPLATE)·FAILED. 화면 GET 은 RLS 로 직접 읽는다.
+  4. **모델 출력은 검증한다.** 모양·글자 수, 없는 근거 번호, 금지어, 다른 판정 이름, 입력에 없는 숫자 중 하나라도 걸리면 규칙 결과로 만든 문장(TEMPLATE)으로 대체하고 화면에 표시한다. 로그에 프롬프트·모델 출력을 남기지 않는다.
+  5. **인력은 학습하지 않고 입력으로 넣는다.** 인력은 자주 바뀌기 때문이다. Bosun 요청의 `profileSummary.staffAvailability` 를 규칙 엔진 인력 요소(K6)와 같은 기간·가용 FTE 로 채운다. 추천 분석 요청의 `company.staff` 도 같은 값이다.
+  6. **과거 수행 사업은 연 1회 재학습한다.** 최종 결정 기록이 200건 쌓이면 수동으로도 돌린다. 구조는 [[21-MODEL-TRAINING|21]] §5.7 이고 구현은 발표 뒤다. 해커톤 전에는 Bosun 을 재학습하거나 교체하지 않는다.
+  7. **PaddleOCR 공유 전제를 지운다(ADR-034 10번 개정).** SOL RADAR 는 회사 PaddleOCR 을 쓰지 않는다(사용자). 회사 컨테이너는 우리 것이 아니므로 멈추거나 옮기지 않는다. GPU 1 학습·서빙 전에 메모리를 확인하는 것만 남긴다.
+- **선택지(1·2·5)**: Bosun 파인튜닝을 지금 하는 안은 해커톤 일정·GPU 승인·라벨 수 때문에 로드맵으로 미뤘다. 분석마다 Qwen 을 부르는 안은 회사 GPU 를 계속 쓰고 분석이 느려져 버렸다. 판정을 Bosun 에 맡기는 안은 ADR-034 2번과 맞지 않아 버렸다.
+- **바뀌지 않는 것**: 점수·권고·필수 자격 계산, 골든 시험, `/explain`·`/health` 응답 모양, 추출 `promptHash`(`fa2ff603…`), 유료 hosted 모델 금지, service role 은 worker 만.
+- **영향**: Bosun 의 실제 state·출력은 STAFF 줄이 생겨 바뀔 수 있다(골든 점수는 그대로). 추천 분석의 `promptHash` 는 `insight/v0.1`(`cfeb7328…`)로 추출과 따로다.
+- **반영**: 표 `supabase/migrations/20261029000100_recommendation_insights.sql`([[04-DATABASE|04]]), 경로 `/api/v1/bids/{bidId}/analyses/{runId}/insight`([[05-API-SPEC|05]]), gateway `/insight`([[03-AI-PIPELINE|03]]·[[15-DATA-CONTRACTS|15]]), 화면 패널([[06-UI-UX|06]]).
 
 ## ADR-065 번역 검증의 비교 표현 넓히기와 누락 사유 로그
 
@@ -648,7 +667,7 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 7. **학습(추가 지시 1·2·4, Q5)**: Bosun 공개 LoRA(r=16, 7모듈 × 28층 = 392 텐서, 10,092,544 파라미터)를 이어 학습하고 decision token 임베딩(256행 입·출력)·백본·토크나이저는 초기 단계에서 동결한다. 손실은 `render_decision_prompt` → `decision_logits`의 후보 슬롯에 대한 CE(soft target 허용), 에폭마다 제시 순서 seed를 바꾼다. 데이터는 `EvalItem`·`kev-qs/v0.2`에서 변환한 질문 단위 레코드(계획 §4.2 형식)이고 22 §4.1 라벨 원칙(구성·규칙 실버는 train만·사람 라벨·유료 LLM 라벨 금지·누수 0)을 따른다. 회사 서버의 `datasets/decision/smoke.jsonl` 6건은 기능 검증 데이터로만 두고 성능 증거로 쓰지 않는다. F3는 dev 분할로 온도 보정(`calibration.json`, 21 §4.4 ECE 목표)만 하고 τ 0.7·`thresholds.v0.1.json` 변경은 별도 결정이다. E4 기준선 E1'은 공개 Bosun zero-shot, 같은 test 세트, 서버 안 오프라인 `sol_eval.bosun_score`(seed 0~5로 순서 민감도), 짝 부트스트랩 Δ 95% CI. Kev-9B 비교는 범위 밖.
 8. **Qwen(Q6, 같은 날 저녁 개정)**: **Qwen 파인튜닝은 하지 않는다.** 처음 안(Qwen 4B를 EX0 뒤 조건부 QLoRA)은 회사 운영 Qwen3.5-27B API 재사용 결정으로 철회했다. EX0는 회사 API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율)으로만 남기고 EX1은 없다. 회사 vLLM이 guided JSON(`response_format json_schema`)과 E3용 `prompt_logprobs`를 지원하는지는 B2에서 확인한다(미검증). 추출·설명 학습 데이터 계약 설계는 후속 과제로만 남긴다.
 9. **데모(Q7)**: 데모·S-LIVE 초기 모델은 공개 Bosun v3.1 0.6B. 학습본은 같은 평가셋에서 명확한 개선(Δ CI가 0을 배제)과 회귀 안정성(dev·regression)을 보이고 **사용자 승인**을 받은 뒤에만 교체한다. regression(망각 확인) 세트는 **① 내부 dev 세트가 기본**이다(사용자 결정 2026-10-20). 단 dev 만으로 "Bosun 의 일반 Decision 능력이 망각되지 않았다"고 주장하지 않는다(리포트에 그렇게 적는다). DecisionBench 공개 평가 분할(`Hanno-Labs/decision-bench`, 라이선스 `other`)은 라이선스·우리 데이터와의 중복·재배포 조건을 확인한 뒤 **보조 평가**로 더할 수 있게 `sol_eval.bosun_score` 에 외부 suite 입력 자리만 설계해 둔다(B1, 실행은 별도 승인). Kev 때의 `decision-v7` replay 는 쓰지 않는다. 사업 단위 train/dev/test 분할과 유사 문서 중복 제거는 그대로 유지한다. `mock` 본편은 불변. S-LIVE 칩은 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"였다. 지금 칩은 레지스트리 `run` 값(`Qwen3.8-Flash-Next-AWQ-INT4`)이다.
-10. **GPU·운영 안전(추가 지시 4·5)**: 물리 GPU 1(A40 46,068 MiB)은 회사 PaddleOCR vLLM 서비스(2026-10-20 사용자 보고 약 9,167 MiB)와 **공유**한다. GPU 1에 올리는 우리 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습뿐이다(Qwen은 회사 API). "GPU 1 전용"·"5 MiB" 문구는 정정한다(2026-10-20 오전 스냅샷은 기록으로 남긴다). GPU 0·2 사용 금지, 어떤 프로세스도 종료·이동하지 않는다. GPU 학습·모델 서빙 시작·nginx 변경·배포는 사용자 승인 전까지 하지 않는다. `infra/gpu/kev-preflight.sh`·`kev-f1.sh`는 보존하고 Bosun 전용 preflight·학습 스크립트(`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, venv `.venv-bosun`)를 따로 둔다. `.venv-qwen`과 Qwen 4B 다운로드는 중단(백업). 메모리 계획(추정)은 계획 §8이고 F1 실측으로 확정한다.
+10. **GPU·운영 안전(추가 지시 4·5)**: (2026-10-29 ADR-066 개정: SOL RADAR 는 회사 PaddleOCR 을 쓰지 않으므로 아래 "공유" 전제를 지운다. 회사 컨테이너는 멈추거나 옮기지 않고, GPU 1 학습·서빙 전에 `nvidia-smi` 로 메모리를 확인한다. 아래는 2026-10-20 원문이다.) 물리 GPU 1(A40 46,068 MiB)은 회사 PaddleOCR vLLM 서비스(2026-10-20 사용자 보고 약 9,167 MiB)와 **공유**한다. GPU 1에 올리는 우리 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습뿐이다(Qwen은 회사 API). "GPU 1 전용"·"5 MiB" 문구는 정정한다(2026-10-20 오전 스냅샷은 기록으로 남긴다). GPU 0·2 사용 금지, 어떤 프로세스도 종료·이동하지 않는다. GPU 학습·모델 서빙 시작·nginx 변경·배포는 사용자 승인 전까지 하지 않는다. `infra/gpu/kev-preflight.sh`·`kev-f1.sh`는 보존하고 Bosun 전용 preflight·학습 스크립트(`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, venv `.venv-bosun`)를 따로 둔다. `.venv-qwen`과 Qwen 4B 다운로드는 중단(백업). 메모리 계획(추정)은 계획 §8이고 F1 실측으로 확정한다.
 11. **증거 보존(추가 지시 6)**: `docs/evidence/`의 Kev 기록(`kev-train-feasibility.md`, phase-5 등)은 삭제·개서하지 않는다. Bosun 결과는 새 파일(`docs/evidence/bosun-train-feasibility.md`, `docs/evidence/eval/e4-<일시>.md`)에 쓴다.
 12. **일정(추가 지시 7)**: 학습·채점 날짜 일정은 지난 일정이라 지웠다(ADR-054·057). X6 학습·채점의 실행 여부는 미결정이다(ADR-054 §4). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-034 상세" 12번.
 13. **롤백**: `retired`·`backup` 항목과 env 값 3개(`KEV_MODEL_ID`·`QWEN_BASE_URL`·`QWEN_MODEL`), 8009 런타임만 바꾸면 이전 구성으로 돌아간다. 코드 경로는 공통이다.

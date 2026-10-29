@@ -598,3 +598,69 @@ describe("manual ingestion gate relay", () => {
     expect(result.headers.get("retry-after")).toBe(status === 429 ? "2400" : null);
   });
 });
+
+// 추천 분석 요청(ADR-066): POST 만 중계하고 202 본문은 insightAcceptedSchema 로 거른다.
+describe("recommendation insight relay", () => {
+  const INSIGHT = "d1000000-0000-4000-8000-000000000001";
+  const INSIGHT_PATH = `/api/v1/bids/b1000000-0000-4000-8000-000000000001/analyses/${RUN}/insight`;
+  const insightRequest = () =>
+    new Request(`https://app.invalid${INSIGHT_PATH}`, { method: "POST", body: "" });
+  const insightAccepted = (extra: object = {}) =>
+    Response.json(
+      {
+        insightId: INSIGHT,
+        status: "PENDING",
+        deduplicated: false,
+        pollUrl: INSIGHT_PATH,
+        ...extra,
+      },
+      { status: 202 },
+    );
+
+  it("relays the POST with JWT and service token and returns the accepted body", async () => {
+    const send = vi.fn<typeof fetch>(async () => insightAccepted({ secret: "must-not-return" }));
+    const result = await relayRedisApi(insightRequest(), INSIGHT_PATH, {
+      env,
+      send,
+      accessToken,
+    });
+    expect(result.status).toBe(202);
+    expect(await result.json()).toEqual({
+      insightId: INSIGHT,
+      status: "PENDING",
+      deduplicated: false,
+      pollUrl: INSIGHT_PATH,
+    });
+    const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://acropolissg.com/redis${INSIGHT_PATH}`);
+    expect(init.method).toBe("POST");
+    expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${USER_TOKEN}`);
+  });
+
+  it.each([
+    () => insightAccepted({ pollUrl: "https://evil.invalid/leak" }),
+    () => insightAccepted({ insightId: TOKEN }),
+    () => insightAccepted({ status: "QUEUED" }),
+    // 분석 요청의 202 본문은 추천 분석 요청의 성공이 아니다.
+    () => accepted(),
+  ])("fails closed when the 202 body is not an insight acceptance", async (response) => {
+    const result = await relayRedisApi(insightRequest(), INSIGHT_PATH, {
+      env,
+      accessToken,
+      send: async () => response(),
+    });
+    expect(result.status).toBe(503);
+    expect(await result.text()).not.toContain(TOKEN);
+  });
+
+  it("never relays the insight GET", async () => {
+    const send = vi.fn();
+    const result = await relayRedisApi(
+      new Request(`https://app.invalid${INSIGHT_PATH}`),
+      INSIGHT_PATH,
+      { env, send, accessToken },
+    );
+    expect(result.status).toBe(404);
+    expect(send).not.toHaveBeenCalled();
+  });
+});

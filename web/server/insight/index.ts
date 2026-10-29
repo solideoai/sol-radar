@@ -30,3 +30,14 @@ export type {
   InsightStatus,
   InsightView,
 } from "./insight.model";
+export { getInsight, readInsight, requestInsight } from "./insight.service";
+export { insightRepo } from "./insight.repo";
+export type {
+  InsightContext,
+  InsightRateLimiter,
+  InsightReadResult,
+  InsightRepo,
+  InsightRequestDeps,
+  InsightRequestResult,
+  InsightRunRef,
+} from "./insight-request.model";

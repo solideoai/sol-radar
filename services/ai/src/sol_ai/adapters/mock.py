@@ -17,9 +17,10 @@ from sol_ai.adapters.base import (
     ModelOutput,
     ModelUnavailable,
 )
-from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.contracts import ExtractRequest, InsightRequest, KevRequest
 from sol_ai.deadline import Deadline
 from sol_ai.errors import StartupRefused
+from sol_ai.insight import template_insight
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.question_sets import (
     Q_FIT,
@@ -148,6 +149,14 @@ class MockQwen:
         if not isinstance(model_block, dict):
             raise ExtractionFailed("mock fixture has no model block")
         return ModelOutput(text, model_block=model_block)
+
+    def insight(self, request: InsightRequest, *, deadline: Deadline) -> str:
+        # 템플릿 내용을 모델 응답처럼 돌려준다. 경로는 local 과 같은 검증을 거친다(스펙 §4.3). 장애 주입은 extract 와 같다
+        if self._fault == FAULT_QWEN_ERROR:
+            raise ExtractionFailed("fault injected: qwen_error")
+        if self._fault == FAULT_QWEN_UNREACHABLE:
+            raise ModelUnavailable("fault injected: qwen_unreachable")
+        return template_insight(request).model_dump_json()
 
 
 # ---------------------------------------------------------------- Kev

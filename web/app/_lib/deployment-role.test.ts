@@ -102,4 +102,17 @@ describe("deployment boundary", () => {
       expect(redisApiOperation(method, path)).toBeNull();
     }
   });
+  it("allows the recommendation insight request only as an exact POST — GET reads stay on RLS", () => {
+    const path =
+      "/api/v1/bids/b1000000-0000-4000-8000-000000000001/analyses/c1000000-0000-4000-8000-000000000001/insight";
+    expect(redisApiOperation("POST", path)).toBe("insight-submit");
+    for (const [method, candidate] of [
+      ["GET", path],
+      ["POST", `${path}/`],
+      ["POST", `${path}/retry`],
+      ["POST", path.replace("c1000000-0000-4000-8000-000000000001", "latest")],
+    ] as const) {
+      expect(redisApiOperation(method, candidate)).toBeNull();
+    }
+  });
 });

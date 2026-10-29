@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { insightStatusSchema } from "@/server/insight";
 import {
   EXTERNAL_SOURCE_KEYS,
   SOURCE_READINESS_STATES,
@@ -14,6 +15,15 @@ export const analysisAcceptedSchema = z
     pollUrl: z.string(),
   })
   .refine((value) => value.pollUrl === `/api/v1/analyses/${value.analysisId}`);
+
+// 추천 분석 요청 202(@/server/insight InsightAccepted). pollUrl 은 같은 경로의 GET 이다.
+const INSIGHT_POLL_URL = /^\/api\/v1\/bids\/[0-9a-fA-F-]{36}\/analyses\/[0-9a-fA-F-]{36}\/insight$/;
+export const insightAcceptedSchema = z.object({
+  insightId: z.uuid(),
+  status: insightStatusSchema,
+  deduplicated: z.boolean(),
+  pollUrl: z.string().regex(INSIGHT_POLL_URL),
+});
 
 const count = z.number().int().nonnegative();
 const externalServiceKey = z.enum(EXTERNAL_SOURCE_KEYS);
