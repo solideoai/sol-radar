@@ -2268,6 +2268,49 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         0,
       );
     });
+    it("모델 설명(DONE·MODEL)이 있는 run 에는 화면 역할이 PENDING 을 직접 넣지 못한다 — DONE·TEMPLATE(INJECTION_SUSPECTED 포함)·FAILED 뒤에는 넣는다 (20261029000200)", async (t) => {
+      const db = await solDb(t);
+      // 시드의 DONE·TEMPLATE 뒤.
+      await as(db, "analyst");
+      const [first] = await requestInsight(db);
+      assert.equal(
+        await close(
+          db,
+          first.id,
+          `status = 'DONE', source = 'TEMPLATE', payload = '${INSIGHT_PAYLOAD}', fallback_reason = 'INJECTION_SUSPECTED', prompt_hash = 'p-2', finished_at = now()`,
+        ),
+        1,
+      );
+      await as(db, "sales");
+      const [second] = await requestInsight(db);
+      assert.equal(
+        await close(
+          db,
+          second.id,
+          "status = 'FAILED', error_code = 'GATEWAY_UNAVAILABLE', finished_at = now()",
+        ),
+        1,
+      );
+      await as(db, "admin");
+      const [third] = await requestInsight(db);
+      assert.equal(
+        await close(
+          db,
+          third.id,
+          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', model_name = 'qwen', prompt_hash = 'p-3', finished_at = now()`,
+        ),
+        1,
+      );
+      // 정책이 같은 표를 읽으면 재귀라 제외 제약이 막는다(23P01).
+      for (const who of ["admin", "sales", "analyst"]) {
+        await as(db, who);
+        await assert.rejects(requestInsight(db), (error) => {
+          assert.equal(error.code, "23P01", who);
+          assert.match(error.message, /recommendation_insights_pending_or_model_once/);
+          return true;
+        });
+      }
+    });
   });
 
   describe("입찰 프로젝트 — 핵심 저장·권한·원자성", () => {

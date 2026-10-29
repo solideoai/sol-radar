@@ -12,7 +12,7 @@ describe("createInsightQueue", () => {
     expect(addJob).toHaveBeenCalledWith(
       "explain",
       { insightId: INSIGHT, orgId: ORG },
-      { attempts: 1, removeOnComplete: true, removeOnFail: 100, jobId: `insight-${INSIGHT}` },
+      { attempts: 1, removeOnComplete: true, removeOnFail: true, jobId: `insight-${INSIGHT}` },
     );
     await expect(enqueue({ insightId: "not-a-uuid", orgId: ORG })).rejects.toThrow();
     expect(addJob).toHaveBeenCalledTimes(1);

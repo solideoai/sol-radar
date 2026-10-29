@@ -15,7 +15,9 @@ import {
 // org_id 를 조건에 적어 화면이 확인한 지금 조직 하나로 좁힌다(M17).
 
 const UNIQUE_VIOLATION = "23505";
+const EXCLUSION_VIOLATION = "23P01";
 const ONE_PENDING = "recommendation_insights_one_pending";
+const PENDING_OR_MODEL_ONCE = "recommendation_insights_pending_or_model_once";
 const INSIGHT_COLUMNS =
   "id, score_run_id, status, source, payload, fallback_reason, model_name, error_code, created_at, finished_at";
 
@@ -87,7 +89,10 @@ export const insightRepo: InsightRepo = {
       .select("id")
       .single();
     if (error) {
+      // 같은 run 에 PENDING 이 있거나(23505) 모델 설명이 이미 있다(23P01). 서비스가 그 행을 다시 읽는다.
       if (error.code === UNIQUE_VIOLATION && error.message.includes(ONE_PENDING)) return null;
+      if (error.code === EXCLUSION_VIOLATION && error.message.includes(PENDING_OR_MODEL_ONCE))
+        return null;
       throw error;
     }
     return data.id;

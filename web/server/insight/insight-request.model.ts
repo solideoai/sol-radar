@@ -16,7 +16,7 @@ export type InsightRepo = {
   findRun(orgId: string, runId: string): Promise<InsightRunRef | null>;
   /** 그 run 의 가장 최근 요청 1건. 없으면 null. */
   latestInsight(orgId: string, runId: string): Promise<InsightView | null>;
-  /** PENDING 행을 넣고 id 를 돌려준다. 같은 run 에 PENDING 이 이미 있으면(유일 위반) null. */
+  /** PENDING 행을 넣고 id 를 돌려준다. 같은 run 에 PENDING·모델 설명이 이미 있으면(유일·제외 위반) null. */
   insertPending(orgId: string, runId: string): Promise<string | null>;
 };
 
