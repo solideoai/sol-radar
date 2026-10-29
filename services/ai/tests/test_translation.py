@@ -2,6 +2,7 @@
 
 import copy
 import json
+import logging
 import time
 
 import pytest
@@ -56,6 +57,10 @@ SOURCES = {
         }
     ],
 }
+
+
+JV_COUNT = "공동수급체 구성원 2개사 이하"
+JV_SHARE = "공동수급체 구성원별 최소 지분율 10% 이상"
 
 
 def korean_extraction():
@@ -115,6 +120,17 @@ def test_company_paths_and_qualification_detail_reach_state():
         ("개발자", "개발자"),
         ("개발자", ""),
         ("개발자", "Developer 99"),
+        # 넓힌 비교 표현(2026-10-29)도 숫자·방향·결속은 그대로 본다.
+        (JV_COUNT, "Joint venture members: at most 3 companies"),
+        (JV_COUNT, "Joint venture of at least 2 member companies"),
+        (JV_COUNT, "Joint venture of 2 or more member companies"),
+        (JV_COUNT, "Joint venture members: a few companies or fewer"),
+        (JV_SHARE, "Each member holds a share of up to 10%"),
+        (JV_SHARE, "Each member holds 10% or less"),
+        (JV_SHARE, "Each member must hold a minimum share"),
+        (JV_SHARE, "Minimum share less than 10%"),
+        (JV_SHARE, "Minimum share not 10% for each member"),
+        ("구성원 2개사, 구성원별 지분율 10% 이상", "Minimum share for 2 members of 10%"),
     ],
 )
 def test_invalid_translations_are_rejected(source, candidate):
@@ -123,6 +139,27 @@ def test_invalid_translations_are_rejected(source, candidate):
     from sol_ai.translation import valid_translation
 
     assert not valid_translation(source, candidate, InjectionGuard.load(INJECTION_PATTERNS_FILE))
+
+
+# 2026-10-29 실공고(부경대) restrictions[2]·[3]. 자연스러운 영어 비교 표현을 거부해 Bosun 이 빠졌다.
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        (JV_COUNT, "Up to 2 companies per joint venture"),
+        (JV_COUNT, "Joint venture of 2 or fewer member companies"),
+        (JV_COUNT, "Consortium members: 2 or fewer"),
+        (JV_SHARE, "Minimum share per consortium member: 10% or more"),
+        (JV_SHARE, "Each consortium member must have a minimum equity share of 10% or more"),
+        (JV_SHARE, "Minimum stake of 10% for each joint venture member"),
+        (JV_SHARE, "Joint venture members must each hold a share of 10% or higher"),
+    ],
+)
+def test_natural_comparison_phrasings_are_accepted(source, candidate):
+    from sol_ai.guards import InjectionGuard
+    from sol_ai.paths import INJECTION_PATTERNS_FILE
+    from sol_ai.translation import valid_translation
+
+    assert valid_translation(source, candidate, InjectionGuard.load(INJECTION_PATTERNS_FILE))
 
 
 def test_state_paths_are_collected_from_builder():
@@ -171,6 +208,31 @@ def test_extract_translates_after_validation_without_changing_payload(make_clien
     data = json.loads(translation["messages"][1]["content"])
     assert set(data["values"]) == set(TRANSLATIONS)
     assert "quotedText" not in data
+
+
+def test_unaccepted_paths_log_reason_without_text(make_client, local_models, caplog):
+    caplog.set_level(logging.DEBUG)
+    ext, request = korean_extraction()
+    reply = {k: v for k, v in TRANSLATIONS.items() if k != "staffing[0].role"}
+    reply["restrictions[0]"] = "Joint bidding is allowed"
+    local_models.qwen.route(
+        "POST",
+        COMPLETIONS,
+        Reply(json_body=chat_completion(json.dumps(ext, ensure_ascii=False))),
+        Reply(json_body=chat_completion(json.dumps({"translations": reply}))),
+    )
+    result = make_client(SOL_RUN_MODE="fixture").post("/extract", json=request).json()
+    assert {w for w in result["warnings"] if w.startswith("TRANSLATION_")} == {
+        "TRANSLATION_MISSING:staffing[0].role",
+        "TRANSLATION_MISSING:restrictions[0]",
+    }
+    reasons = {r.getMessage() for r in caplog.records if r.name == "sol_ai.translation"}
+    assert reasons == {
+        "translation path=staffing[0].role reason=ABSENT",
+        "translation path=restrictions[0] reason=REJECTED",
+    }
+    leaked = ["Joint bidding is allowed", "공동수급 불가", "개발자", "Developer"]
+    assert [text for text in leaked if text in caplog.text] == []
 
 
 @pytest.mark.parametrize(

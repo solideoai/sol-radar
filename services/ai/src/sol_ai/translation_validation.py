@@ -27,7 +27,7 @@ UNITS = {
 }
 CONDITIONS = (
     ("이상", r"at least|not less than|no less than|>=|minimum"),
-    ("이하", r"at most|not more than|no more than|<=|maximum"),
+    ("이하", r"at most|not more than|no more than|<=|maximum|up to"),
     ("초과", r"more than|greater than|exceed|>"),
     ("미만", r"less than|fewer than|below|<"),
     ("이내", r"within|no (?:more|later) than|at most"),
@@ -38,6 +38,14 @@ CONDITIONS = (
     ("미보유", r"not held|does not hold|without"),
     ("유효", r"valid"),
 )
+# 숫자 뒤에 오는 비교 표현(2 or fewer, 10% or more). 이상·이하만 있다.
+AFTER_NUMBER = {"이상": r"or (?:more|higher|greater)", "이하": r"or (?:fewer|less)"}
+# 비교어와 숫자 사이의 수식어(minimum share of 10%). 숫자·부정어·다른 비교어는 끼지 못한다.
+GAP_WORD = (
+    r"(?!(?:not|no|never|without|than|less|fewer|more|most|least|up|under|over|below|above"
+    r"|within|exceed\w*|maximum|minimum)(?![\w'-]))[A-Za-z][A-Za-z'-]*"
+)
+MAX_GAP_WORDS = 4
 
 
 def _numbers(text: str) -> Counter:
@@ -52,6 +60,22 @@ def _has_condition(text: str, pattern: str) -> bool:
         if not re.search(r"\b(?:not|no|never|without|no longer)\s+$", prefix, re.IGNORECASE):
             return True
     return False
+
+
+def _bound_comparison(text: str, comparison: str, number: str) -> bool:
+    """비교 표현이 그 숫자에 붙어 있다. 앞(at least 10, minimum share of 10)이나 뒤(10% or more)."""
+    digits = r",?".join(re.escape(c) for c in number.replace(",", ""))
+    before = dict(CONDITIONS)[comparison]
+    gap = rf"(?:{GAP_WORD}\s+){{0,{MAX_GAP_WORDS}}}"
+    patterns = [
+        rf"(?:{before})\s*(?:of\s*)?{digits}(?![\d,])",
+        rf"(?:{before})\s+{gap}{digits}(?![\d,])",
+    ]
+    if comparison in AFTER_NUMBER:
+        patterns.append(
+            rf"(?<![\d,]){digits}(?![\d,])\s*(?:%\s*)?{gap}(?:{AFTER_NUMBER[comparison]})"
+        )
+    return any(_has_condition(text, pattern) for pattern in patterns)
 
 
 def valid_translation(source: str, candidate: object, guard: InjectionGuard) -> bool:
@@ -74,16 +98,17 @@ def valid_translation(source: str, candidate: object, guard: InjectionGuard) -> 
     if not set(IDENTIFIER.findall(source)) <= set(IDENTIFIER.findall(text)):
         return False
     for korean, english in CONDITIONS:
-        if korean in source and not _has_condition(text, english):
+        after = AFTER_NUMBER.get(korean)
+        if korean in source and not _has_condition(
+            text, f"{english}|{after}" if after else english
+        ):
             return False
     # 비교 표현은 해당 숫자에 붙어야 한다. 다른 절의 'at least'로 손실을 숨기지 못하게 한다.
     for match in re.finditer(
         r"(\d[\d,]*(?:\.\d+)?)\s*(?:개월|년|일|건|명|원|%)?\s*(이상|이하|초과|미만|이내)", source
     ):
         number, comparison = match.groups()
-        digits = r",?".join(re.escape(c) for c in number.replace(",", ""))
-        english = dict(CONDITIONS)[comparison]
-        if not _has_condition(text, rf"(?:{english})\s*(?:of\s*)?{digits}(?![\d,])"):
+        if not _bound_comparison(text, comparison, number):
             return False
     # 숫자를 그대로 두고 연수와 건수를 맞바꾸는 출력도 거부한다. 단위 앞에는 숫자 없는 짧은 수식어만 허용한다.
     for match in re.finditer(r"(\d[\d,]*(?:\.\d+)?)\s*(개월|년|일|건|명|원|%|억|만)", source):

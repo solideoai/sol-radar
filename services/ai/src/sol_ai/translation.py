@@ -1,6 +1,7 @@
 """State Builder가 실제 사용하는 한국어 값 수집과 번역 검증. 원문을 수정하지 않는다."""
 
 import json
+import logging
 from dataclasses import dataclass
 
 from jsonschema import Draft202012Validator
@@ -15,6 +16,8 @@ from sol_ai.kev_state import StateBuilder
 from sol_ai.paths import AI_ROOT
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.translation_validation import MAX_VALUE_CHARS, valid_translation
+
+logger = logging.getLogger("sol_ai.translation")
 
 
 def collect_notice_texts(extraction: dict, dictionary: QualificationDictionary) -> dict[str, str]:
@@ -73,6 +76,17 @@ def missing_warnings(sources: dict[str, str], accepted: dict[str, str]) -> list[
     return [f"TRANSLATION_MISSING:{path}" for path in sources if path not in accepted]
 
 
+def log_unaccepted(selected: dict[str, str], candidates: dict, accepted: dict[str, str]) -> None:
+    """보낸 경로가 빠진 이유만 남긴다. ABSENT = 응답에 없음, REJECTED = 검증 거부. 원문·번역문은 남기지 않는다."""
+    for path in selected:
+        if path not in accepted:
+            logger.warning(
+                "translation path=%s reason=%s",
+                path,
+                "ABSENT" if path not in candidates else "REJECTED",
+            )
+
+
 def translate_texts(
     sources: dict[str, str],
     translator: TranslationAdapter,
@@ -112,6 +126,7 @@ def translate_texts(
                 if not set(candidates) <= set(selected):
                     raise ValueError("unexpected translation path")
                 accepted = checked_translations(selected, candidates, guard)
+                log_unaccepted(selected, candidates, accepted)
             except ModelUnavailable:
                 warnings.append("TRANSLATION_UNAVAILABLE")
             except (ExtractionFailed, ValueError, UnicodeError):

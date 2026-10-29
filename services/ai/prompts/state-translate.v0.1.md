@@ -8,6 +8,7 @@ Preserve every number token, its unit, order within its condition, comparison, n
 qualification, mandatory/optional status, AND/OR relation, exception, scope and named technology.
 Copy ASCII technology/certificate identifiers exactly (Java, ISO, RAG/LLM, etc.).
 Do not convert amounts, units or number notation: 3년 이내 -> within 3 years; 2건 이상 -> at least 2 projects;
+5명 이하 -> at most 5 people (or 5 or fewer people);
 1,000,000,000원 -> 1,000,000,000 KRW; 3억원 -> 3 hundred million KRW.
 Use English words for Korean units, without introducing new digits.
 Omit a path if you cannot faithfully translate it. Never return placeholders or guessed values.
