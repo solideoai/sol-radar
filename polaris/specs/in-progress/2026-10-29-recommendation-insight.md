@@ -151,11 +151,11 @@ PaddleOCR: 회사 컨테이너 `archicm-paddleocr-vl-prod`는 우리 것이 아�
 
 ## 9. 결과
 
-통합 브랜치 `feat/rec-insight` `92a27cd0`(2026-10-29, push 안 함). 증거는 `docs/evidence/rec-insight/README.md`.
+통합 브랜치 `feat/rec-insight` → main `3ae02acf`(2026-10-29 push·운영 반영). 증거는 `docs/evidence/rec-insight/README.md`.
 
 | 수용 기준 | 결과 |
 |---|---|
-| A1~A5 요청·중복·권한·장애·STALE·재분석 | 격리 로컬 스택(mock) a~g 통과(`83003280`). 보안 수정 뒤 재확인은 df 진행 중 |
+| A1~A5 요청·중복·권한·장애·STALE·재분석 | 격리 로컬 스택(mock) a~g 통과(`83003280`), 보안 수정 뒤 재확인 a'·b'·h·i 통과(`92a27cd0`). 운영 실모델 2건 `DONE`·`MODEL` |
 | A6 분석 결과·`/explain`·`/health` 그대로 | 골든·gateway 시험 통과(전체 verify) |
 | A7 Bosun `staffAvailability` | ac Task 3·4 시험 통과 |
 | A8 전체 검증·스크린샷 | `pnpm verify` exit 0(루트 291, web 954, build, services/ai 264, decision 57). 1440·1280 스크린샷 20장 |
@@ -171,7 +171,8 @@ PaddleOCR: 회사 컨테이너 `archicm-paddleocr-vl-prod`는 우리 것이 아�
   - 숨은 문자·판정 취지 표현을 막고, 금지어를 더했다.
   - mock `model` 은 `mock` 이다.
 - insight `promptHash` 는 `f623bb44…` 다.
-- 운영 반영(db:push·main push·회사 교체)은 사용자 승인 전이다.
+- 운영 반영(2026-10-29 11:35, 사용자 승인): 운영 DB `000100`·`000200`, main `3ae02acf`(Vercel), 회사 AI gateway·Analysis Worker·redis-api `384e469857f0`. 운영 화면에서 실공고 1건·DEMO 1건이 `DONE`·`MODEL`(실 Qwen, 근거 칩·인용 펼침 확인). 기록 `docs/evidence/company-rollout/20261029/rec-insight-rollout.md`.
+- 재학습 CLI 구현(R4·R8)은 발표 뒤라 스펙은 in-progress 에 둔다.
 
 ## 관련 문서
 
