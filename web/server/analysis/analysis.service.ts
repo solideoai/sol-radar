@@ -165,10 +165,11 @@ async function consultKev(
   context: AnalysisContext,
   step: ExtractionStep,
   deps: AnalysisDeps,
+  today: string,
 ): Promise<KevStep> {
   if (!context.kev.enabled || step.extraction === null) return KEV_NOT_USED;
 
-  const request = toKevRequest(context, step.extraction, step.translations);
+  const request = toKevRequest(context, step.extraction, step.translations, today);
   const result = await deps.gateway.kev(request);
   const warnings = readTranslationWarnings(result.ok ? (result.value.warnings ?? []) : []);
   if (warnings.length > 0) {
@@ -246,9 +247,10 @@ export async function runAnalysis(
   deps: AnalysisDeps,
 ): Promise<AnalysisRunRecord> {
   const startedAt = deps.now();
+  const today = toKstDate(startedAt);
   const extractionStep = await prepareExtraction(context, deps);
   const { extraction } = extractionStep;
-  const kevStep = await consultKev(context, extractionStep, deps);
+  const kevStep = await consultKev(context, extractionStep, deps, today);
 
   // 캐시 FAILED 행은 다시 추출했으므로 캐시 실패 코드는 늘 보지 않는다.
   const aiUnavailableReason = pickAiUnavailableReason({
@@ -256,13 +258,7 @@ export async function runAnalysis(
     cachedExtractionFailed: null,
     kev: kevStep.outcome,
   });
-  const input = toAnalysisInput(
-    context,
-    extraction,
-    kevStep.wire,
-    toKstDate(startedAt),
-    aiUnavailableReason,
-  );
+  const input = toAnalysisInput(context, extraction, kevStep.wire, today, aiUnavailableReason);
   const result = analyzeInput(input);
 
   // ④ C4 결과는 고치지 않고 파이프라인 플래그·근거는 meta 에 둔다.

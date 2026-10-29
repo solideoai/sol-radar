@@ -2,6 +2,7 @@
 export { AUTH_COOKIE_OPTIONS } from "./auth-cookie";
 export { nameOf } from "./display-name";
 export { errorNameOf } from "./error-name";
+export { FACTOR_LABEL } from "./factor-label";
 export {
   reportBrowserError,
   reportServerError,

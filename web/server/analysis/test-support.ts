@@ -424,7 +424,7 @@ export const refusedReply: Reply = () =>
 export const timeoutReply: Reply = () =>
   Promise.reject(Object.assign(new Error("signal timed out"), { name: "TimeoutError" }));
 
-export type GatewayPath = "/health" | "/extract" | "/kev" | "/explain";
+export type GatewayPath = "/health" | "/extract" | "/kev" | "/explain" | "/insight";
 export type GatewayRoutes = Partial<Record<GatewayPath, Reply | Reply[]>>;
 export type GatewayCall = { path: string; body: unknown };
 

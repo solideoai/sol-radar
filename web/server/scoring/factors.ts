@@ -241,6 +241,44 @@ export function pastPerformance(
   );
 }
 
+/** 인력 요소가 쓰는 사업 기간과 그 기간의 가용 FTE. 공고 기간이 없으면 마감일(없으면 오늘) 기준 기본 기간이다. */
+function staffWindow(bid: NormalizedBidSummary, team: ScoringTeamInput, today: string) {
+  const period =
+    bid.projectPeriod ??
+    defaultProjectPeriod(bid.deadlineAt ? kstDate(bid.deadlineAt) : parseDate(today));
+  return { period, available: availableFte(team, period) };
+}
+
+/** Bosun 입력 profileSummary.staffAvailability 와 추천 분석 company.staff 의 모양(gateway StaffAvailability). */
+export type StaffAvailabilityInput = {
+  from: string;
+  to: string;
+  availableFte: number;
+  eligibleStaff: number;
+};
+
+/**
+ * 인력 요소(K6)와 같은 기간·가용 FTE·인원. 인력은 자주 바뀌므로 학습하지 않고 분석 때 입력으로 넣는다(2026-10-29 결정 R3).
+ * 인력 요소가 기간을 정하지 않는 경우(필요 FTE 모름·명부 없음)는 null 이다.
+ */
+export function staffAvailabilityInput(
+  bid: NormalizedBidSummary,
+  extraction: RequirementExtraction | null,
+  team: ScoringTeamInput,
+  today: string,
+): StaffAvailabilityInput | null {
+  if (deriveRequiredFte(extraction, krw(bid.budgetKrw)) === null || team.members.length === 0) {
+    return null;
+  }
+  const { period, available } = staffWindow(bid, team, today);
+  return {
+    from: period.startsAt,
+    to: period.endsAt,
+    availableFte: available,
+    eligibleStaff: team.members.length,
+  };
+}
+
 /** 08 §3.3 인력 가용성: 필요 FTE 대비 가용 FTE × 제안 준비 일정 계수. */
 export function staffAvailability(
   bid: NormalizedBidSummary,
@@ -265,9 +303,7 @@ export function staffAvailability(
       { missing: "TEAM_EMPTY", evidence },
     );
   const todayDate = parseDate(today);
-  const period =
-    bid.projectPeriod ?? defaultProjectPeriod(bid.deadlineAt ? kstDate(bid.deadlineAt) : todayDate);
-  const available = availableFte(team, period);
+  const { period, available } = staffWindow(bid, team, today);
   const availableRatio = Math.min(1, available / required.requiredFte);
   const businessDays = bid.deadlineAt
     ? businessDaysBetween(todayDate, kstDate(bid.deadlineAt))

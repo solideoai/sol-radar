@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { readTranslationWarnings } from "./analysis.model";
 import { runAnalysis } from "./analysis.service";
 import { kevResponseSchema } from "./gateway.model";
@@ -15,6 +16,16 @@ import {
 } from "./test-support";
 
 const missing = "TRANSLATION_MISSING:profileSummary.technologies[2].name";
+const sentStaffSchema = z.object({
+  profileSummary: z.object({
+    staffAvailability: z.object({
+      from: z.string(),
+      to: z.string(),
+      availableFte: z.number(),
+      eligibleStaff: z.number(),
+    }),
+  }),
+});
 
 describe("번역 전달 및 Bosun 누락 안전 처리", () => {
   it.each(["fixture", "live"] as const)(
@@ -70,5 +81,23 @@ describe("번역 전달 및 Bosun 누락 안전 처리", () => {
     expect(
       readTranslationWarnings([missing, "TRANSLATION_MISSING:private document text", "other"]),
     ).toEqual([missing]);
+  });
+});
+
+describe("Bosun 요청의 인력 가용(K6)", () => {
+  it("/kev 요청 profileSummary.staffAvailability 는 규칙 엔진 인력 요소와 같은 기간·가용 FTE 다", async () => {
+    const gateway = fakeGateway(healthyRoutes("FX-01"));
+    const record = await runAnalysis(
+      buildContext("FX-01"),
+      buildDeps(gateway.gateway, fakeExtractionStore().store),
+    );
+    const sent = sentStaffSchema.parse(gateway.bodyOf("/kev")).profileSummary.staffAvailability;
+    const staff = record.result.factors.find((factor) => factor.factor === "staffAvailability");
+    expect(sent.eligibleStaff).toBe(200);
+    expect(staff?.rawValue).toMatchObject({
+      period: { startsAt: sent.from, endsAt: sent.to },
+      availableFte: sent.availableFte,
+      teamMembers: sent.eligibleStaff,
+    });
   });
 });

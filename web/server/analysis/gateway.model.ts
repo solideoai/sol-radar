@@ -1,5 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { insightFallbackReasonSchema, insightItemSchema, type InsightRef } from "@/server/insight";
+import type { QualificationOutcome, Recommendation } from "@/server/scoring";
 
 // ── AI gateway 계약 모델: 설정 읽기·응답 봉투 검증·실패 분류의 순수 규칙 (03 §2.1·§3, 02 장애 원칙) ──
 // 모델 산출물 본문(payload·kev 안쪽·wire)의 깊은 검증은 2단계에서 scoring 의 스키마로 한다. 여기서는 봉투만 본다.
@@ -170,6 +172,33 @@ export const explainResponseSchema = z.object({
   fallback: z.boolean(),
 });
 
+/**
+ * 추천 분석 POST /insight 응답(계획 C3). 모델이 실패해도 200 템플릿이다.
+ * fallback 이면 이유가 있고 model 은 null, 아니면 이유가 없다. recommendation_insights 상태 check 와 같은 규칙이다.
+ */
+export const insightResponseSchema = z
+  .object({
+    summary: z.string().min(1).max(400),
+    strengths: z.array(insightItemSchema).max(4),
+    improvements: z.array(insightItemSchema).max(4),
+    fallback: z.boolean(),
+    fallbackReason: insightFallbackReasonSchema.nullable(),
+    model: z.string().nullable(),
+    promptHash: z.string().regex(/^[0-9a-f]{64}$/),
+  })
+  .superRefine((body, ctx) => {
+    if (body.fallback !== (body.fallbackReason !== null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fallbackReason"],
+        message: "fallback 과 fallbackReason 이 맞지 않음",
+      });
+    }
+    if (body.fallback && body.model !== null) {
+      ctx.addIssue({ code: "custom", path: ["model"], message: "템플릿이면 model 은 null" });
+    }
+  });
+
 export const healthResponseSchema = z.object({
   status: z.literal("ok"),
   runMode: z.enum(["live", "fixture", "mock"]),
@@ -224,6 +253,7 @@ export const parseResponseSchema = z
 export type ExtractResponse = z.infer<typeof extractResponseSchema>;
 export type KevResponse = z.infer<typeof kevResponseSchema>;
 export type ExplainResponse = z.infer<typeof explainResponseSchema>;
+export type InsightGatewayResponse = z.infer<typeof insightResponseSchema>;
 export type GatewayHealth = z.infer<typeof healthResponseSchema>;
 export type ParseResponse = z.infer<typeof parseResponseSchema>;
 
@@ -259,6 +289,33 @@ export type ExtractRequest = z.infer<typeof extractRequestSchema>;
 
 /** /kev·/explain 본문 형태는 2단계에서 좁힌다. 지금은 X-Request-Id 에 쓸 requestId 만 강제한다. */
 export type GatewayRequestBody = { requestId: string } & Record<string, unknown>;
+
+/** 자격 판정 상태. 규칙 엔진 판정 3개 + 발주계획 단계 같은 해당 없음. */
+export type QualificationStatus = QualificationOutcome | "NOT_APPLICABLE";
+
+/** 추천 분석 POST /insight 요청(계획 C3). 판정은 저장된 run 값이고 gateway 는 바꾸지 않는다. 날짜는 "YYYY-MM-DD". */
+export type InsightGatewayRequest = {
+  requestId: string;
+  bid: { title: string; agency: string | null; budgetKrw: string | null; deadline: string | null };
+  rules: {
+    score: number;
+    recommendation: Recommendation;
+    recommendationBasis: string;
+    factors: { factor: string; label: string; points: number; maxPoints: number; reason: string }[];
+    qualificationChecks: { label: string; status: QualificationStatus; reason: string }[];
+    reviewFlags: string[];
+    missingFactors: string[];
+  };
+  /** run 에서 Bosun 을 쓰지 않았으면 null. */
+  bosun: { reviewFlags: string[] } | null;
+  company: {
+    name: string | null;
+    technologies: string[];
+    /** 인력 요소가 기간을 정하지 않았으면 null. */
+    staff: { from: string; to: string; availableFte: number; eligibleStaff: number } | null;
+  };
+  refs: InsightRef[];
+};
 
 // ── 실패와 결과. 예상한 실패는 던지지 않고 값으로 돌려준다 ──
 

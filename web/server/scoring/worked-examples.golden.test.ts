@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "./analyze";
+import { staffAvailabilityInput } from "./factors";
 import { buildInput, loadGolden } from "./test-support";
 
 // docs/08 §6 worked example 3건과 fixtures/goldens 를 그대로 대조한다(11 §3.1). 골든 수치는 mock 모드의 고정 입력에서만 단언한다.
@@ -188,5 +189,41 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
     expect(result.recommendation).toBe("NO_BID");
     expect(result.explanation).toContain("68점은 참고용");
     expect(result.explanation).toContain("결정 모델은 추천을 제시했지만 규칙 판정이 우선");
+  });
+});
+
+// Bosun 요청(profileSummary.staffAvailability)과 추천 분석 요청(company.staff)이 인력 요소와 다른 기간·FTE 를 쓰지 않게 한다.
+describe("Bosun 인력 입력 — 인력 요소(K6)와 같은 기간·가용 FTE", () => {
+  it("FX-01: staffAvailabilityInput 이 인력 요소 rawValue 의 기간·가용 FTE·인원과 같다", () => {
+    const input = buildInput("FX-01");
+    const staff = staffAvailabilityInput(
+      input.bid,
+      input.extraction,
+      input.team,
+      input.config.today,
+    );
+    const factor = analyze(input).factors.find((entry) => entry.factor === "staffAvailability");
+    expect(staff).toEqual({
+      from: expect.any(String),
+      to: expect.any(String),
+      availableFte: 95.5,
+      eligibleStaff: 200,
+    });
+    expect(factor?.rawValue).toMatchObject({
+      period: { startsAt: staff?.from, endsAt: staff?.to },
+      availableFte: staff?.availableFte,
+      teamMembers: staff?.eligibleStaff,
+    });
+  });
+
+  it("인력 요소가 기간을 정하지 않으면(필요 FTE 모름·명부 없음) null 이다", () => {
+    const input = buildInput("FX-01");
+    const { today } = input.config;
+    expect(
+      staffAvailabilityInput(input.bid, input.extraction, { ...input.team, members: [] }, today),
+    ).toBeNull();
+    expect(
+      staffAvailabilityInput({ ...input.bid, budgetKrw: null }, null, input.team, today),
+    ).toBeNull();
   });
 });

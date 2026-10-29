@@ -6,6 +6,7 @@ import {
   explainResponseSchema,
   extractResponseSchema,
   healthResponseSchema,
+  insightResponseSchema,
   isAvailabilityFailure,
   isRetryable,
   kevResponseSchema,
@@ -19,6 +20,8 @@ import {
   type GatewayHealth,
   type GatewayRequestBody,
   type GatewayResult,
+  type InsightGatewayRequest,
+  type InsightGatewayResponse,
   type KevResponse,
   type ParseClientConfig,
   type ParseResponse,
@@ -40,6 +43,8 @@ export type GatewayClient = {
   extract(request: ExtractRequest): Promise<GatewayResult<ExtractResponse>>;
   kev(request: GatewayRequestBody): Promise<GatewayResult<KevResponse>>;
   explain(request: GatewayRequestBody): Promise<GatewayResult<ExplainResponse>>;
+  /** 추천 분석(ADR-066). [추천 분석] 버튼 요청만 부른다. 분석 job 은 부르지 않는다. */
+  insight(request: InsightGatewayRequest): Promise<GatewayResult<InsightGatewayResponse>>;
   /** 관측·시험용. */
   breakerState(): BreakerState;
 };
@@ -150,7 +155,7 @@ export function createGatewayClient(
   config: GatewayConfig,
   deps: Partial<GatewayClientDeps> = {},
 ): GatewayClient {
-  // breaker 는 gateway 하나의 생사를 보므로 네 엔드포인트가 함께 쓴다. 인스턴스마다 따로다.
+  // breaker 는 gateway 하나의 생사를 보므로 엔드포인트 모두가 함께 쓴다. 인스턴스마다 따로다.
   const caller = createCaller(deps);
   const call = <T>(endpoint: Endpoint<T>): Promise<GatewayResult<T>> =>
     caller.call({
@@ -181,6 +186,14 @@ export function createGatewayClient(
         path: "/explain",
         timeoutMs: config.explainTimeoutMs,
         schema: explainResponseSchema,
+        body: request,
+      }),
+    // Qwen 생성이라 /explain 과 같은 timeout(AI_TIMEOUT_MS)을 쓴다. 새 env 는 두지 않는다.
+    insight: (request) =>
+      call({
+        path: "/insight",
+        timeoutMs: config.explainTimeoutMs,
+        schema: insightResponseSchema,
         body: request,
       }),
     breakerState: caller.breakerState,

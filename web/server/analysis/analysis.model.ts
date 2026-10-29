@@ -2,6 +2,7 @@ import "server-only";
 import {
   kevMockResponseSchema,
   requirementExtractionSchema,
+  staffAvailabilityInput,
   type AnalysisInput,
   type AnalysisResult,
   type CompanyProfile,
@@ -10,6 +11,7 @@ import {
   type NormalizedBidSummary,
   type RequirementExtraction,
   type ScoringTeamInput,
+  type StaffAvailabilityInput,
   type StructuredRequirement,
 } from "@/server/scoring";
 import {
@@ -368,8 +370,8 @@ export type KevRequest = {
   profileRevision: number;
   extraction: RequirementExtraction;
   translations: Record<string, string> | null;
-  /** 인력 가용(K6)은 아직 채우지 않는다. */
-  profileSummary: CompanyProfile & { staffAvailability: null };
+  /** 인력 가용(K6)은 규칙 엔진 인력 요소와 같은 기간·가용 FTE 다. 인력 요소가 기간을 정하지 않으면 null. */
+  profileSummary: CompanyProfile & { staffAvailability: StaffAvailabilityInput | null };
   attachmentsIncomplete: boolean;
   questionSetVersion: KevQuestionSetVersion;
   /** 운영은 영어 state 만 보낸다(03 §5.11). */
@@ -381,11 +383,13 @@ const ATTACHMENT_PARSE_FAILED_PREFIX = "ATTACHMENT_PARSE_FAILED:";
 /**
  * translations 는 호출자가 고른다. 이번 run 에 다시 추출했으면 그 응답의 값(null 이어도 그대로),
  * 캐시를 썼으면 캐시 행의 값이다. 쓸 수 없던 캐시 행의 번역은 오래된 값이라 쓰지 않는다.
+ * today 는 규칙 계산과 같은 KST 날짜(config.today)라 인력 가용이 인력 요소와 같다.
  */
 export function toKevRequest(
   context: AnalysisContext,
   extraction: RequirementExtraction,
   translations: Record<string, string> | null,
+  today: string,
 ): KevRequest {
   const { bid } = context;
   const attachmentsIncomplete =
@@ -401,7 +405,10 @@ export function toKevRequest(
     profileRevision: context.profile.revision,
     extraction,
     translations,
-    profileSummary: { ...context.profile, staffAvailability: null },
+    profileSummary: {
+      ...context.profile,
+      staffAvailability: staffAvailabilityInput(bid, extraction, context.team, today),
+    },
     attachmentsIncomplete,
     questionSetVersion: context.kev.questionSetVersion,
     stateLanguage: "en",
