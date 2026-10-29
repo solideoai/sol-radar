@@ -14,6 +14,7 @@ import { insightRepo } from "./insight.repo";
 // 로그인·CSRF·가입 완료·업무 조직은 Route Handler 입구(businessRoute)가 이미 봤다.
 // 중복은 run 기준으로 막는다(Idempotency-Key 는 쓰지 않는다). run 에 PENDING 이 있거나 검증을 통과한 모델 설명(DONE·MODEL)이
 // 있으면 새 행을 만들지 않고 그 행을 돌려준다. FAILED·TEMPLATE 뒤의 요청은 새 행이다.
+// DB 도 같은 규칙을 지킨다: PENDING 은 run 당 하나(23505), 모델 설명이 있는 run 에는 PENDING 을 못 넣는다(23P01).
 
 const COMPLETED_RUN_STATUSES = ["COMPLETED", "PARTIAL"];
 
@@ -40,9 +41,9 @@ const runNotFound = {
 const isCompletedRunOf = (run: InsightRunRef | null, bidId: string): boolean =>
   run !== null && run.bidId === bidId && COMPLETED_RUN_STATUSES.includes(run.status);
 
-// 있던 행을 다시 쓴다. PENDING 이면 큐에 다시 넣는다(같은 jobId 라 job 은 하나다).
-const isReusable = (insight: InsightView): boolean =>
-  insight.status === "PENDING" || (insight.status === "DONE" && insight.source === "MODEL");
+// 검증을 통과한 모델 설명은 큐 없이 그대로 돌려준다(모델을 다시 부르지 않는다).
+const isModelDone = (insight: InsightView): boolean =>
+  insight.status === "DONE" && insight.source === "MODEL";
 
 // 로그 콜백이 던져도 응답을 바꾸지 않는다.
 function reportInfraError(
@@ -96,9 +97,10 @@ export async function requestInsight(
   };
 
   const latest = await repo.latestInsight(ctx.orgId, runId);
-  if (latest !== null && isReusable(latest)) return accepted(latest.id, latest.status, true);
+  if (latest !== null && isModelDone(latest)) return accepted(latest.id, latest.status, true);
 
-  // 횟수는 새 행(모델 호출)을 만들 때만 센다. 키는 사용자다(조직이 아니다).
+  // 큐에 넣는 요청(새 행·있던 PENDING 다시 넣기)은 모두 센다. 화면 역할이 PostgREST 로 직접 넣은 PENDING 도
+  // 이 경로로만 큐에 들어가므로 속도 제한을 건너지 못한다(보안 리뷰 중-1). 키는 사용자다(조직이 아니다).
   let limit: Awaited<ReturnType<InsightRequestDeps["limiter"]["hit"]>>;
   try {
     limit = await deps.limiter.hit(ctx.userId);
@@ -122,9 +124,11 @@ export async function requestInsight(
     };
   }
 
+  // 있던 PENDING 은 같은 id 로 다시 넣는다(같은 jobId 라 job 은 하나다).
+  if (latest?.status === "PENDING") return accepted(latest.id, latest.status, true);
   const created = await repo.insertPending(ctx.orgId, runId);
   if (created !== null) return accepted(created, "PENDING", false);
-  // 같은 run 의 PENDING 이 먼저 들어갔다(두 번 누르기·relay 재시도). 그 행을 돌려준다.
+  // 같은 run 의 PENDING·모델 설명이 먼저 들어갔다(두 번 누르기·relay 재시도·worker 마감). 그 행을 돌려준다.
   const earlier = await repo.latestInsight(ctx.orgId, runId);
   if (earlier === null) throw new Error("추천 분석 PENDING 충돌 뒤 행을 찾지 못했습니다");
   return accepted(earlier.id, earlier.status, true);

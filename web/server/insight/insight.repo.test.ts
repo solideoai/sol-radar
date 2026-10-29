@@ -96,12 +96,18 @@ describe("insightRepo", () => {
     expect(await insightRepo.latestInsight("0f000000-0000-4000-8000-000000000002", RUN)).toBeNull();
   });
 
-  it("insertPending 은 같은 run 의 PENDING 유일 위반만 null 로 바꾸고, 다른 오류는 던진다", async () => {
+  it("insertPending 은 같은 run 의 PENDING 유일 위반·모델 설명 제외 위반만 null 로 바꾸고, 다른 오류는 던진다", async () => {
     expect(await insightRepo.insertPending(ORG, RUN)).toBe("new-insight");
     insertError.current = {
       code: "23505",
       message:
         'duplicate key value violates unique constraint "recommendation_insights_one_pending"',
+    };
+    expect(await insightRepo.insertPending(ORG, RUN)).toBeNull();
+    insertError.current = {
+      code: "23P01",
+      message:
+        'conflicting key value violates exclusion constraint "recommendation_insights_pending_or_model_once"',
     };
     expect(await insightRepo.insertPending(ORG, RUN)).toBeNull();
     insertError.current = {

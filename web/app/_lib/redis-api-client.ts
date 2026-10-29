@@ -8,7 +8,7 @@ import {
   backendReadinessSchema,
   ingestAcceptedSchema,
   ingestWorkerUnavailableErrorSchema,
-  insightAcceptedSchema,
+  insightAcceptedFor,
   manualIngestGateSchema,
   sourceReadinessErrorSchema,
 } from "./redis-api-contract";
@@ -184,7 +184,7 @@ export async function relayRedisApi(
               ? operation === "analysis-submit"
                 ? analysisAcceptedSchema
                 : operation === "insight-submit"
-                  ? insightAcceptedSchema
+                  ? insightAcceptedFor(targetPath)
                   : ingestAcceptedSchema
               : backendErrorSchema;
           const parsed = responseSchema.safeParse(raw);

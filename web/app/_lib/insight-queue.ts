@@ -13,10 +13,11 @@ import { withTimeout } from "./with-timeout";
 
 // 추천 분석(ADR-066) 큐 생산자. 소비자는 Analysis Worker 의 insight Worker 다.
 // job 은 한 번만 시도한다. 실패는 worker 가 행을 FAILED 로 닫고, 사용자는 [다시 요청]으로 새 행을 만든다(C4).
+// 실패한 job 도 바로 지운다. 남아 있으면 같은 jobId 로 다시 넣는 PENDING 이 무시되어 STALE(10분)까지 기다린다.
 const INSIGHT_JOB_OPTIONS = {
   attempts: 1,
   removeOnComplete: true,
-  removeOnFail: 100,
+  removeOnFail: true,
 } as const satisfies JobsOptions;
 
 type AddJob = (name: string, data: InsightJobData, opts: JobsOptions) => Promise<unknown>;

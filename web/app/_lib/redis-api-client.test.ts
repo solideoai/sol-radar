@@ -639,6 +639,11 @@ describe("recommendation insight relay", () => {
 
   it.each([
     () => insightAccepted({ pollUrl: "https://evil.invalid/leak" }),
+    // 모양은 맞지만 요청한 run 이 아닌 경로.
+    () =>
+      insightAccepted({
+        pollUrl: INSIGHT_PATH.replace(RUN, "c1000000-0000-4000-8000-000000000002"),
+      }),
     () => insightAccepted({ insightId: TOKEN }),
     () => insightAccepted({ status: "QUEUED" }),
     // 분석 요청의 202 본문은 추천 분석 요청의 성공이 아니다.

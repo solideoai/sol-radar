@@ -54,7 +54,7 @@ describe("requestInsight", () => {
     expect(deps.enqueue).toHaveBeenCalledWith({ insightId: NEW, orgId: ORG });
   });
 
-  it("PENDING 이 있으면 새로 만들지 않고 같은 id 를 다시 큐에 넣는다", async () => {
+  it("PENDING 이 있으면 새로 만들지 않고 같은 id 를 다시 큐에 넣는다 — 큐에 넣으므로 속도 제한을 센다", async () => {
     const deps = depsWith({ latestInsight: vi.fn(async () => view()) });
     const result = await requestInsight(ctx, BID, RUN, deps);
     expect(result).toMatchObject({
@@ -63,8 +63,20 @@ describe("requestInsight", () => {
       data: { insightId: OLD, status: "PENDING", deduplicated: true },
     });
     expect(deps.repo.insertPending).not.toHaveBeenCalled();
-    expect(deps.limiter.hit).not.toHaveBeenCalled();
+    expect(deps.limiter.hit).toHaveBeenCalledWith(USER);
     expect(deps.enqueue).toHaveBeenCalledWith({ insightId: OLD, orgId: ORG });
+  });
+
+  it("직접 넣은 PENDING 에 POST 를 반복해도 분당 3회까지만 큐에 넣고 4번째는 429 다", async () => {
+    let hits = 0;
+    const deps = depsWith({ latestInsight: vi.fn(async () => view()) });
+    deps.limiter.hit.mockImplementation(async () =>
+      ++hits <= 3 ? { allowed: true } : { allowed: false, retryAfterSeconds: 30 },
+    );
+    const results = [];
+    for (let i = 0; i < 4; i++) results.push(await requestInsight(ctx, BID, RUN, deps));
+    expect(results.map((result) => result.status)).toEqual([202, 202, 202, 429]);
+    expect(deps.enqueue).toHaveBeenCalledTimes(3);
   });
 
   it("DONE·MODEL 이 있으면 그대로 돌려주고 큐에 넣지 않는다", async () => {
@@ -77,6 +89,7 @@ describe("requestInsight", () => {
     });
     expect(deps.repo.insertPending).not.toHaveBeenCalled();
     expect(deps.enqueue).not.toHaveBeenCalled();
+    expect(deps.limiter.hit).not.toHaveBeenCalled();
   });
 
   it.each([

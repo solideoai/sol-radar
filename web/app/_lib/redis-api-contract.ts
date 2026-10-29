@@ -16,14 +16,15 @@ export const analysisAcceptedSchema = z
   })
   .refine((value) => value.pollUrl === `/api/v1/analyses/${value.analysisId}`);
 
-// 추천 분석 요청 202(@/server/insight InsightAccepted). pollUrl 은 같은 경로의 GET 이다.
-const INSIGHT_POLL_URL = /^\/api\/v1\/bids\/[0-9a-fA-F-]{36}\/analyses\/[0-9a-fA-F-]{36}\/insight$/;
+// 추천 분석 요청 202(@/server/insight InsightAccepted). pollUrl 은 요청한 경로 그대로의 GET 이다(보안 리뷰 하-4).
 export const insightAcceptedSchema = z.object({
   insightId: z.uuid(),
   status: insightStatusSchema,
   deduplicated: z.boolean(),
-  pollUrl: z.string().regex(INSIGHT_POLL_URL),
+  pollUrl: z.string(),
 });
+export const insightAcceptedFor = (targetPath: string) =>
+  insightAcceptedSchema.refine((value) => value.pollUrl === targetPath);
 
 const count = z.number().int().nonnegative();
 const externalServiceKey = z.enum(EXTERNAL_SOURCE_KEYS);
