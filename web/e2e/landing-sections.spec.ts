@@ -15,7 +15,7 @@ const SECTIONS = [
   {
     link: "서비스 소개",
     hash: "#about",
-    title: "공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다.",
+    title: "찾아 주는 서비스는 많습니다. 판단까지 하는 곳은 드뭅니다.",
   },
 ];
 
@@ -36,20 +36,68 @@ SECTIONS.forEach(({ link, hash, title }) =>
   }),
 );
 
-test("서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다", async ({ page }) => {
+// 묶음 이름과 행 이름. 행 이름 칸에는 보조 설명이 이어 붙으므로 앞부분으로 맞춘다.
+const COMPARISON_ROWS = [
+  "공고 찾기 · 읽기",
+  /^공고 수집 · 조건 검색/,
+  /^AI 공고 요약/,
+  /^우리 회사 기준 참가자격 판정/,
+  /^판단 근거 원문 인용/,
+  "참여 판단",
+  /^보유 인력 반영/,
+  /^추천 · 보류 · 비추천 권고/,
+  /^검토 결정 · 사유 기록/,
+  "가격",
+  /^투찰 가격 분석/,
+];
+
+test("서비스 소개는 공고 수집 서비스 네 곳과 SOL RADAR 의 기능 비교 표다", async ({ page }) => {
   await page.goto("/");
   const about = page.getByRole("region", { name: SECTIONS[2].title });
   await expect(about.getByRole("columnheader")).toHaveText([
-    "검토 단계",
-    "지금은",
-    "SOL RADAR에서는",
+    "기능",
+    "인XX",
+    "비XX",
+    "모XX",
+    "클XX",
+    "SOL RADAR",
   ]);
-  await expect(about.getByRole("rowheader")).toHaveText([
-    "요구사항 파악",
-    "자격·실적 대조",
-    "판단 기록",
+  await expect(about.getByRole("rowheader")).toHaveText(COMPARISON_ROWS);
+  // 기호만이 아니라 뜻을 읽는다. 타사 칸("공개 페이지에서 확인")과 SOL RADAR 칸("제공")의 뜻은 다르다.
+  const notFound = /공개 페이지에서 확인되지 않음$/;
+  await expect(
+    about.getByRole("row", { name: /^추천 · 보류 · 비추천 권고/ }).getByRole("cell"),
+  ).toHaveText([notFound, notFound, notFound, notFound, /제공$/]);
+  await expect(about.getByRole("row", { name: /^투찰 가격 분석/ }).getByRole("cell")).toHaveText([
+    /공개 페이지에서 확인$/,
+    /공개 페이지에서 확인$/,
+    /공개 페이지에서 확인$/,
+    /일부만 확인$/,
+    /제공하지 않음$/,
   ]);
+  await expect(about.getByText(/2026년 10월 29일 각 서비스 공개 웹페이지 기준/)).toBeVisible();
   await expect(about.getByText("서비스 소개", { exact: true })).toHaveCount(0);
+});
+
+test("비교 표는 타사 실명과 금지 문구를 쓰지 않는다", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("html")).not.toContainText(/인포21C|비드폼|모두입찰|클라이원트/);
+  const about = page.getByRole("region", { name: SECTIONS[2].title });
+  await expect(about).not.toContainText(/승률|확률|가능성|수주 금액|점유율|경쟁사|%|유일|최초/);
+});
+
+test.describe("1280 폭", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("비교 표가 단 폭 안에 들어간다", async ({ page }) => {
+    await page.goto("/");
+    const table = page.getByRole("region", { name: SECTIONS[2].title }).getByRole("table");
+    expect(
+      await table.evaluate(
+        (element) => element.scrollWidth <= (element.parentElement?.clientWidth ?? 0),
+      ),
+    ).toBe(true);
+  });
 });
 
 test("구역 제목 위에 작은 머리글이 없다", async ({ page }) => {
