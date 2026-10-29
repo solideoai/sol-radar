@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16(App Router, 서버 컴포넌트) · React 19 · Tailwind v4(토큰 유틸리티) · Playwright E2E
 
-**Spec:** `polaris/specs/in-progress/2026-10-29-landing-competitor-table.md` (D1~D9, §4 확정 내용, §7 화면 규칙)
+**Spec:** `polaris/specs/done/2026-10-29-landing-competitor-table.md` (D1~D9, §4 확정 내용, §7 화면 규칙)
 
 ## Global Constraints
 
@@ -44,11 +44,11 @@
 **Interfaces:**
 - Produces: Task 2가 대조할 "랜딩 표 대응" 절(가림 이름 × 8행 판정 표)
 
-- [ ] **Step 0: worktree 준비** — `git -C /Users/leegwanghui/dev/hackathon/sol-radar worktree add <worktree> -b feat/landing-compare main` → 루트·`web`에서 `pnpm install`. 메인 폴더의 `polaris/specs/in-progress/2026-10-29-landing-competitor-table.md`·`docs/plans/2026-10-29-landing-competitor-table.md`를 worktree 같은 경로로 복사하고, `docs/07-DATA-PIPELINE.md`는 메인 폴더 `git diff` 한 줄을 worktree에 같은 내용으로 고친다. 메인 폴더 원본은 커밋이 끝난 뒤 사용자 확인을 받고 정리한다.
+- [ ] **Step 0: worktree 준비** — `git -C /Users/leegwanghui/dev/hackathon/sol-radar worktree add <worktree> -b feat/landing-compare main` → 루트·`web`에서 `pnpm install`. 메인 폴더의 `polaris/specs/done/2026-10-29-landing-competitor-table.md`·`docs/plans/2026-10-29-landing-competitor-table.md`를 worktree 같은 경로로 복사하고, `docs/07-DATA-PIPELINE.md`는 메인 폴더 `git diff` 한 줄을 worktree에 같은 내용으로 고친다. 메인 폴더 원본은 커밋이 끝난 뒤 사용자 확인을 받고 정리한다.
 - [ ] **Step 1: 파일을 쓴다** — frontmatter(`title: "경쟁 서비스 재조사 (2026-10-29)"`, `status: draft`, `tags: [sol-radar, hackathon]`, `updated: 2026-10-29`). 절 순서는 10-19 파일을 따른다: 1 조사 방법·범위(공개 페이지만, 판정 규칙, 항목 ①~⑬ 정의) → 2 서비스별 표(인포21C·비드폼·모두입찰·클라이원트, 대안·보류 후보 산군·디마툴즈·비딩이 요약) → 3 매트릭스 → 4 **랜딩 표 대응**(가림 이름 대응표, 스펙 §4 8행 표와 각 칸의 근거 항목 번호) → 5 10-19 대비 바뀐 점 → 6 열람 못 한 페이지 → 7 출처 URL(접속 2026-10-29). 원문 문장은 따옴표 그대로, 제3자 출처는 표시. 타사 HTML 원본은 넣지 않는다. 끝에 `## 관련 문서`(`[[18-HACKATHON|18 해커톤]]`, 10-19 파일, 스펙 경로).
 - [ ] **Step 2: 대조한다** — 4절 표의 32칸(타사 4 × 8행)이 스펙 §4 표와 같은지 한 칸씩 본다. 다르면 멈추고 사용자에게 묻는다.
 - [ ] **Step 3: 검증** — Run: `bash <verify-slot.sh> pnpm verify:changed` (worktree 루트) · Expected: exit 0(문서 검사)
-- [ ] **Step 4: 커밋** — `git -C <worktree> add docs/evidence/competitors/2026-10-29-competitors.md polaris/specs/in-progress/2026-10-29-landing-competitor-table.md docs/plans/2026-10-29-landing-competitor-table.md docs/07-DATA-PIPELINE.md && bash <verify-slot.sh> git -C <worktree> commit -m "docs: 랜딩 비교 표 스펙·계획·경쟁 재조사 증거"`
+- [ ] **Step 4: 커밋** — `git -C <worktree> add docs/evidence/competitors/2026-10-29-competitors.md polaris/specs/done/2026-10-29-landing-competitor-table.md docs/plans/2026-10-29-landing-competitor-table.md docs/07-DATA-PIPELINE.md && bash <verify-slot.sh> git -C <worktree> commit -m "docs: 랜딩 비교 표 스펙·계획·경쟁 재조사 증거"`
 
 ### Task 2: 서비스 소개 구역을 비교 표로 교체
 
@@ -137,7 +137,7 @@ test.describe("1280 폭", () => {
 
 - [ ] **Step 1: 화면을 본다** — Task 2 빌드 그대로 `pnpm -C web start --hostname 127.0.0.1 --port 3100`(`SOL_DEPLOYMENT_ROLE=standalone`)을 백그라운드로 띄우고, playwright MCP로 `/#about`을 1440×900·1280×800에서 연다. 확인: 가로 넘침 없음, 행 설명이 잘리지 않음, SOL RADAR 열만 옅은 파랑, 각주 두 줄, 접근성 트리에 칸 뜻 글자. 구역 스크린샷 두 장을 위 이름으로 저장한다(web/ 밖 저장이 막히면 `web/test-results`에 찍고 복사). 띄운 서버는 자기 PID만 끈다.
 - [ ] **Step 2: 증거 README** — 무엇을 증명하는지, 두 스크린샷, Task 2 Step 6 Playwright 출력 요약(명령·커밋 해시·통과 수), 근거 증거 파일 링크.
-- [ ] **Step 3: 06 §3.4 한 줄** — "**비교 표**(2026-10-29, [랜딩 비교 표 스펙](../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md)): 서비스 소개(`#about`)는 공고 수집 서비스 네 곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표다. 칸은 ✓·△·—와 화면 낭독기 뜻 글자. SOL RADAR 열의 옅은 `brand` 바탕·글자는 위 brand 규칙의 예외다(사용자 결정)."
+- [ ] **Step 3: 06 §3.4 한 줄** — "**비교 표**(2026-10-29, [랜딩 비교 표 스펙](../../polaris/specs/done/2026-10-29-landing-competitor-table.md)): 서비스 소개(`#about`)는 공고 수집 서비스 네 곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표다. 칸은 ✓·△·—와 화면 낭독기 뜻 글자. SOL RADAR 열의 옅은 `brand` 바탕·글자는 위 brand 규칙의 예외다(사용자 결정)."
 - [ ] **Step 4: PROGRESS 로그** — `2026-10-29 · 랜딩 서비스 소개를 공고 수집 서비스 4곳 비교 표로 교체(스펙 링크) · <실행한 명령과 결과>`. 가장 오래된 줄 하나를 지워 10줄 유지.
-- [ ] **Step 5: 검증·커밋** — `bash <verify-slot.sh> pnpm verify:changed` exit 0 → `git -C <worktree> add docs/evidence/landing-comparison docs/06-UI-UX.md docs/PROGRESS.md polaris/specs/in-progress/2026-10-29-landing-competitor-table.md && bash <verify-slot.sh> git -C <worktree> commit -m "docs: 랜딩 비교 표 화면 확인·기록"`
+- [ ] **Step 5: 검증·커밋** — `bash <verify-slot.sh> pnpm verify:changed` exit 0 → `git -C <worktree> add docs/evidence/landing-comparison docs/06-UI-UX.md docs/PROGRESS.md polaris/specs/done/2026-10-29-landing-competitor-table.md && bash <verify-slot.sh> git -C <worktree> commit -m "docs: 랜딩 비교 표 화면 확인·기록"`
 - [ ] **Step 6: 보고하고 멈춘다** — 브랜치·커밋 해시·검증 결과·스크린샷 경로를 보고한다. main 병합·push·Vercel 배포는 사용자 확인 뒤(화면 동결 11-01 전에 끝나야 촬영에 들어간다).

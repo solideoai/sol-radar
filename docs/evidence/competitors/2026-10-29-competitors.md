@@ -7,7 +7,7 @@ updated: 2026-10-29
 
 # 경쟁 서비스 재조사 (2026-10-29)
 
-랜딩 비교 표([랜딩 비교 표 스펙](../../../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md))의 근거다. 공공 입찰공고를 모아 보여 주는 민간 서비스가 공개 페이지에서 무엇을 내세우는지 기록한다. 10-19 조사([2026-10-19 조사](2026-10-19-competitors.md))는 그대로 두고, 이 파일이 10-29 기준이다.
+랜딩 비교 표([랜딩 비교 표 스펙](../../../polaris/specs/done/2026-10-29-landing-competitor-table.md))의 근거다. 공공 입찰공고를 모아 보여 주는 민간 서비스가 공개 페이지에서 무엇을 내세우는지 기록한다. 10-19 조사([2026-10-19 조사](2026-10-19-competitors.md))는 그대로 두고, 이 파일이 10-29 기준이다.
 
 ## 1. 조사 방법·범위
 
@@ -198,4 +198,4 @@ AI 조달 비서는 2026-10-19 출시(공식 블로그 글 날짜). 요금: 무�
 
 - [[18-HACKATHON|18 해커톤]]
 - [2026-10-19 조사](2026-10-19-competitors.md)
-- [랜딩 비교 표 스펙](../../../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md)
+- [랜딩 비교 표 스펙](../../../polaris/specs/done/2026-10-29-landing-competitor-table.md)

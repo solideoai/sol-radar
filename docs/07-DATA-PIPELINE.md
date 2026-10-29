@@ -87,7 +87,7 @@ registry 값(`infra/sources/registry.yaml`)은 코드 설정이다. 회사 서�
 | K-water 발주계획 | `kwater-procurement-plan`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
 | LH 사전규격 | `lh-pre-specification`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
 | 나라장터 조달요청 | `g2b-procurement-request`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
-| 나라장터 사전규격·발주계획·업종 마스터 | `g2b-pre-spec`·`g2b-order-plan`·`g2b-industry-master`. `APPROVED`지만 `fieldMapping`이 비어 부르지 않는다(`source-registry.ts` `callableSource`) | 없음 | 수집 미구현. 사용자가 발주 예정 공고(사전규격·발주계획)를 나중에 수집할 예정이다(2026-10-29, 날짜 미정). 운영 수집을 켜면 랜딩 비교 표에 "발주계획 · 사전규격 연결" 행을 다시 넣는다([랜딩 비교 표 스펙](../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md) D9) |
+| 나라장터 사전규격·발주계획·업종 마스터 | `g2b-pre-spec`·`g2b-order-plan`·`g2b-industry-master`. `APPROVED`지만 `fieldMapping`이 비어 부르지 않는다(`source-registry.ts` `callableSource`) | 없음 | 수집 미구현. 사용자가 발주 예정 공고(사전규격·발주계획)를 나중에 수집할 예정이다(2026-10-29, 날짜 미정). 운영 수집을 켜면 랜딩 비교 표에 "발주계획 · 사전규격 연결" 행을 다시 넣는다([랜딩 비교 표 스펙](../polaris/specs/done/2026-10-29-landing-competitor-table.md) D9) |
 
 - 외부 서비스는 Worker 기동 때 서비스마다 준비 상태를 정하고 `READY`인 서비스만 일정에 넣는다(§2.8). 같은 정각에는 나라장터 회차가 먼저 돌고 외부 회차가 뒤에 돈다(외부 회차 BullMQ 우선순위 10, `web/worker/main.ts` `EXTERNAL_SCHEDULE_PRIORITY`).
 - 첨부를 받는 출처는 나라장터뿐이다. LH·K-water 응답에는 첨부가 없고, KEPCO 첨부 주소(`http://srm.kepco.net`)는 허용 목록 밖이라 `ATTACHMENT_URL_BLOCKED`로 막힌다(§2.4). 해커톤 동안은 넣지 않는다([[16-DECISIONS|ADR-068]] 3번).

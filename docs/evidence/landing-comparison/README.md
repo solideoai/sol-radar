@@ -7,7 +7,7 @@ updated: 2026-10-29
 
 # 랜딩 비교 표 화면 확인 (2026-10-29)
 
-랜딩 서비스 소개(`#about`)를 공고 수집 서비스 네 곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표로 바꾼 결과다. 설계는 [랜딩 비교 표 스펙](../../../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md), 칸 값의 근거는 [경쟁 서비스 재조사](../competitors/2026-10-29-competitors.md) 4절이다.
+랜딩 서비스 소개(`#about`)를 공고 수집 서비스 네 곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표로 바꾼 결과다. 설계는 [랜딩 비교 표 스펙](../../../polaris/specs/done/2026-10-29-landing-competitor-table.md), 칸 값의 근거는 [경쟁 서비스 재조사](../competitors/2026-10-29-competitors.md) 4절이다.
 
 ## 무엇을 증명하나
 

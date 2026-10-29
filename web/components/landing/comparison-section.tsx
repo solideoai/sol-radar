@@ -14,7 +14,7 @@ type Row = {
   sol: "yes" | "no";
 };
 
-// 발주계획·사전규격 연결 행은 운영 수집을 켠 뒤 다시 넣는다(polaris/specs/in-progress/2026-10-29-landing-competitor-table.md D9).
+// 발주계획·사전규격 연결 행은 운영 수집을 켠 뒤 다시 넣는다(polaris/specs/done/2026-10-29-landing-competitor-table.md D9).
 const GROUPS: { name: string; rows: Row[] }[] = [
   {
     name: "공고 찾기 · 읽기",
