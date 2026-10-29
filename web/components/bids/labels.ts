@@ -24,7 +24,10 @@ import {
   UserCheckIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { RECOMMENDATION_LABEL as SHARED_RECOMMENDATION_LABEL } from "@/server/shared";
+import {
+  FACTOR_LABEL as SHARED_FACTOR_LABEL,
+  RECOMMENDATION_LABEL as SHARED_RECOMMENDATION_LABEL,
+} from "@/server/shared";
 import type {
   AnalysisStatus,
   AnalysisView,
@@ -121,14 +124,8 @@ export const NEEDS_REVIEW_REASON_LABEL = {
   STAGE_NOT_APPLICABLE: "발주계획 단계(자격 요건 없음)",
 } as const satisfies Record<NeedsReviewReason, string>;
 
-// §5.4.5 요소 라벨. 순서는 점수표(08 §2) 순이다.
-export const FACTOR_LABEL = {
-  skillMatch: "기술 스택 적합",
-  pastPerformance: "유사 수행 실적",
-  staffAvailability: "인력 가용성",
-  scaleFit: "규모 적합성",
-  strategicPreference: "전략적 선호",
-} as const satisfies Record<FactorKey, string>;
+// §5.4.5 요소 라벨. 순서는 점수표(08 §2) 순이다. 정본은 @/server/shared 다. 추천 분석 요청(서버)과 같은 표를 쓴다.
+export const FACTOR_LABEL = SHARED_FACTOR_LABEL satisfies Record<FactorKey, string>;
 
 export const FACTOR_ORDER = [
   "skillMatch",
