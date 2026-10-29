@@ -15,6 +15,7 @@ import {
   type SourceSummary,
 } from "./model";
 import { DEFAULT_INGEST_STALE_AFTER_MS } from "./freshness";
+import { keywordFilterOf } from "./keywords";
 import {
   fingerprint,
   signOpportunityCursor,
@@ -29,11 +30,15 @@ type Row = Database["public"]["Views"]["opportunity_list_items"]["Row"];
 const fail = () =>
   new OpportunityReadError("SERVICE_UNAVAILABLE", "사업기회 데이터를 읽지 못했습니다");
 const SORT_COLUMNS = {
+  recommended: "recommend_key",
   "publishedAt:desc": "published_at",
   "deadlineAt:asc": "deadline_at",
   "score:desc": "sol_score",
   "budgetKrw:desc": "budget_krw_value",
 } as const;
+// 추천순 키(recommend_key)와 마감일은 작은 값이 먼저다. 나머지 정렬은 큰 값이 먼저다.
+const ascending = (sort: OpportunityQuery["sort"]) =>
+  sort === "deadlineAt:asc" || sort === "recommended";
 const quoted = (s: unknown) => `"${String(s).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 const itemOf = (r: Row) =>
   opportunityItemSchema.parse({
@@ -74,14 +79,14 @@ const itemOf = (r: Row) =>
     changedAt: r.changed_at,
   });
 
-// 관련성 순위·선택 정렬·UUID를 같은 순서로 비교한다. null은 끝에 두며 서명된 값도 PostgREST 문법에 맞게 인용한다.
+// 우선 묶음(relevance_rank, AI 1·SI 2·나머지 3)·선택 정렬·UUID를 같은 순서로 비교한다. null은 끝에 두며 서명된 값도 PostgREST 문법에 맞게 인용한다.
 export function opportunityKeyset(q: OpportunityQuery, c: OpportunityCursor): string {
   const col = SORT_COLUMNS[q.sort],
     id = `id.gt.${quoted(c.id)}`,
     rank = `relevance_rank.gt.${c.rank}`,
     rankEq = `relevance_rank.eq.${c.rank}`;
   const tie = q.siAiFirst ? `or(${rank},and(${rankEq},${id}))` : id;
-  const dir = q.sort === "deadlineAt:asc" ? "gt" : "lt";
+  const dir = ascending(q.sort) ? "gt" : "lt";
   const val = c.value === null ? `${col}.is.null` : `${col}.eq.${quoted(c.value)}`;
   const tail =
     c.value === null
@@ -97,7 +102,7 @@ export function opportunityKeyset(q: OpportunityQuery, c: OpportunityCursor): st
   return tail;
 }
 
-function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: string) {
+export function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: string) {
   let r = client
     .from(q.watched === "me" ? "watched_opportunity_list_items" : "opportunity_list_items")
     .select("*", { count: "exact" })
@@ -107,6 +112,8 @@ function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: stri
   // 실제 공고로 세지 않고 전체(all)에서만 "출처 미확인"으로 보인다(10-25 계획 B2, 화면 components/bids/notice-origin).
   if (q.origin === "demo") r = r.eq("is_demo", true);
   if (q.origin === "live") r = r.eq("is_demo", false).neq("source", "fixture");
+  // IT 범위 밖 공고는 목록에서 숨긴다(ADR-069). 관심 공고는 사람이 직접 담았으므로 범위 밖이어도 보인다.
+  if (q.watched !== "me") r = r.eq("it_scope", true);
   const stages = q.stage.length
     ? q.stage
     : q.includeEarly
@@ -126,6 +133,8 @@ function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: stri
       : r.in("latest_decision", non);
   }
   if (q.category.length) r = r.overlaps("categories", q.category);
+  const keywords = keywordFilterOf(q.keyword);
+  if (keywords) r = r.or(keywords);
   if (q.q) {
     const value = quoted(
       `%${q.q.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`,
@@ -167,7 +176,7 @@ export async function listOpportunities(
   if (q.siAiFirst && !q.sortExplicit)
     request = request.order("relevance_rank", { ascending: true });
   request = request.order(SORT_COLUMNS[q.sort], {
-    ascending: q.sort === "deadlineAt:asc",
+    ascending: ascending(q.sort),
     nullsFirst: false,
   });
   if (q.siAiFirst && q.sortExplicit) request = request.order("relevance_rank", { ascending: true });

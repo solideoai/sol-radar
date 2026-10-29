@@ -7,8 +7,11 @@ import {
   categorySchema,
   recommendationSchema,
 } from "./model";
+import { OPPORTUNITY_KEYWORD_IDS } from "./keywords";
 
+// recommended(추천순)가 기본이다. 목록 뷰 recommend_key 오름차순 = 분석된 공고(비추천은 그 끝)·점수 높은 순, 다음 미분석 최근 공고 순(ADR-069).
 export const OPPORTUNITY_SORTS = [
+  "recommended",
   "publishedAt:desc",
   "deadlineAt:asc",
   "score:desc",
@@ -24,6 +27,7 @@ const schema = z.object({
   recommendation: z.array(recommendationSchema),
   decision: z.array(z.enum(["BID", "WATCH", "NO_BID", "NONE"])),
   category: z.array(categorySchema),
+  keyword: z.array(z.enum(OPPORTUNITY_KEYWORD_IDS)),
   origin: z.enum(["live", "demo", "all"]),
   siAiFirst: z.enum(["true", "false"]),
   includeEarly: z.enum(["true", "false"]),
@@ -61,10 +65,11 @@ export function parseOpportunityQuery(
     recommendation: repeated(raw.recommendation),
     decision: repeated(raw.decision),
     category: repeated(raw.category),
+    keyword: repeated(raw.keyword),
     origin: scalar(raw.origin) || fallbackOrigin,
     siAiFirst: scalar(raw.siAiFirst) || "true",
     includeEarly: scalar(raw.includeEarly) || "false",
-    sort: scalar(raw.sort) || "publishedAt:desc",
+    sort: scalar(raw.sort) || "recommended",
     cursor: scalar(raw.cursor) || null,
     limit: scalar(raw.limit) || 20,
     asOf: scalar(raw.asOf) || null,
@@ -108,6 +113,7 @@ export function serializeOpportunityQuery(q: OpportunityQuery): string {
     "recommendation",
     "decision",
     "category",
+    "keyword",
   ] as const)
     for (const v of q[k]) p.append(k, v);
   p.set("siAiFirst", String(q.siAiFirst));

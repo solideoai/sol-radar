@@ -1,4 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, it, expect } from "vitest";
+import type { Database } from "@/lib/database.types";
 import {
   fingerprint,
   parseOpportunityQuery,
@@ -6,6 +8,41 @@ import {
   signOpportunityCursor,
   verifyOpportunityCursor,
 } from "./query";
+import { filtered, opportunityKeyset } from "./repo";
+
+const parse = (raw: Record<string, string | string[]>) => {
+  const r = parseOpportunityQuery(raw, "live");
+  if (!r.ok) throw new Error(JSON.stringify(r.issues));
+  return r.value;
+};
+const baseCursor = {
+  scope: "org-filter",
+  version: "v1",
+  asOf: "2026-10-21T00:00:00Z",
+  issuedAt: 100000000,
+};
+// 체인 호출을 [메서드, ...인자] 로 남기는 가짜 client. 응답은 흉내 내지 않는다.
+const recordingClient = () => {
+  const calls: unknown[][] = [];
+  const chain: object = new Proxy(
+    {},
+    {
+      get:
+        (_target, method) =>
+        (...args: unknown[]) => {
+          calls.push([method, ...args]);
+          return chain;
+        },
+    },
+  );
+  const client = {
+    from: (table: string) => {
+      calls.push(["from", table]);
+      return chain;
+    },
+  };
+  return { calls, client: client as unknown as SupabaseClient<Database> };
+};
 describe("사업기회 검색 경계", () => {
   it("early 기본 제외·출처 반복·명시 정렬을 복귀 URL에 보존한다", () => {
     const r = parseOpportunityQuery({ sourceFamily: ["LH", "KEPCO"], sort: "score:desc" }, "live");
@@ -38,6 +75,45 @@ describe("사업기회 검색 경계", () => {
     expect(verifyOpportunityCursor(signed, "other-org", key, now)).toBeNull();
     expect(verifyOpportunityCursor(signed, "org-filter", key, now + 86400000)).toBeNull();
     expect(verifyOpportunityCursor(signed + "0", "org-filter", key, now)).toBeNull();
+  });
+  it("기본 정렬은 추천순이고 키워드를 복귀 URL에 보존한다", () => {
+    const q = parse({ keyword: ["AI_AX", "ISP_ISMP"] });
+    expect(q.sort).toBe("recommended");
+    expect(q.sortExplicit).toBe(false);
+    expect(new URLSearchParams(serializeOpportunityQuery(q)).getAll("keyword")).toEqual([
+      "AI_AX",
+      "ISP_ISMP",
+    ]);
+    expect(parseOpportunityQuery({ keyword: "NOPE" }, "live").ok).toBe(false);
+  });
+});
+
+describe("IT 범위·추천순 조회(ADR-069)", () => {
+  it("추천순 커서는 recommend_key 오름차순으로 이어 간다", () => {
+    const q = { ...parse({}), sort: "recommended" as const, siAiFirst: false, sortExplicit: true };
+    const cursor = {
+      ...baseCursor,
+      id: "00000000-0000-4000-8000-000000000001",
+      rank: 2,
+      value: "00200",
+    };
+    const expr = opportunityKeyset(q, cursor);
+    expect(expr).toContain('recommend_key.gt."00200"');
+    expect(expr).not.toContain("recommend_key.lt.");
+  });
+  it("관심 목록에는 IT 범위 조건을 걸지 않는다", () => {
+    const itScopeCalls = (raw: Record<string, string>) => {
+      const { calls, client } = recordingClient();
+      filtered(client, "org", parse(raw), "2026-10-29T00:00:00Z");
+      return calls.filter(([method, column]) => method === "eq" && column === "it_scope");
+    };
+    expect(itScopeCalls({})).toEqual([["eq", "it_scope", true]]);
+    expect(itScopeCalls({ watched: "me" })).toEqual([]);
+  });
+  it("고른 키워드는 분류·태그 OR 조건 하나로 건다", () => {
+    const { calls, client } = recordingClient();
+    filtered(client, "org", parse({ keyword: ["AI_AX", "MAINTENANCE"] }), "2026-10-29T00:00:00Z");
+    expect(calls).toContainEqual(["or", "categories.ov.{AI_AX},tags.ov.{maintenance}"]);
   });
 });
 
