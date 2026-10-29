@@ -154,6 +154,14 @@ describe("결과", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("mock 응답(modelName fixture)이면 모델 이름 대신 Mock 응답이라고 쓴다", async () => {
+    // ADR-034 15번: mock 응답이 실제 모델처럼 보이면 안 된다. gateway mock 의 model 값이 "fixture" 다.
+    const host = renderPanel({ initialInsight: { ...DONE_MODEL, modelName: "fixture" } });
+    await expect.element(panel().getByText(PAYLOAD.summary)).toBeVisible();
+    await expect.element(panel().getByText(/Mock 응답\(데모 데이터\)/)).toBeVisible();
+    expect(host.textContent).not.toMatch(/fixture/);
+  });
+
   it("DONE·TEMPLATE 이면 대체 안내와 [다시 요청] 이 있고, 누르면 다시 POST 한다", async () => {
     renderPanel({ initialInsight: DONE_TEMPLATE });
     await expect

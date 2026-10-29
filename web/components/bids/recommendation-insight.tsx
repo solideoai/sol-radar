@@ -3,6 +3,7 @@
 import { LoaderCircleIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { formatKst } from "@/components/bids/format";
+import { MOCK_MODEL_TEXT } from "@/components/bids/kev-opinion";
 import { useInsightRequest, type InsightPhase } from "@/components/bids/use-insight-request";
 import { Button } from "@/components/ui/button";
 import type { InsightItem, InsightRef, InsightView } from "@/server/insight";
@@ -27,6 +28,12 @@ type RecommendationInsightProps = {
 };
 
 const REF_KIND: Record<InsightRef["kind"], string> = { BID: "공고문", COMPANY: "회사 자료" };
+// gateway mock 의 /insight 응답 model 값. worker 가 model_name 에 그대로 저장한다.
+// mock 응답이 실제 모델처럼 보이면 안 되므로(ADR-034 15번) 결정 모델 참고 지표와 같은 글자로 바꿔 쓴다.
+const MOCK_INSIGHT_MODEL = "fixture";
+
+const modelText = (modelName: string | null): string =>
+  modelName === MOCK_INSIGHT_MODEL ? MOCK_MODEL_TEXT : `모델 ${modelName ?? "—"}`;
 
 function RecommendationInsight({
   bidId,
@@ -154,7 +161,7 @@ function Body({
       <ItemGroup title="강점" items={payload.strengths} refs={payload.refs} />
       <ItemGroup title="보완할 점" items={payload.improvements} refs={payload.refs} />
       <p className="type-caption text-muted-foreground">
-        {template ? "규칙 결과로 정리" : `모델 ${insight.modelName ?? "—"}`} · {madeAt} 작성
+        {template ? "규칙 결과로 정리" : modelText(insight.modelName)} · {madeAt} 작성
       </p>
     </div>
   );

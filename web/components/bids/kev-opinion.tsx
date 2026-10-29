@@ -321,4 +321,4 @@ function KevOpinion(props: KevOpinionProps) {
   );
 }
 
-export { KevOpinion };
+export { KevOpinion, MOCK_MODEL_TEXT };
