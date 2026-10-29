@@ -1,16 +1,20 @@
 """POST /insight 추천 분석(스펙 §4.3, 계획 C3): 모델 출력 검증과 규칙 결과 템플릿.
 
-판정(점수·권고)은 규칙 엔진 결과를 입력으로 받기만 한다. 모델 출력은 아래 순서로 검사하고, 하나라도 걸리면 그 이유와 함께
-템플릿으로 대체한다(응답은 언제나 200).
+판정(점수·권고)은 규칙 엔진 결과를 입력으로 받기만 한다. 입력이 인젝션 의심이면(run 의 injectionSuspected 또는
+InjectionGuard 가 모델에 갈 글에서 찾음) 모델을 부르지 않고 템플릿으로 답한다(INJECTION_SUSPECTED, 보안 리뷰 중-2).
+모델 출력은 아래 순서로 검사하고, 하나라도 걸리면 그 이유와 함께 템플릿으로 대체한다(응답은 언제나 200).
 
-1. JSON·모양(INVALID_OUTPUT): 표준 JSON 객체, 모르는 키 없음, 글자·개수 상한(InsightBody).
+1. JSON·모양(INVALID_OUTPUT): 표준 JSON 객체, 모르는 키 없음, 글자·개수 상한(InsightBody), 숨은 문자 없음
+   (유니코드 범주 Cc·Cf·Zl·Zp·Co·Cs. 탭·개행은 허용).
 2. 근거 번호(UNKNOWN_REF): refIds 가 요청 refs 에 있다.
-3. 금지어(FORBIDDEN_WORD): 승률·확률·가능성·수주 금액·점유율·경쟁사·%.
-4. 판정 이름(LABEL_CONFLICT): 다른 판정의 한국어 이름(BID=추천·WATCH=보류·NO_BID=비추천)과 영문 판정 토큰.
+3. 금지어(FORBIDDEN_WORD): FORBIDDEN_WORDS.
+4. 판정(LABEL_CONFLICT): 다른 판정의 한국어 이름(BID=추천·WATCH=보류·NO_BID=비추천), 영문 판정 토큰, 판정과 상관없이
+   참여를 권하거나 말리는 표현(VERDICT_INTENTS).
 5. 숫자(UNKNOWN_NUMBER): 문장의 숫자가 요청 JSON(requestId 제외)의 숫자 안에 있다(/explain 숫자 검사와 같은 토큰).
 
-금지어·판정 이름은 NFKC 로 바꾸고 공백을 지운 글에서 찾는다("수주금액"·"10％"·"비 추천"도 잡는다).
-템플릿도 같은 검사를 지난 항목만 남긴다. 로그에 요청·모델 출력을 남기지 않는다.
+금지어·판정은 NFKC 로 바꾸고 공백을 지운 글에서 찾는다("수주금액"·"10％"·"비 추천"·"B I D"도 잡는다).
+한글 수사("십이억")는 숫자 검사가 보지 못한다(남은 위험). 템플릿도 같은 검사를 지난 항목만 남긴다.
+로그에 요청·모델 출력을 남기지 않는다.
 """
 
 import json
@@ -32,6 +36,7 @@ from sol_ai.contracts import (
 )
 from sol_ai.deadline import Deadline
 from sol_ai.explain import allowed_numbers, number_tokens
+from sol_ai.guards import InjectionGuard
 from sol_ai.paths import INSIGHT_PROMPT_FILE, INSIGHT_SCHEMA_FILE
 from sol_ai.schema import prompt_hash
 from sol_ai.strict_json import parse_json
@@ -39,13 +44,49 @@ from sol_ai.strict_json import parse_json
 # promptHash = sha256(프롬프트 + 스키마 파일 + 이 버전). 추출 promptHash 와 따로다
 INSIGHT_PROMPT_VERSION = "insight/v0.1"
 
-FORBIDDEN_WORDS = ("승률", "확률", "가능성", "수주 금액", "점유율", "경쟁사", "%")
+FORBIDDEN_WORDS = (
+    "승률",
+    "확률",
+    "가능성",
+    "수주 금액",
+    "점유율",
+    "경쟁사",
+    "%",
+    "낙찰률",
+    "낙찰율",
+    "수주율",
+    "수주률",
+    "퍼센트",
+    "경쟁 업체",
+    "타사",
+)
+# 공백을 없앤 글에서 "타사"는 기타 사항·기타 사업·타 사업에도 생긴다. 이것들은 경쟁사 표현이 아니라 뺀다
+_FORBIDDEN_EXCEPTIONS = {"타사": r"(?<!기)타사(?!업)"}
 # 화면 판정 이름(ADR-062). "비추천"을 먼저 찾아 그 안의 "추천"을 BID 로 세지 않는다
 VERDICT_NAMES = {"비추천": "NO_BID", "추천": "BID", "보류": "WATCH"}
 _VERDICT_NAME = re.compile("|".join(VERDICT_NAMES))
-# 영문 판정 토큰은 판정과 상관없이 쓰지 않는다
+# 판정을 다시 말하는 표현. 판정과 상관없이 쓰지 않는다("참여하려면 …해야 합니다"는 보통 문장이라 통과한다)
+VERDICT_INTENTS = (
+    "참여하지 않",
+    "참여하지 마",
+    "입찰하지 않",
+    "입찰하지 마",
+    "참여를 권",
+    "입찰을 권",
+    "참여를 포기",
+    "입찰을 포기",
+    "참여를 보류",
+    "입찰을 보류",
+    "불참",
+    "참여하십시오",
+    "입찰하십시오",
+)
+# 영문 판정 토큰은 판정과 상관없이 쓰지 않는다. 공백을 없앤 글에서도 찾는다("B I D")
 _ENGLISH_VERDICT = re.compile(r"(?<![A-Za-z])(?:NO[\s_-]?BID|BID|WATCH)(?![A-Za-z])", re.IGNORECASE)
 _SPACE = re.compile(r"\s+")
+# 보이지 않거나 글을 쪼개는 문자(제어·서식·줄/문단 구분·사용자 정의·짝 없는 서로게이트). 탭·개행만 허용한다
+HIDDEN_CATEGORIES = frozenset({"Cc", "Cf", "Zl", "Zp", "Co", "Cs"})
+ALLOWED_CONTROLS = frozenset("\t\n\r")
 
 # 템플릿 고르기(계획 Task 1): 강점은 비율 0.6 이상 요소 3개까지, 보완할 점은 미충족·확인 필요 자격 2개 + 0.4 미만 요소 2개
 STRENGTH_MIN_RATIO = 0.6
@@ -67,18 +108,33 @@ def _compact(text: str) -> str:
     return _SPACE.sub("", unicodedata.normalize("NFKC", text))
 
 
-_FORBIDDEN = tuple(_compact(word) for word in FORBIDDEN_WORDS)
+_FORBIDDEN = re.compile(
+    "|".join(_FORBIDDEN_EXCEPTIONS.get(word, re.escape(_compact(word))) for word in FORBIDDEN_WORDS)
+)
+_VERDICT_INTENT = re.compile("|".join(re.escape(_compact(phrase)) for phrase in VERDICT_INTENTS))
+
+
+def has_hidden_character(text: str) -> bool:
+    return any(
+        char not in ALLOWED_CONTROLS and unicodedata.category(char) in HIDDEN_CATEGORIES
+        for char in text
+    )
 
 
 def has_forbidden_word(text: str) -> bool:
+    return _FORBIDDEN.search(_compact(text)) is not None
+
+
+def has_verdict_conflict(text: str, recommendation: Recommendation) -> bool:
+    """다른 판정 이름·영문 판정 토큰·판정 취지 표현."""
     compact = _compact(text)
-    return any(word in compact for word in _FORBIDDEN)
-
-
-def has_other_verdict(text: str, recommendation: Recommendation) -> bool:
-    if _ENGLISH_VERDICT.search(unicodedata.normalize("NFKC", text)):
+    if _ENGLISH_VERDICT.search(unicodedata.normalize("NFKC", text)) or _ENGLISH_VERDICT.search(
+        compact
+    ):
         return True
-    named = {VERDICT_NAMES[name] for name in _VERDICT_NAME.findall(_compact(text))}
+    if _VERDICT_INTENT.search(compact):
+        return True
+    named = {VERDICT_NAMES[name] for name in _VERDICT_NAME.findall(compact)}
     return bool(named - {recommendation})
 
 
@@ -103,7 +159,7 @@ def _text_reason(
     """3~5단계. 단계마다 모든 문장을 본다(앞 단계가 먼저 걸린다)."""
     if any(has_forbidden_word(text) for text in texts):
         return "FORBIDDEN_WORD"
-    if any(has_other_verdict(text, request.rules.recommendation) for text in texts):
+    if any(has_verdict_conflict(text, request.rules.recommendation) for text in texts):
         return "LABEL_CONFLICT"
     if any(not _numbers(text) <= allowed for text in texts):
         return "UNKNOWN_NUMBER"
@@ -120,6 +176,8 @@ def validate_insight(
     try:
         body = InsightBody.model_validate(data)
     except ValidationError:
+        return None, "INVALID_OUTPUT"
+    if any(has_hidden_character(text) for text in _texts(body)):
         return None, "INVALID_OUTPUT"
     known = {ref.id for ref in request.refs}
     if any(
@@ -176,7 +234,7 @@ def template_insight(request: InsightRequest) -> InsightBody:
     allowed = request_numbers(request)
 
     def accept(text: str) -> bool:
-        return _text_reason([text], request, allowed) is None
+        return not has_hidden_character(text) and _text_reason([text], request, allowed) is None
 
     rated = [(factor, ratio) for factor in rules.factors if (ratio := _ratio(factor)) is not None]
     strong = sorted((p for p in rated if p[1] >= STRENGTH_MIN_RATIO), key=lambda p: -p[1])
@@ -215,12 +273,24 @@ def insight_prompt_hash() -> str:
     )
 
 
+def injection_suspected(request: InsightRequest, guard: InjectionGuard) -> bool:
+    """run 이 인젝션 의심이었거나, 모델에 갈 글(공고명·근거 인용·자격 이름 등 모든 문자열)에 지시문 패턴이 있다."""
+    return request.injectionSuspected or guard.scan_value(request.model_input())
+
+
 def run_insight(
-    request: InsightRequest, adapter: QwenAdapter, *, prompt_hash: str, deadline: Deadline
+    request: InsightRequest,
+    adapter: QwenAdapter,
+    *,
+    guard: InjectionGuard,
+    prompt_hash: str,
+    deadline: Deadline,
 ) -> InsightResponse:
-    """모델을 한 번 부르고 검사한다. 이 기능이 없는 어댑터·미접속·검사 실패는 템플릿으로 대체한다."""
+    """모델을 한 번 부르고 검사한다. 인젝션 의심·이 기능이 없는 어댑터·미접속·검사 실패는 템플릿으로 대체한다."""
     reason: InsightFallbackReason
-    if not isinstance(adapter, InsightAdapter):
+    if injection_suspected(request, guard):
+        reason = "INJECTION_SUSPECTED"
+    elif not isinstance(adapter, InsightAdapter):
         reason = "MODEL_UNAVAILABLE"
     else:
         try:
@@ -232,7 +302,7 @@ def run_insight(
         else:
             body, failure = validate_insight(raw, request)
             if body is not None:
-                return _response(body, None, adapter.model_name, prompt_hash)
+                return _response(body, None, adapter.insight_model, prompt_hash)
             reason = failure or "INVALID_OUTPUT"
     return _response(template_insight(request), reason, None, prompt_hash)
 

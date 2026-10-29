@@ -78,6 +78,10 @@ class InjectionGuard:
         """1단계: 공고 본문·첨부 텍스트."""
         return any(self.matches(text) for text in texts)
 
+    def scan_value(self, value: Any) -> bool:
+        """값 안의 문자열 전부(배열 원소·객체의 문자열 필드 포함). 추천 분석 요청처럼 모델에 JSON 을 줄 때 쓴다."""
+        return self.scan_input(_strings(value))
+
     def scan_output(self, extraction: dict, fields: Iterable[str]) -> bool:
         """출력 탐지: 필드 값·note 의 문자열에 지시문 패턴이 있거나,
         restrictions·qualifications 에 근거 없는(evidence=[]) 완화 문구가 값으로 있으면 의심.

@@ -362,6 +362,7 @@ InsightFallbackReason = Literal[
     "UNKNOWN_NUMBER",
     "UNKNOWN_REF",
     "LABEL_CONFLICT",
+    "INJECTION_SUSPECTED",
 ]
 
 
@@ -430,6 +431,14 @@ class InsightRequest(SizeLimitedModel):
     bosun: InsightBosun | None = None
     company: InsightCompany
     refs: list[InsightRef] = Field(max_length=24)
+    # run 의 추출이 인젝션 의심이었으면 true. 그러면 gateway 는 모델을 부르지 않는다(보안 리뷰 중-2)
+    injectionSuspected: bool = False
+
+    def model_input(self) -> dict:
+        """모델 user 메시지와 인젝션 검사가 보는 사실. 요청 id·의심 플래그는 사실이 아니라 뺀다."""
+        return self.model_dump(
+            mode="json", by_alias=True, exclude={"requestId", "injectionSuspected"}
+        )
 
     @field_validator("refs")
     @classmethod
