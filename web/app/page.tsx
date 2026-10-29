@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ComparisonSection } from "@/components/landing/comparison-section";
 import { DesktopNotice } from "@/components/landing/desktop-notice";
 import { FaqSection } from "@/components/landing/faq-section";
 import { FeaturesSection } from "@/components/landing/features-section";
@@ -7,7 +8,6 @@ import { Hero } from "@/components/landing/hero";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { startHrefFor } from "@/components/landing/landing-links";
 import { PrinciplesSection } from "@/components/landing/principles-section";
-import { ProblemSection } from "@/components/landing/problem-section";
 import { ProductPreviewSection } from "@/components/landing/product-preview-section";
 import { ServicesMarquee, SourcesMarquee } from "@/components/landing/showcase-marquees";
 import { WorkDemo } from "@/components/landing/work-demo";
@@ -53,7 +53,7 @@ export default async function Home() {
         {/* 동영상 대신 HTML 로 그린 업무 데모(가상 공고)가 흐른다. 출처 줄 고지 문장 아래다(2026-10-28 사용자 요청). */}
         <WorkDemo />
         <ProductPreviewSection />
-        <ProblemSection />
+        <ComparisonSection />
         <FeaturesSection />
         <HowItWorksSection />
         <PrinciplesSection />

@@ -17,7 +17,7 @@ updated: 2026-10-29
 - 공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 발표는 덱 20분 + 녹화 클립이다. D1 운영 사이트(`https://www.solideos-radar.com` + `?origin=demo`)는 녹화 촬영 경로이자 질의응답 라이브다. 발표 전 `pnpm demo:reset`은 하지 않는다.
 - 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 44 run, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
 - 운영에서 실공고를 수집·첨부 파싱·분석한다. 수집 출처는 나라장터·LH·KEPCO·K-water 입찰공고와 기업마당 부처 공고다. 실공고 분석과 추천 분석(ADR-066)이 운영에서 돈다(아래 운영 상태).
-- 운영에 알림 Worker가 없어 인앱·카카오·마감 알림이 처리되지 않는다. 기동은 승인 뒤다(아래 "알림 처리" 행).
+- 운영에 알림 Worker가 없어 인앱·카카오·마감 알림이 처리되지 않는다. 기동은 승인 뒤다(아래 "알림 처리" 행). 사용자가 운영 알림 Worker를 곧 구현할 예정이다(2026-10-29, 날짜는 [[12-ROADMAP|12 로드맵]] 남은 일정 제안 표).
 - X6 파인튜닝과 실험 E0~E3·X1·X2는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다.
 
 ### 운영 상태
@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 랜딩 서비스 소개를 공고 수집 서비스 4곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표로 교체, main 병합(브랜치 `feat/landing-compare`, [스펙](../polaris/specs/in-progress/2026-10-29-landing-competitor-table.md), [경쟁 재조사](evidence/competitors/2026-10-29-competitors.md)) · `e2e/landing-sections.spec.ts` 17 passed(구현 전 4 failed, 최종 리뷰 뒤 대비·넘침·실명 시험 보완), 병합 뒤 전체 `pnpm verify` exit 0, 1440·1280 넘침 0([증거](evidence/landing-comparison/README.md))
 - 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
 - 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 - 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 나라장터 보조 조회 한도를 기능별로 나누고 같은 revision에 다시 채움 · `pnpm verify:changed` 통과, 회사 `--check` exit 0, 1건 채움 확인([기록](evidence/ingestion/20261029-g2b-aux-budget.md))
 - 2026-10-29 · KEPCO 공고 없는 날 HTTP 404를 빈 쪽으로 읽고 조회 시작일을 3일 앞당김 · `pnpm verify:changed` 통과, 회사 재생성 healthy([기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md))
 - 2026-10-29 · 회사 AI gateway 두 번 교체(첨부 조립 v0.2 [[16-DECISIONS|ADR-064]], 번역 비교 표현 [[16-DECISIONS|ADR-065]], 인용 300자)와 실공고 3건 분석 · gateway `/health` ok·`registryMatch: true`·파서 3종([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))
-- 2026-10-28 · 운영 조직도 0명 부서 해소와 본부·그룹 직속 직원([[16-DECISIONS|ADR-063]]) · `pnpm verify:changed` exit 0, 조직도 브라우저 시험 1440·1280 통과([증거](evidence/org-rebalance-20261028/))
 
 ## 관련 문서
 

@@ -15,7 +15,7 @@ const SECTIONS = [
   {
     link: "서비스 소개",
     hash: "#about",
-    title: "공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다.",
+    title: "찾아 주는 서비스는 많습니다. 판단까지 하는 곳은 드뭅니다.",
   },
 ];
 
@@ -36,20 +36,118 @@ SECTIONS.forEach(({ link, hash, title }) =>
   }),
 );
 
-test("서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다", async ({ page }) => {
+// 묶음 이름과 행 이름. 행 이름 칸에는 보조 설명이 이어 붙으므로 앞부분으로 맞춘다.
+const COMPARISON_ROWS = [
+  "공고 찾기 · 읽기",
+  /^공고 수집 · 조건 검색/,
+  /^AI 공고 요약/,
+  /^우리 회사 기준 참가자격 판정/,
+  /^판단 근거 원문 인용/,
+  "참여 판단",
+  /^보유 인력 반영/,
+  /^추천 · 보류 · 비추천 권고/,
+  /^검토 결정 · 사유 기록/,
+  "가격",
+  /^투찰 가격 분석/,
+];
+
+test("서비스 소개는 공고 수집 서비스 네 곳과 SOL RADAR 의 기능 비교 표다", async ({ page }) => {
   await page.goto("/");
   const about = page.getByRole("region", { name: SECTIONS[2].title });
   await expect(about.getByRole("columnheader")).toHaveText([
-    "검토 단계",
-    "지금은",
-    "SOL RADAR에서는",
+    "기능",
+    "인XX",
+    "비XX",
+    "모XX",
+    "클XX",
+    "SOL RADAR",
   ]);
-  await expect(about.getByRole("rowheader")).toHaveText([
-    "요구사항 파악",
-    "자격·실적 대조",
-    "판단 기록",
+  await expect(about.getByRole("rowheader")).toHaveText(COMPARISON_ROWS);
+  // 기호만이 아니라 뜻을 읽는다. 타사 칸("공개 페이지에서 확인")과 SOL RADAR 칸("제공")의 뜻은 다르다.
+  const notFound = /공개 페이지에서 확인되지 않음$/;
+  await expect(
+    about.getByRole("row", { name: /^추천 · 보류 · 비추천 권고/ }).getByRole("cell"),
+  ).toHaveText([notFound, notFound, notFound, notFound, /제공$/]);
+  await expect(about.getByRole("row", { name: /^투찰 가격 분석/ }).getByRole("cell")).toHaveText([
+    /공개 페이지에서 확인$/,
+    /공개 페이지에서 확인$/,
+    /공개 페이지에서 확인$/,
+    /일부만 확인$/,
+    /제공하지 않음$/,
   ]);
+  await expect(about.getByText(/2026년 10월 29일 각 서비스 공개 웹페이지 기준/)).toBeVisible();
   await expect(about.getByText("서비스 소개", { exact: true })).toHaveCount(0);
+});
+
+test("비교 표는 타사 실명과 금지 문구를 쓰지 않는다", async ({ page }) => {
+  await page.goto("/");
+  // 보이는 글자만이 아니라 title·alt·aria-label·meta 같은 속성까지 본다.
+  expect(await page.content()).not.toMatch(/인포21C|비드폼|모두입찰|클라이원트/);
+  const about = page.getByRole("region", { name: SECTIONS[2].title });
+  await expect(about).not.toContainText(/승률|확률|가능성|수주 금액|점유율|경쟁사|%|유일|최초/);
+});
+
+test.describe("1280 폭", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("비교 표가 단 폭 안에 들어간다", async ({ page }) => {
+    await page.goto("/");
+    const table = page.getByRole("region", { name: SECTIONS[2].title }).getByRole("table");
+    // clientWidth 는 좌우 안쪽 여백을 포함하므로 여백을 빼서 내용 폭과 비교한다.
+    expect(
+      await table.evaluate((element) => {
+        const parent = element.parentElement;
+        if (!parent) return false;
+        const style = getComputedStyle(parent);
+        const contentWidth =
+          parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return element.getBoundingClientRect().width <= contentWidth;
+      }),
+    ).toBe(true);
+  });
+});
+
+// 기호 글자는 칸 바탕과 대비 4.5:1 이상이다(docs/06-UI-UX.md §3.1). 색을 1px 캔버스에 겹쳐 칠해 실제 sRGB 값으로 잰다.
+test("비교 표 기호는 바탕과 대비 4.5:1 이상이다", async ({ page }) => {
+  await page.goto("/");
+  const marks = page
+    .getByRole("region", { name: SECTIONS[2].title })
+    .locator("td > span[aria-hidden='true']");
+  await expect(marks).toHaveCount(40);
+  const ratios = await marks.evaluateAll((elements) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return [0];
+    const paint = (colors: string[]) => {
+      context.clearRect(0, 0, 1, 1);
+      colors.forEach((color) => {
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+      });
+      return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    };
+    const luminance = (rgb: number[]) => {
+      const [r, g, b] = rgb.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    return elements.map((element) => {
+      const cell = element.parentElement ?? element;
+      const base = [
+        "#fff",
+        getComputedStyle(document.body).backgroundColor,
+        getComputedStyle(cell).backgroundColor,
+      ];
+      const back = luminance(paint(base));
+      const fore = luminance(paint([...base, getComputedStyle(element).color]));
+      return (Math.max(back, fore) + 0.05) / (Math.min(back, fore) + 0.05);
+    });
+  });
+  expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5);
 });
 
 test("구역 제목 위에 작은 머리글이 없다", async ({ page }) => {
@@ -109,6 +207,16 @@ test("주요 기능 설명은 가운뎃점으로 줄을 시작하지 않는다",
   for (const description of await descriptions.all()) {
     expect(await lineStartsOf(description)).not.toContain("·");
   }
+});
+
+// 회귀: 1280 에서 “들어갈 사업인지” 뒤의 조사 "를"이 닫는 따옴표와 떨어져 줄 맨 앞으로 내려갔다.
+test("비교 표 설명은 조사로 줄을 시작하지 않는다", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  const description = page.getByRole("region", { name: SECTIONS[2].title }).locator("h2 + p");
+  const starts = await lineStartsOf(description);
+  expect(starts).not.toContain("를");
+  expect(starts).not.toContain("와");
 });
 
 test("작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다", async ({ page }) => {
