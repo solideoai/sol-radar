@@ -1,0 +1,15 @@
+[WebServer] (node:65686) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65717) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+
+Running 3 tests using 1 worker
+
+(node:65727) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/landing-showcase.spec.ts:142:5 › 업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 가며 흐른다 (26.0s)
+  ✓  2 [chromium] › e2e/landing-showcase.spec.ts:205:5 › 키보드로 데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다 (9.8s)
+  ✓  3 [chromium] › e2e/landing-showcase.spec.ts:240:5 › 움직임 줄이기면 데모는 분석 상세 완성 화면에 멈춰 있고 움직이는 요소가 없다 (4.0s)
+
+  3 passed (42.4s)

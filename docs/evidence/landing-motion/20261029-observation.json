@@ -1,0 +1,76 @@
+{
+  "observedAt": "2026-10-29",
+  "stage": "Research; subsequent implementation is recorded in 20261029-implementation.json",
+  "branch": "feat/landing-demo-motion",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "method": "Isolated Playwright Chromium, rendered screenshots and DOM Animation API sampled once per second for 25 seconds on each website",
+  "sources": [
+    {
+      "url": "https://granter.biz/#top",
+      "observations": [
+        "Dashboard agent action leads to a wide conversation workspace; sidebars collapse and a panel moves horizontally into view.",
+        "At a confirmation action, a blue click ring and pressed control make the input visible; changed table cells receive a pale blue highlight.",
+        "A result callout appears above the updated report; the observed run waits at a continuation action rather than proving an endless loop."
+      ],
+      "measuredDurationsMs": {
+        "sidebarWidth": 300,
+        "panelTranslate": 500,
+        "cursorTransform": 700,
+        "pressedScale": 150,
+        "calloutEntrance": 420
+      },
+      "calloutEntrance": {
+        "translateFrom": "0px 20px",
+        "translateTo": "0px",
+        "opacityFrom": 0,
+        "opacityTo": 1
+      }
+    },
+    {
+      "url": "https://www.solideos-radar.com",
+      "observations": [
+        "Existing WorkDemo reaches all five scenes and returns to the beginning during the observation.",
+        "Existing table row reveal translates vertically by 6px over 400ms; source confirms scene transitions translate by 8px.",
+        "Numeric count-up, staggered table rows, five score bars, evidence highlighting, pressed button scale and cursor movement already exist."
+      ],
+      "sampledScenes": [
+        {
+          "second": 0,
+          "scene": 1,
+          "step": 0
+        },
+        {
+          "second": 5,
+          "scene": 2,
+          "step": 4
+        },
+        {
+          "second": 10,
+          "scene": 3,
+          "step": 9
+        },
+        {
+          "second": 15,
+          "scene": 4,
+          "step": 13
+        },
+        {
+          "second": 20,
+          "scene": 5,
+          "step": 18
+        },
+        {
+          "second": 25,
+          "scene": 1,
+          "step": 1
+        }
+      ]
+    }
+  ],
+  "assessment": "The main difference is the visible relationship between an action, a spatial transition and its result. Proposed timings and effects in the specification are design choices, not measured Granter behavior.",
+  "implementation": "Not started; research and planned specification only.",
+  "verification": "pnpm verify:changed exit 0 (web verify:quick: 117 files, 995 tests); specification local links, JSON parsing and git diff --check passed. No app code changes; no new build or local E2E run."
+}

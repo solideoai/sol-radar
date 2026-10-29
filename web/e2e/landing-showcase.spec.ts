@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { DATA_SOURCES, SOLIDEO_SERVICES } from "@/components/landing/showcase-data";
+import { STEP } from "@/components/landing/work-demo-data";
 
 // 히어로 아래 흐르는 줄 둘: 솔리데오 수행 서비스와 데이터 출처(스펙 2026-10-28-ui-refresh §4.5).
 // 목록은 두 번 이어 붙여 흐르고, 둘째 사본은 화면 낭독기에서 숨긴다(aria-hidden). 첫 사본만 센다.
@@ -139,6 +140,7 @@ test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async
 const workDemo = (page: Page) => page.getByRole("region", { name: "SOL RADAR 업무 데모" });
 
 test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 가며 흐른다", async ({ page }) => {
+  test.setTimeout(45_000);
   await page.goto("/");
   const demo = workDemo(page);
   await expect(demo).toHaveAttribute("data-scene", "1");
@@ -163,6 +165,41 @@ test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 �
   expect(demoBox?.y ?? -Infinity).toBeGreaterThanOrEqual(
     (sourcesBox?.y ?? 0) + (sourcesBox?.height ?? 0),
   );
+
+  // 옆에서 들어온 패널이 정착한 뒤 공고를 누른다. 커서 끝이 실제 목표 안에 있어야 한다.
+  // 360ms의 누름 단계를 느린 단언 폴링으로 건너뛰지 않게 DOM의 도착을 기다린다.
+  await page
+    .locator(`section[aria-label="SOL RADAR 업무 데모"][data-step="${STEP.rowPress}"]`)
+    .waitFor({ state: "attached", timeout: 12_000 });
+  const target = await demo.locator('[data-demo-target="bid-row"]').boundingBox();
+  const cursor = demo.locator('[data-pressed="true"] > div');
+  const pointer = await cursor.boundingBox();
+  expect(target).not.toBeNull();
+  expect(pointer).not.toBeNull();
+  expect(pointer?.x ?? -Infinity).toBeGreaterThanOrEqual(target?.x ?? 0);
+  expect(pointer?.x ?? Infinity).toBeLessThan((target?.x ?? 0) + (target?.width ?? 0));
+  expect(pointer?.y ?? -Infinity).toBeGreaterThanOrEqual(target?.y ?? 0);
+  expect(pointer?.y ?? Infinity).toBeLessThan((target?.y ?? 0) + (target?.height ?? 0));
+  expect(
+    await cursor.evaluate((node) => getComputedStyle(node, "::before").animationName),
+  ).not.toBe("none");
+
+  await expect(demo).toHaveAttribute("data-scene", "4");
+  const panel = demo.locator('[data-active="true"]');
+  expect(
+    await panel.evaluate((node) =>
+      node.getAnimations().some((animation) => {
+        const frames =
+          animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : [];
+        return new Set(frames.map((frame) => frame.transform)).size > 1;
+      }),
+    ),
+  ).toBe(true);
+  await expect(demo).toHaveAttribute("data-step", String(STEP.detailBubble), { timeout: 8000 });
+  expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await expect(demo).toHaveAttribute("data-scene", "5");
+  await expect(demo).toHaveAttribute("data-step", String(STEP.replay), { timeout: 5000 });
+  await expect(demo).toHaveAttribute("data-step", "0", { timeout: 5000 });
 });
 
 test("키보드로 데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다", async ({
@@ -171,7 +208,7 @@ test("키보드로 데모 멈춤을 누르면 그 단계에 머물고, 데모 �
   await page.goto("/");
   const demo = workDemo(page);
   await demo.scrollIntoViewIfNeeded();
-  await expect(demo).toHaveAttribute("data-step", /^[1-9]/);
+  await expect(demo).toHaveAttribute("data-scene", "2");
   // 버튼은 화면에서 숨어 있다가 키보드 초점이 오면 보인다(2026-10-28 사용자 요청).
   const pause = demo.getByRole("button", { name: "데모 멈춤", exact: true });
   expect((await pause.locator("..").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
@@ -182,9 +219,20 @@ test("키보드로 데모 멈춤을 누르면 그 단계에 머물고, 데모 �
   // 버튼 이름이 바뀌므로 감싼 칸은 새 이름(데모 재생)의 버튼에서 다시 찾는다.
   expect((await play.locator("..").boundingBox())?.width ?? 0).toBeGreaterThan(20);
   const step = (await demo.getAttribute("data-step")) ?? "";
+  const panel = demo.locator('[data-active="true"]');
+  const pausedTimes = () =>
+    panel.evaluate((node) =>
+      node
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.playState === "paused")
+        .map((animation) => animation.currentTime),
+    );
+  const times = await pausedTimes();
+  expect(times.length).toBeGreaterThan(0);
   // 한 단계는 3초를 넘지 않는다. 그보다 길게 기다려도 그대로다.
   await page.waitForTimeout(3500);
   await expect(demo).toHaveAttribute("data-step", step);
+  expect(await pausedTimes()).toEqual(times);
   await play.press("Enter");
   await expect(demo).not.toHaveAttribute("data-step", step);
 });

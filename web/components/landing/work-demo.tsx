@@ -38,7 +38,7 @@ import { Button } from "@/components/ui/button";
 // 흐르는 줄 둘(출처 고지 문장) 아래 "SOL RADAR 업무 데모". 동영상이 아니라 앱 화면을 닮게 HTML 로 그리고, 가짜 커서가 흐름을 따라 누른다.
 // 판 위에는 아래 구역들과 같은 왼쪽 구역 제목·설명과 위 여백을 둔다(2026-10-28 사용자 요청: "공고 검색보다 …" 구역과 같은 글씨·위치).
 // 출처 줄과는 화면 폭 전체 가는 선으로 나눈다(같은 날 사용자 요청 "section 나누라고 했잖아. 선으로라도").
-// 상태는 단계 번호 하나다. 단계가 바뀌면 화면 쪽 요소가 CSS 전환(투명도·위치·막대 폭·숫자)으로 따라온다.
+// 상태는 단계 번호 하나다. 단계가 패널 진입·클릭·결과 강조를 시작하고 CSS가 움직임을 그린다.
 // 화면에 보이고 탭이 보일 때만 흐른다. 움직임 줄이기면 분석 상세의 완성 화면에서 멈춰 있고, 재생 버튼을 눌러야 흐른다.
 // 움직이는 판은 화면 낭독기와 키보드에서 뺀다(aria-hidden·inert). 같은 흐름을 sr-only 문단으로 읽게 한다.
 // 멈춤·재생 버튼은 화면에서 숨기고 키보드 초점이 올 때만 판 밖 오른쪽 아래에 보인다(2026-10-28 사용자 요청).
@@ -116,6 +116,7 @@ export function WorkDemo() {
           aria-hidden
           inert
           className={cn(
+            styles.frame,
             "relative mt-14 grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
             !running && styles.paused,
           )}
@@ -132,7 +133,15 @@ export function WorkDemo() {
             </div>
           </div>
           {showCursor && (
-            <DemoCursor ref={cursorRef} rest={CURSOR_REST} pressed={pressed !== undefined} />
+            <div
+              data-pressed={pressed !== undefined}
+              className={cn(
+                styles.cursorOverlay,
+                "pointer-events-none absolute inset-0 z-20 text-brand",
+              )}
+            >
+              <DemoCursor ref={cursorRef} rest={CURSOR_REST} pressed={pressed !== undefined} />
+            </div>
           )}
         </div>
         {/* 멈춤·재생 버튼은 판 밖 오른쪽 끝이고 키보드 초점이 올 때만 보인다. 어떤 장면의 내용과도 겹치지 않는다. */}
@@ -234,6 +243,7 @@ function DemoTopBar({ alert }: { alert: boolean }) {
         <span
           className={cn(
             "absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand transition-opacity duration-240 motion-reduce:transition-none",
+            alert && styles.notification,
             alert ? "opacity-100" : "opacity-0",
           )}
         />

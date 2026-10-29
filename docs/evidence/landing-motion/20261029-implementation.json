@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-29",
+  "branch": "feat/landing-demo-motion",
+  "baseCommit": "e16f613f",
+  "status": "passed",
+  "changedCode": [
+    "web/components/landing/work-demo.tsx",
+    "web/components/landing/work-demo-scenes.tsx",
+    "web/components/landing/work-demo.module.css",
+    "web/e2e/landing-showcase.spec.ts"
+  ],
+  "behavior": {
+    "cycleSeconds": 24.68,
+    "steps": 22,
+    "collectionPanelMs": 480,
+    "detailPanelMs": 500,
+    "clickRippleMs": 360,
+    "collection": {
+      "firstStartMs": 520,
+      "rowGapMs": 240,
+      "completionFlashMs": 320
+    },
+    "qualifications": {
+      "firstStartMs": 560,
+      "rowGapMs": 520,
+      "revealMs": 180
+    },
+    "evidenceSweepMs": 650,
+    "savedRowMs": 300,
+    "receiptMs": 280,
+    "notificationMs": 400,
+    "notificationDelayMs": 320,
+    "pause": "Keyframes and their delays freeze; transitions settle to the current step's final values.",
+    "reducedMotion": "All keyframes/transitions disabled; completed analysis scene remains visible."
+  },
+  "checks": {
+    "preliminaryChangedVerification": "pnpm verify:changed passed before final E2E additions.",
+    "integration": {
+      "initialCommand": "pnpm verify",
+      "initialResult": "Common checks passed (296 root tests, tokens, colors, generated DB types); web type-check then failed: AnimationEffect has no getKeyframes.",
+      "correction": "Narrow the browser effect with instanceof KeyframeEffect before reading keyframes.",
+      "resumed": "Reused successful common checks under ADR-046; pnpm -C web type-check passed, then completed remaining web stages and both previously unrun Python projects.",
+      "web": "format:check, type-check, lint, check:lint-guards, test (117 files / 995 tests), lodestar, check:tokens, check:colors and build all passed.",
+      "ai": "pnpm verify --project ai passed: lint/format and 264 pytest tests.",
+      "decision": "pnpm verify --project decision passed: lint/format and 57 pytest tests.",
+      "sandbox": "Python project checks initially could not access the uv cache; rerun with filesystem permission passed."
+    },
+    "e2e": {
+      "command": "pnpm -C web exec playwright test e2e/landing-showcase.spec.ts --grep '업무 데모|키보드로 데모|움직임 줄이기면 데모' --workers=1",
+      "result": "3 passed (42.4s), production build",
+      "scenarios": [
+        "Full cycle and replay; cursor inside clicked bid target; click effect and translated detail panel present.",
+        "Keyboard pause freezes both the step and CSS animation currentTime; playback resumes.",
+        "Reduced motion keeps the completed analysis scene and disables all element animations."
+      ]
+    },
+    "visual": {
+      "method": "Local rendered Chromium, one full cycle at each of 1440x900 and 1280x800; original stages sampled on requestAnimationFrame.",
+      "result": "Both widths loop to the beginning; page and active panels have no horizontal overflow; panel client and scroll sizes are 910x550 at sampled stages.",
+      "screenshots": [
+        "20261029-collect-enter-1440.png",
+        "20261029-evidence-1440.png",
+        "20261029-collect-complete-1280.png",
+        "20261029-watchlist-1280.png"
+      ],
+      "initialObserverIssue": "An initial visual script missed the 360ms press stage with assertion polling. Updated the observer to requestAnimationFrame; both widths completed. No product timing changes."
+    }
+  },
+  "deployment": "Local implementation and verification record. Production deployment was not performed as part of this verification."
+}
