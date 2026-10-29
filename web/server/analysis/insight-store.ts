@@ -46,7 +46,7 @@ export type InsightStore = {
 };
 
 const RUN_COLUMNS =
-  "id, org_id, status, input_snapshot, score, recommendation, recommendation_basis, review_flags, missing_factors, kev_assist";
+  "id, org_id, status, input_snapshot, score, recommendation, recommendation_basis, review_flags, missing_factors, kev_assist, injection_suspected";
 
 function failure(table: string, action: string, code: string | undefined): Error {
   return new Error(`${table} ${action} 실패: ${code ?? "UNKNOWN"}`);

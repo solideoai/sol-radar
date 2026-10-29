@@ -32,6 +32,7 @@ function runSource(input: AnalysisInput = buildAnalysisInput("FX-01")): InsightR
     missingFactors: result.missingFactors.map((entry) => entry.factor),
     kevEnabled: result.kev.enabled,
     kevReviewFlags: ["KEV_NEEDS_REVIEW"],
+    injectionSuspected: false,
     factors: result.factors.map((factor) => ({
       factor: factor.factor,
       points: factor.points,
@@ -173,6 +174,23 @@ describe("toInsightRequest", () => {
     }
     expect(refs.some((ref) => ref.quotedText.startsWith("나".repeat(300)))).toBe(true);
   });
+
+  // 보안 리뷰 중-2: 인젝션 의심 run 의 공고 원문을 모델에 넘기지 않는다. gateway 는 이 값이면 모델을 부르지 않는다.
+  it("인젝션 의심 run 은 injectionSuspected 를 켜고 공고 인용(B)을 빼고 보낸다", () => {
+    const normal = toInsightRequest(runSource(), REQUEST_ID);
+    expect(normal.request.injectionSuspected).toBe(false);
+    expect(normal.refs.some((ref) => ref.kind === "BID")).toBe(true);
+
+    const suspected = toInsightRequest({ ...runSource(), injectionSuspected: true }, REQUEST_ID);
+    expect(suspected.request.injectionSuspected).toBe(true);
+    expect(suspected.refs.filter((ref) => ref.kind === "BID")).toHaveLength(0);
+    expect(suspected.request.refs).toEqual(suspected.refs);
+    // 회사 자료는 남기고 번호는 C1 부터다.
+    expect(suspected.refs.map((ref) => ref.id)).toEqual(
+      normal.refs.filter((ref) => ref.kind === "COMPANY").map((ref) => ref.id),
+    );
+    expect(suspected.refs[0]).toMatchObject({ id: "C1", kind: "COMPANY" });
+  });
 });
 
 describe("toInsightPayload", () => {
@@ -215,6 +233,19 @@ describe("GatewayClient.insight", () => {
       failure: { kind: "INVALID_RESPONSE" },
     });
   });
+
+  it("인젝션 의심으로 모델을 부르지 않은 템플릿 응답(INJECTION_SUSPECTED)을 받는다", async () => {
+    const { request } = toInsightRequest({ ...runSource(), injectionSuspected: true }, REQUEST_ID);
+    const template = response({
+      strengths: [],
+      fallback: true,
+      fallbackReason: "INJECTION_SUSPECTED",
+      model: null,
+    });
+    const gateway = fakeGateway({ "/insight": jsonReply(template) });
+    expect(await gateway.gateway.insight(request)).toMatchObject({ ok: true, value: template });
+    expect(gateway.bodyOf("/insight")).toMatchObject({ injectionSuspected: true });
+  });
 });
 
 describe("toInsightRunSource", () => {
@@ -238,6 +269,7 @@ describe("toInsightRunSource", () => {
         review_flags: [...result.reviewFlags, "CITATION_FAILED"],
         missing_factors: [],
         kev_assist: toJson(result.kev),
+        injection_suspected: false,
       },
       factors: result.factors.toReversed().map((factor) => ({
         factor: factor.factor,
@@ -266,11 +298,24 @@ describe("toInsightRunSource", () => {
       kevEnabled: true,
       kevReviewFlags: ["KEV_NEEDS_REVIEW"],
       reviewFlags: ["KEV_NEEDS_REVIEW", "CITATION_FAILED"],
+      injectionSuspected: false,
     });
     expect(source?.factors.map((factor) => factor.factor)).toEqual([...FACTOR_KEYS]);
     // 스냅샷은 입력 계약으로 읽는다(계약 밖 키는 버린다).
     expect(source?.input).toEqual(analysisInputSchema.parse(buildAnalysisInput("FX-02")));
     expect(source?.checks).toHaveLength(rows.checks.length);
+  });
+
+  it("review_flags 의 INJECTION_SUSPECTED 나 injection_suspected 열이 참이면 인젝션 의심이다", () => {
+    const rows = runRows();
+    const flagged = {
+      ...rows.run,
+      review_flags: [...rows.run.review_flags, "INJECTION_SUSPECTED"],
+    };
+    expect(toInsightRunSource({ ...rows, run: flagged })?.injectionSuspected).toBe(true);
+    const column = { ...rows.run, injection_suspected: true };
+    expect(toInsightRunSource({ ...rows, run: column })?.injectionSuspected).toBe(true);
+    expect(toInsightRunSource(rows)?.injectionSuspected).toBe(false);
   });
 
   it("끝나지 않은 run·입력 계약과 다른 스냅샷·모르는 판정 값이면 null 이다", () => {

@@ -59,6 +59,7 @@ function runSource(): InsightRunSource {
     missingFactors: [],
     kevEnabled: false,
     kevReviewFlags: [],
+    injectionSuspected: false,
     factors: [],
     checks: [],
   };

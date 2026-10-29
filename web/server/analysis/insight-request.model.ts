@@ -38,6 +38,8 @@ export type InsightRunSource = {
   missingFactors: string[];
   kevEnabled: boolean;
   kevReviewFlags: string[];
+  /** 추출·run 에 인젝션 의심이 있다. 공고 원문 인용을 모델에 넘기지 않는다. */
+  injectionSuspected: boolean;
   factors: {
     factor: string;
     points: number;
@@ -188,8 +190,10 @@ export function toInsightRequest(
         ]),
   ];
 
+  // 인젝션 의심 run 은 공고 인용을 보내지 않는다. 회사 자료(C)는 남긴다(보안 리뷰 중-2).
+  const quotes = source.injectionSuspected ? [] : bidQuotes(input.extraction);
   const refs: InsightRef[] = [
-    ...bidQuotes(input.extraction).map(({ label, quote }, index) => ({
+    ...quotes.map(({ label, quote }, index) => ({
       id: `B${index + 1}`,
       kind: "BID" as const,
       label: clip(label, MAX_LABEL),
@@ -240,6 +244,7 @@ export function toInsightRequest(
       staff,
     },
     refs,
+    injectionSuspected: source.injectionSuspected,
   };
   return { request, refs };
 }
@@ -279,6 +284,7 @@ export type InsightRunRows = {
     | "review_flags"
     | "missing_factors"
     | "kev_assist"
+    | "injection_suspected"
   >;
   factors: Pick<
     Tables["score_factors"]["Row"],
@@ -296,6 +302,9 @@ const finishedRunSchema = z.object({
   kev_assist: z.looseObject({ enabled: z.boolean() }).nullable(),
 });
 const checkStatusSchema = z.enum(["SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW", "NOT_APPLICABLE"]);
+
+/** 규칙 엔진이 추출의 인젝션 의심에 붙이는 플래그(scoring/analyze.ts). */
+const INJECTION_FLAG = "INJECTION_SUSPECTED";
 
 /** Bosun(결정 모델)이 낸 검토 플래그. 규칙 엔진 플래그와 함께 run 의 review_flags 에 저장된다. */
 const isBosunFlag = (flag: string): boolean =>
@@ -329,6 +338,11 @@ export function toInsightRunSource(rows: InsightRunRows): InsightRunSource | nul
     missingFactors: rows.run.missing_factors,
     kevEnabled: run.data.kev_assist?.enabled === true,
     kevReviewFlags: rows.run.review_flags.filter(isBosunFlag),
+    // 플래그·열·스냅샷 추출 가운데 하나라도 의심이면 의심으로 본다.
+    injectionSuspected:
+      rows.run.review_flags.includes(INJECTION_FLAG) ||
+      rows.run.injection_suspected ||
+      input.data.extraction?.injectionSuspected === true,
     factors: rows.factors
       .toSorted((a, b) => order(a.factor) - order(b.factor))
       .map((factor) => ({

@@ -315,6 +315,11 @@ export type InsightGatewayRequest = {
     staff: { from: string; to: string; availableFte: number; eligibleStaff: number } | null;
   };
   refs: InsightRef[];
+  /**
+   * run 에 인젝션 의심이 있으면 true. gateway 는 모델을 부르지 않고 TEMPLATE(INJECTION_SUSPECTED)로 답한다.
+   * 이때 refs 에는 공고 인용(B)이 없다(보안 리뷰 중-2).
+   */
+  injectionSuspected: boolean;
 };
 
 // ── 실패와 결과. 예상한 실패는 던지지 않고 값으로 돌려준다 ──
