@@ -5,6 +5,7 @@ export { createGatewayClient, createParseClient } from "./gateway.client";
 export type { GatewayClient, GatewayClientDeps, ParseClient } from "./gateway.client";
 export {
   extractRequestSchema,
+  insightResponseSchema,
   parseResponseSchema,
   readGatewayConfig,
   readParseConfig,
@@ -18,10 +19,17 @@ export type {
   GatewayHealth,
   GatewayRequestBody,
   GatewayResult,
+  InsightGatewayRequest,
+  InsightGatewayResponse,
   KevResponse,
   ParseClientConfig,
   ParseResponse,
+  QualificationStatus,
 } from "./gateway.model";
+
+// 추천 분석(ADR-066) gateway 요청 조립. worker 의 insight job 이 쓴다.
+export { toInsightPayload, toInsightRequest } from "./insight-request.model";
+export type { InsightRunSource } from "./insight-request.model";
 export type { BreakerState } from "./circuit-breaker.model";
 export {
   pickAiUnavailableReason,
