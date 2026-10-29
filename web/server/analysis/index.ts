@@ -100,7 +100,7 @@ export type {
 } from "./analysis-job.model";
 
 // 분석 port 네 개와 멈춘 run 찾기 port 의 Supabase 구현. worker 가 service role 클라이언트와 첨부 port 를 넘긴다. 행 매핑 함수는 내보내지 않는다.
-export { createAnalysisStores, createPreanalyzeStore } from "./analysis.repo";
+export { createAnalysisStores, createItBatchStore, createPreanalyzeStore } from "./analysis.repo";
 export type { AnalysisStores } from "./analysis.repo";
 
 // 사전 분석(`pnpm demo:preanalyze`, C5-B). 대상 고르기·멱등 키·요약 줄과 저장 port. 행 매핑 함수는 내보내지 않는다.
@@ -123,3 +123,7 @@ export type {
 } from "./preanalyze.model";
 export { ANALYSIS_READS_ATTACHMENT_TEXT, EMPTY_ATTACHMENT_READER } from "./analysis-store.model";
 export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-store.model";
+
+// IT 공고 1회 일괄 분석(`pnpm it:batch-analyze`, ADR-069). 멱등 키와 저장 port. 원문 판정·행 매핑 함수는 내보내지 않는다.
+export { itBatchIdempotencyKey } from "./it-batch.model";
+export type { ItBatchRun, ItBatchRunInput, ItBatchStore, ItBatchTarget } from "./it-batch.model";
