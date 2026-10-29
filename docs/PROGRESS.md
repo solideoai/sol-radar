@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-30 · 운영 `/bids` 에 잠깐 "Minified React error #441" 이 보인 원인 확인: 10-29 16:42:53~55 KST `procurement_filter_options` 4건이 8초 statement timeout(57014, Supabase edge·postgres 로그)으로 실패해 서버 컴포넌트가 던졌다. 23:53 필터 캐시 배포 뒤 이 RPC 호출 0건·Supabase 4xx·5xx 0건. 업무 화면 오류 상자(`work-error.tsx`)가 Next 16.4·React 19.3 운영 문구를 가린 메시지로 알아보지 못해 영어 원문을 보여 주던 것을 한국어 대체 문구로 고침 · `work-error.test.ts` 새 시험(고치기 전 실패 확인), `pnpm verify:changed` exit 0(web 999시험). 화면 확인·배포 전
 - 2026-10-29 · 조직도 이름 찾기 고침(`feat/org-search`): 재현해 보니 항목을 고르지 않은 Enter 는 목록만 닫았고, 목록이 닫히면 친 이름이 지워졌다(Base UI Combobox `value=null`). Autocomplete 로 바꾸고 [검색] 버튼·Enter 검색 추가 — 1명이면 그 팀으로 가고 여럿·없음은 목록·안내를 연다 · 새 브라우저 시험 7건(고치기 전 7건 실패 확인), `pnpm verify:changed` 통과(web 996시험), `test:browser` 105건 통과, 1440·1280 화면 확인([스크린샷](evidence/org-search/)). 로그인 E2E(`e2e-auth`)는 돌리지 않음
 - 2026-10-29 · 인물 서랍에 수행 이력·자격증 구역 추가, 가상 직원 수행 이력 v2(1인당 3~5건·가상 발주기관 14곳·등급별 경력, 마이그레이션 `20261029001000`은 `past_projects`·`capability_version`만 바꿈, 점수 입력 불변). 운영 DB `20261029001000` 적용·`db-verify` 통과(마이그레이션 69개, v2 200행·발주기관 200) · `node --test scripts/people/*.test.mjs` 9/9(변형 5건 실패 확인), `people:check:fixtures` ok, `pnpm verify:changed` exit 0(web 996시험), 격리 Supabase에 마이그레이션 적용 v2 200행, 서랍 1440·1280 넘침 0. `test:e2e:auth` 미실행([기록](evidence/people/20261029-project-history/README.md))
 - 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 반영 대기([기록](evidence/deployment/20261029-list-rpc-latency.md)) · 통합 검증 전
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 사용자 승인으로 새 브랜치의 커밋 메시지 검사 범위를 `origin/main..HEAD`로 조정(기준 없음·공통 조상 없음은 실패, 제목 50자·형식과 다른 게이트 유지) · 회귀 3건의 수정 전 실패 확인, 커밋·푸시 검사 시험 33건 및 `pnpm verify:changed` 통과(루트 299·웹 995시험). 실제 브랜치 신규 1커밋 검사 통과. [기록](evidence/verification/20261029-new-branch-base.json)
 - 2026-10-29 · `feat/landing-demo-motion`에서 [업무 데모 애니메이션](../polaris/specs/done/2026-10-29-landing-demo-motion.md) 구현: 수집·상세 패널 전개, 클릭·완료·인용·관심 등록 강조, 22단계·24.68초 유지 · 전체 검증 범위 통과(공통 296시험 성공 재사용, E2E 타입 오류 수정 후 웹 995·AI 264·결정 57시험·빌드 통과), 업무 데모 E2E 3건, 1440×900·1280×800 한 바퀴·가로 넘침 확인. [기록](evidence/landing-motion/20261029-implementation.json). main 병합 뒤 전체 `pnpm verify` exit 0·랜딩 E2E 3종 47 passed
 - 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
-- 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 
 ## 관련 문서
 
