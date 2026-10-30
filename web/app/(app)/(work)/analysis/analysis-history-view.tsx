@@ -206,7 +206,6 @@ export function AnalysisHistoryView({
             <colgroup>
               <col className="w-10" />
               <col />
-              <col className="w-22" />
               <col className="w-28" />
               <col className="w-22" />
               <col className="w-22" />
@@ -214,19 +213,13 @@ export function AnalysisHistoryView({
             </colgroup>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {[
-                  "선택",
-                  "공고명",
-                  "revision",
-                  "분석 상태",
-                  "SOL Score",
-                  "권고",
-                  "분석 시각 (KST)",
-                ].map((label) => (
-                  <TableHead key={label} scope="col" className="h-auto px-2 py-3">
-                    {label}
-                  </TableHead>
-                ))}
+                {["선택", "공고명", "분석 상태", "SOL Score", "권고", "분석 시각 (KST)"].map(
+                  (label) => (
+                    <TableHead key={label} scope="col" className="h-auto px-2 py-3">
+                      {label}
+                    </TableHead>
+                  ),
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,29 +257,31 @@ export function AnalysisHistoryView({
                         >
                           {item.bidTitle}
                         </Link>
-                        <details>
-                          <summary className="cursor-pointer type-caption text-muted-foreground">
-                            분석 기준·주의 사항
-                          </summary>
-                          <p className="type-caption">
-                            {item.runMode} · {item.model.algorithmVersion}
+                        {(item.runMode === "mock" ||
+                          item.reviewFlags.includes("MOCK_FALLBACK")) && (
+                          <p className="type-caption text-warning">Mock 응답(데모 데이터)</p>
+                        )}
+                        {item.runMode === "fixture" && (
+                          <p className="type-caption text-warning">저장 공고 기반 분석</p>
+                        )}
+                        {item.errorCode && (
+                          <p className="type-caption text-destructive">{item.errorCode}</p>
+                        )}
+                        {item.reviewFlags.map((flag) => (
+                          <p key={flag} className="type-caption text-warning">
+                            {REVIEW_FLAG_LABEL[flag]}
                           </p>
-                          {item.errorCode && (
-                            <p className="type-caption text-destructive">{item.errorCode}</p>
-                          )}
-                          {item.reviewFlags.map((flag) => (
-                            <p key={flag} className="type-caption">
-                              {REVIEW_FLAG_LABEL[flag]}
-                            </p>
-                          ))}
+                        ))}
+                        <details>
+                          <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-caption text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                            분석 상세 정보
+                          </summary>
+                          <p className="type-caption">실행 모드 {item.runMode}</p>
+                          <p className="type-caption">공고 revision {item.revision}</p>
+                          <p className="type-caption">프로필 revision {item.profileRevision}</p>
+                          <p className="type-caption">알고리즘 {item.model.algorithmVersion}</p>
                         </details>
                       </div>
-                    </TableCell>
-                    <TableCell className="p-2 align-top tabular-nums">
-                      {item.revision}
-                      <p className="type-caption text-muted-foreground">
-                        프로필 {item.profileRevision}
-                      </p>
                     </TableCell>
                     <TableCell className="p-2 align-top">
                       <StatusBadge kind="analysis" value={item.status} short variant="inline" />

@@ -308,3 +308,39 @@ it("역할 정보가 없으면 '역할 정보 없음'과 팀 묶음을 보인다
   await expect.element(page.getByText("필요 인력은 예산 구간 추정입니다.")).toBeVisible();
   await expect.element(page.getByText("부서 미지정 1명 · 가용 1 FTE").first()).toBeVisible();
 });
+
+it("계산 기준은 접고 기간 가정·추정·FTE 정의와 최근 실패 경고는 노출한다", async () => {
+  const fetch = stubFetch({ items: [] });
+  const host = render({
+    initialIds: [BID_A],
+    initialResult: {
+      ...RESULT,
+      bids: [
+        bid(BID_A, "가상 행정 시스템 고도화", {
+          periodSource: "DEFAULT",
+          requiredFteSource: "BUDGET_TIER",
+          latestAttempt: { id: "new-attempt", status: "FAILED", at: "2026-10-30T00:00:00Z" },
+        }),
+      ],
+      teamPlan: [],
+    },
+  });
+  const details = [...host.querySelectorAll("details")].find(
+    (item) => item.querySelector("summary")?.textContent === "계산 기준",
+  )!;
+  expect(details.open).toBe(false);
+  const analysis = page.getByText("분석 aaaaaaaa · 공고 revision 1", { exact: true });
+  await expect.element(analysis).not.toBeVisible();
+  await expect
+    .element(page.getByText(/기본 기간: 마감·기준일의 1개월 뒤 월초부터 6개월/))
+    .toBeVisible();
+  await expect.element(page.getByText("필요 인력은 예산 구간 추정입니다.")).toBeVisible();
+  await expect
+    .element(page.getByText("FTE는 상근 환산 인력이며 실제 인원 수와 다릅니다."))
+    .toBeVisible();
+  await expect.element(page.getByText(/최근 유효 완료 분석을 표시합니다/)).toBeVisible();
+  await userEvent.click(details.querySelector("summary")!);
+  await expect.element(analysis).toBeVisible();
+  await expect.element(page.getByText("계산 기준일 2026-10-16", { exact: true })).toBeVisible();
+  expect(fetch).not.toHaveBeenCalled();
+});

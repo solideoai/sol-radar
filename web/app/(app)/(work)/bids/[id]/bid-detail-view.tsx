@@ -690,7 +690,7 @@ function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
   );
 }
 
-// ② 분석 요약 띠: 상태·끝난 시각·분석 실행 모드·AI / 가상 회사 프로필·알고리즘·프로필 rev / 분석 이력.
+// 상태와 데이터 성격은 바로 보이고, 운영·재현 정보는 필요할 때 펼친다.
 function AnalysisBand({
   bid,
   latest,
@@ -722,27 +722,42 @@ function AnalysisBand({
             at={latest === null ? undefined : (latest.finishedAt ?? latest.queuedAt)}
           />
         )}
-        {shown !== null && (
+        {shown?.runMode === "fixture" && (
           <>
             <Dot />
-            <span>분석 실행 모드: {shown.runMode}</span>
+            <span className="type-label text-warning">저장 공고 기반 분석</span>
+          </>
+        )}
+        {shown?.model.provider === "mock" && (
+          <>
             <Dot />
-            <span className="min-w-0 wrap-anywhere">{aiText(shown)}</span>
+            <span className="type-label text-warning">Mock 응답(데모 데이터)</span>
           </>
         )}
       </div>
       {shown !== null && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <ProfileBadge isDemo={shown.profileIsDemo} />
-          {!bid.isDemo && (
-            <span className="type-caption text-muted-foreground">
-              {shown.profileIsDemo ? LIVE_PROFILE_TEXT : LIVE_PUBLIC_PROFILE_TEXT}
-            </span>
-          )}
-          <span className="type-caption text-muted-foreground wrap-anywhere">
-            알고리즘 {shown.model.algorithmVersion} · 프로필 rev {shown.profileRevision}
-          </span>
-        </div>
+        <>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <ProfileBadge isDemo={shown.profileIsDemo} />
+            {!bid.isDemo && (
+              <span className="type-caption text-muted-foreground">
+                {shown.profileIsDemo ? LIVE_PROFILE_TEXT : LIVE_PUBLIC_PROFILE_TEXT}
+              </span>
+            )}
+          </div>
+          <details className="type-caption text-muted-foreground">
+            <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              분석 상세 정보
+            </summary>
+            <div className="mt-2 flex flex-col gap-1 wrap-anywhere">
+              <span>분석 실행 모드: {shown.runMode}</span>
+              <span>{aiText(shown)}</span>
+              <span>
+                알고리즘 {shown.model.algorithmVersion} · 프로필 rev {shown.profileRevision}
+              </span>
+            </div>
+          </details>
+        </>
       )}
       {historyRows.length >= 2 && (
         <details className="group">

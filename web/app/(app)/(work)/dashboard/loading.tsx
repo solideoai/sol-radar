@@ -52,20 +52,10 @@ export default function Loading() {
               </div>
             ))}
           </div>
-          <div className="mt-4 @container">
-            <div className="grid grid-cols-1 gap-12 @min-[64rem]:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)]">
-              <div className="flex min-w-0 flex-col gap-10">
-                <SectionSkeleton rows={5} rowHeight="h-20" />
-                <SectionSkeleton rows={4} rowHeight="h-16" />
-              </div>
-              <div className="min-w-0 @container/side">
-                <div className="grid grid-cols-1 gap-x-12 gap-y-9 @min-[40rem]/side:grid-cols-2">
-                  {[3, 4, 5, 4].map((rows, key) => (
-                    <SectionSkeleton key={key} rows={rows} rowHeight="h-6" />
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="mt-4 flex min-w-0 flex-col gap-10">
+            <SectionSkeleton rows={5} rowHeight="h-20" />
+            <SectionSkeleton rows={4} rowHeight="h-16" />
+            <Skeleton className={`h-6 w-48 ${pulse}`} />
           </div>
         </div>
       </div>

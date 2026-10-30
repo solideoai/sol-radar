@@ -490,7 +490,12 @@ export function OpportunityFilters({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => startTransition(() => router.push(pathname, { scroll: false }))}
+            onClick={() =>
+              startTransition(() => {
+                setSearch("");
+                router.push(pathname, { scroll: false });
+              })
+            }
           >
             <FilterXIcon aria-hidden className="size-4" />
             필터 초기화

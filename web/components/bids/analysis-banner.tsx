@@ -49,13 +49,18 @@ function BannerRow({ tone, text, codes, action }: Omit<BannerSpec, "key">) {
       <Icon aria-hidden="true" className={cn("mt-0.5 size-4 shrink-0", className)} />
       <p className="min-w-0 flex-1 type-body text-foreground">{text}</p>
       {codes.length > 0 && (
-        <p className="flex min-w-0 flex-wrap gap-x-3 font-mono type-caption text-muted-foreground">
-          {codes.map((code) => (
-            <span key={code} className="wrap-anywhere">
-              {code}
-            </span>
-          ))}
-        </p>
+        <details className="min-w-0 type-caption text-muted-foreground">
+          <summary className="min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            오류 상세
+          </summary>
+          <div className="mt-2 flex flex-col gap-1 font-mono">
+            {codes.map((code) => (
+              <span key={code} className="wrap-anywhere">
+                {code}
+              </span>
+            ))}
+          </div>
+        </details>
       )}
       {action !== undefined && (
         <Button type="button" variant="outline" size="sm" onClick={action.onClick}>

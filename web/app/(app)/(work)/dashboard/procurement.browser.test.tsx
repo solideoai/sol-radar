@@ -234,7 +234,7 @@ describe("공공조달 업무 화면", () => {
     expect(demo?.querySelector('[data-part="unverified-origin"]')).toBeNull();
   });
 
-  it("1440px의 2열 대시보드는 1280px에서 세로 배치되고 숫자 띠 5칸과 +3px 글자를 유지한다", async () => {
+  it("대시보드는 업무를 먼저 보이고 통계를 펼쳐 확인하며 두 폭에서 넘치지 않는다", async () => {
     await page.viewport(1440, 1100);
     const host = render(
       <AppPage title="대시보드" contentClassName="max-w-360" typeScale="dashboard">
@@ -306,6 +306,32 @@ describe("공공조달 업무 화면", () => {
     const duplicate = page.getByText(/중복 후보 2건은 별도 사업기회로 집계됩니다\.$/).element();
     expect(duplicate.className).toContain("text-muted-foreground");
     expect(duplicate.closest("section")?.querySelector("h2")?.textContent).toBe("우선 검토할 입찰");
+    // 운영 통계는 기본 접힘이지만, 충돌 경고와 업무 목록은 바로 보인다.
+    const disclosure = page.getByText("수집 현황·참고 통계", { exact: true });
+    expect(disclosure.element().closest("details")?.open).toBe(false);
+    const box = (name: string) => {
+      const element = page.getByRole("heading", { name, exact: true }).element().closest("section");
+      if (!element) throw new Error(`${name} 구역이 없습니다`);
+      return element.getBoundingClientRect();
+    };
+    expect(box("우선 검토할 입찰").width).toBeGreaterThan(900);
+    expect(disclosure.element().getBoundingClientRect().top).toBeGreaterThan(
+      box("예정 사업 및 사전규격").bottom,
+    );
+    expect(
+      page.getByRole("link", { name: "데이터 수집 관리", exact: true }).elements(),
+    ).toHaveLength(0);
+    await page.screenshot({
+      path: "../../../../test-results/vitest-screenshots/procurement-dashboard-declutter-1440.png",
+      fullPage: true,
+    });
+    await userEvent.click(disclosure);
+    await expect
+      .element(page.getByRole("heading", { name: "수집 지표", exact: true }))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole("link", { name: "발주 현황 보기", exact: true }))
+      .toHaveAttribute("href", "/market");
     // 실수집 지표(B3): 시각은 KST 절대 시각, 다음 수집은 "예정"으로 적는다.
     const stat = (label: string) => {
       const element = page
@@ -329,11 +355,6 @@ describe("공공조달 업무 화면", () => {
       "한국토지주택공사 디지털정보기술사업본부 스마트시티사업처3건",
       "조달청1건",
     ]);
-    const box = (name: string) => section(name).getBoundingClientRect();
-    expect(Math.abs(box("우선 검토할 입찰").top - box("수집 지표").top)).toBeLessThan(1);
-    expect(box("수집 지표").left).toBeGreaterThan(box("우선 검토할 입찰").right);
-    expect(box("수집 소스 상태").left).toBeGreaterThan(box("우선 검토할 입찰").right);
-    expect(box("수집 소스 상태").top).toBeGreaterThan(box("수집 지표").bottom);
     expect(
       getComputedStyle(page.getByRole("heading", { name: "대시보드", exact: true }).element())
         .fontSize,
@@ -343,9 +364,6 @@ describe("공공조달 업무 화면", () => {
       fullPage: true,
     });
     await page.viewport(1280, 1100);
-    await expect
-      .poll(() => box("수집 소스 상태").top)
-      .toBeGreaterThan(box("우선 검토할 입찰").bottom);
     expect(box("수집 지표").top).toBeGreaterThan(box("예정 사업 및 사전규격").bottom);
     // 1280px 에서도 숫자 띠는 한 줄 5칸이다.
     expect(sameRow()).toBeLessThan(1);
@@ -360,6 +378,11 @@ describe("공공조달 업무 화면", () => {
     );
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/procurement-dashboard-demo-1280.png",
+      fullPage: true,
+    });
+    await userEvent.click(disclosure);
+    await page.screenshot({
+      path: "../../../../test-results/vitest-screenshots/procurement-dashboard-declutter-1280.png",
       fullPage: true,
     });
   });
@@ -381,6 +404,14 @@ describe("공공조달 업무 화면", () => {
         canRunIngestion={false}
       />,
     );
+    await expect
+      .element(
+        page.getByText("참고 통계를 불러오지 못했습니다. 수집 현황·참고 통계에서 확인하세요.", {
+          exact: true,
+        }),
+      )
+      .toBeVisible();
+    await userEvent.click(page.getByText("수집 현황·참고 통계", { exact: true }));
     const metrics = page.getByRole("region", { name: "수집 지표" });
     await expect.element(metrics.getByText("마지막 수집 성공", { exact: true })).toBeVisible();
     expect(metrics.element().textContent).not.toContain("다음 수집 예정");

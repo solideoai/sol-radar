@@ -1,13 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { readWorkContext, storageOf, topbar } from "./support/work-fixtures";
 
-// V2-02(11 §3): 실행 모드는 분석 띠에서 드러난다. mock 실행에서 분석 결과는 "가상 회사 프로필로 분석"이다.
+// V2-02: 모의 응답·가상 프로필은 기본 노출하고 실행 모드는 분석 상세 정보에서 확인한다.
 // 10-26 운영 전환: Topbar 에서는 실행 모드·AI 상태를 뺐다(배포 설정 값이 실공고 화면에 "mock" 으로 보여 데모로 오해하게 했다).
 test.use({ storageState: storageOf("sales") });
 
-test("V2-02 Topbar 에 실행 모드·AI 표시가 없고 FX-01 분석 띠에 분석 실행 모드와 가상 프로필 배지가 있다", async ({
-  page,
-}) => {
+test("V2-02 모의 응답은 보이고 실행 모드는 분석 상세 정보에서 확인한다", async ({ page }) => {
   const { bids } = readWorkContext();
   for (const path of ["/dashboard", "/bids", "/notifications", `/bids/${bids["FX-01"]}`]) {
     await page.goto(path);
@@ -20,7 +18,10 @@ test("V2-02 Topbar 에 실행 모드·AI 표시가 없고 FX-01 분석 띠에 �
   }
 
   const band = page.locator("section", { has: page.locator("#analysis-band-title") });
-  await expect(band).toContainText("분석 실행 모드: mock");
+  await expect(band.getByText("Mock 응답(데모 데이터)", { exact: true })).toBeVisible();
+  await expect(band.getByText("분석 실행 모드: mock", { exact: true })).not.toBeVisible();
+  await band.getByText("분석 상세 정보", { exact: true }).click();
+  await expect(band.getByText("분석 실행 모드: mock", { exact: true })).toBeVisible();
   await expect(band.getByText("가상 회사 프로필로 분석", { exact: true })).toBeVisible();
   await expect(band).toContainText("AI: mock");
 });

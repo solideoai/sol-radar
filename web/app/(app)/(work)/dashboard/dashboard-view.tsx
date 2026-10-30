@@ -15,7 +15,7 @@ import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 
 export const DASHBOARD_TITLE = "대시보드";
-export const DASHBOARD_DESCRIPTION = "공공조달 데이터와 수집 현황, 검토할 사업기회를 확인합니다.";
+export const DASHBOARD_DESCRIPTION = "검토할 입찰과 마감, 진행 중인 업무를 확인합니다.";
 const count = (value: number) => value.toLocaleString("ko-KR");
 
 // 카드 상자 없이 제목 줄과 구분선으로만 구역을 나눈다(2026-10-26 AI 티 걷어내기 §2).
@@ -119,11 +119,6 @@ function Portfolio({ summary }: { summary: OpportunitySummary }) {
           </li>
         ))}
       </ul>
-      {(summary.sourceConflictCount ?? 0) > 0 && (
-        <p className="mt-3 type-caption text-warning">
-          출처 간 확인 필요 {count(summary.sourceConflictCount ?? 0)}건 · 별도 검토
-        </p>
-      )}
       <p className="mt-3 type-caption wrap-anywhere text-muted-foreground">
         확인 예산{" "}
         <span className="font-mono" title={formatKrwCompact(summary.knownBudgetKrw).full}>
@@ -386,49 +381,82 @@ export function DashboardView({
       )}
       <SummaryStrip figures={figures} />
       {summary.totalOpportunities === 0 && <NoBidsEmptyState canRun={canRunIngestion} />}
-      {/* 칸 수는 화면 폭이 아니라 단 폭으로 정한다. 사이드바를 접고 펴도 같은 규칙이다. */}
-      <div className="mt-4 @container">
-        <div className="grid grid-cols-1 gap-12 @min-[64rem]:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)]">
-          <div className="flex min-w-0 flex-col gap-10">
-            <OpportunityPanel
-              title="우선 검토할 입찰"
-              description={
-                <>
-                  AI·SI 우선 · 추천순
-                  {summary.potentialDuplicateCount > 0 &&
-                    ` · 중복 후보 ${count(summary.potentialDuplicateCount)}건은 별도 사업기회로 집계됩니다.`}
-                </>
-              }
-              items={review}
-              query={reviewQuery}
-              emptyText="검토할 입찰공고가 없습니다"
-            />
-            <OpportunityPanel
-              title="예정 사업 및 사전규격"
-              description="발주계획·조달요청·사전규격 · 별도 집계"
-              items={early}
-              query={earlyQuery}
-              early
-              emptyText="예정 사업 및 사전규격이 없습니다"
-            />
-          </div>
-          {/* 오른쪽 칸. 한 단으로 내려가 폭이 넓어지면 안에서 두 칸으로 나눠 세로 길이를 줄인다. */}
-          <div className="min-w-0 @container/side">
-            <div className="grid grid-cols-1 gap-x-12 gap-y-9 @min-[40rem]/side:grid-cols-2">
-              <IngestMetrics
-                summary={summary}
-                metrics={metrics}
-                sources={sources}
-                nextIngest={nextIngest}
-                now={now}
-              />
-              <OpportunitySourceStatus summary={sources} now={now} canManage={canRunIngestion} />
-              <TopAgencies metrics={metrics} />
-              <Portfolio summary={summary} />
-            </div>
-          </div>
-        </div>
+      {(summary.sourceConflictCount ?? 0) > 0 && (
+        <p className="type-label text-warning">
+          출처 간 확인 필요 {count(summary.sourceConflictCount ?? 0)}건 · 별도 검토
+        </p>
+      )}
+      {sources === null ? (
+        <p className="type-label text-warning">
+          수집 현황을 확인하지 못했습니다. 공고의 최신 여부를 확인하세요.
+        </p>
+      ) : !sources.isDemo && sources.groups.some((group) => group.status === "DEGRADED") ? (
+        <p className="type-label text-warning">
+          일부 출처의 수집이 미완료입니다. 공고의 최신 여부를 확인하세요.
+        </p>
+      ) : null}
+      {metrics === null && (
+        <p className="type-label text-warning">
+          참고 통계를 불러오지 못했습니다. 수집 현황·참고 통계에서 확인하세요.
+        </p>
+      )}
+      {nextIngest?.failed ? (
+        <p className="type-label text-warning">다음 수집 예정 시각을 확인하지 못했습니다.</p>
+      ) : nextIngest?.at && Date.parse(nextIngest.at) < now.getTime() ? (
+        <p className="type-label text-warning">
+          수집 예정 시각이 지났습니다. 공고의 최신 여부를 확인하세요.
+        </p>
+      ) : null}
+      <div className="mt-4 flex min-w-0 flex-col gap-10">
+        <OpportunityPanel
+          title="우선 검토할 입찰"
+          description={
+            <>
+              AI·SI 우선 · 추천순
+              {summary.potentialDuplicateCount > 0 &&
+                ` · 중복 후보 ${count(summary.potentialDuplicateCount)}건은 별도 사업기회로 집계됩니다.`}
+            </>
+          }
+          items={review}
+          query={reviewQuery}
+          emptyText="검토할 입찰공고가 없습니다"
+        />
+        <OpportunityPanel
+          title="예정 사업 및 사전규격"
+          description="발주계획·조달요청·사전규격 · 별도 집계"
+          items={early}
+          query={earlyQuery}
+          early
+          emptyText="예정 사업 및 사전규격이 없습니다"
+        />
       </div>
+      <details className="min-w-0 border-t border-border pt-4 @container">
+        <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm type-label text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          수집 현황·참고 통계
+        </summary>
+        <nav aria-label="현황 자세히 보기" className="mt-4 flex flex-wrap gap-4 type-label">
+          <Link href="/market" className="underline underline-offset-4">
+            발주 현황 보기
+          </Link>
+          {canRunIngestion && (
+            <Link href="/admin/ingestion" className="underline underline-offset-4">
+              데이터 수집 관리
+            </Link>
+          )}
+        </nav>
+        <div className="mt-6 grid min-w-0 grid-cols-1 items-start gap-x-12 gap-y-9 @min-[40rem]:grid-cols-2">
+          <IngestMetrics
+            summary={summary}
+            metrics={metrics}
+            sources={sources}
+            nextIngest={nextIngest}
+            now={now}
+          />
+          <OpportunitySourceStatus summary={sources} now={now} canManage={canRunIngestion} />
+          <TopAgencies metrics={metrics} />
+          <Portfolio summary={summary} />
+        </div>
+      </details>
     </>
   );
 }

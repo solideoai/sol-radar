@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { FX01_VIEW } from "@/components/bids/test-data";
 import type { AnalysisHistoryItem, AnalysisView } from "@/server/bids";
 import { AnalysisComparison } from "./analysis-comparison";
@@ -22,6 +22,8 @@ it("4열에서 부분·실패 값을 유지하고 실패한 조회만 재시도�
     ...FX01_VIEW,
     id: `a0000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     revision: index + 1,
+    model: { ...FX01_VIEW.model, provider: index === 1 ? "local" : "mock" },
+    runMode: index === 0 ? "live" : index === 1 ? "fixture" : "mock",
     status: index === 1 ? "PARTIAL" : index === 2 ? "FAILED" : "COMPLETED",
     solScore: index === 2 ? null : FX01_VIEW.solScore,
     scoreBreakdown: index === 2 ? [] : FX01_VIEW.scoreBreakdown,
@@ -75,5 +77,19 @@ it("4열에서 부분·실패 값을 유지하고 실패한 조회만 재시도�
   await expect.poll(() => host.querySelector('[role="alert"]')).toBeNull();
   expect(fetch.mock.calls.filter(([url]) => String(url).endsWith(views[0].id))).toHaveLength(1);
   expect(host.textContent).toContain("비교 기준이 다릅니다");
+  const details = host.querySelector<HTMLDetailsElement>("details:has(table)")!;
+  expect(details.open).toBe(false);
+  await expect.element(page.getByText("공고 revision", { exact: true })).not.toBeVisible();
+  await expect.element(page.getByText("EXTRACTION_FAILED", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("Mock 응답(데모 데이터)").first()).toBeVisible();
+  await expect.element(page.getByText("저장 공고 기반 분석")).toBeVisible();
+  const liveColumn = host.querySelector("thead tr th:nth-child(2)")!;
+  expect(liveColumn.textContent).toContain("Mock 응답(데모 데이터)");
+  expect(liveColumn.querySelector("details")).toBeNull();
+  const requestsBeforeExpand = fetch.mock.calls.length;
+  await userEvent.click(details.querySelector("summary")!);
+  await expect.element(page.getByText("공고 revision", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("알고리즘 버전", { exact: true })).toBeVisible();
+  expect(fetch.mock.calls).toHaveLength(requestsBeforeExpand);
   expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
 });

@@ -291,6 +291,7 @@ it("요약·막는 자격 순위·보유 가정을 원래 값과 가정 값으�
   expect(host.textContent).toContain(BUDGET_NOTICE);
   expect(host.textContent).toContain(COPY.sourceNotice);
   expect(host.textContent).toContain("공개 자료 회사 프로필로 분석");
+  expect(host.textContent).not.toMatch(/회사 프로필 r\d|기준 시각 없음|기준 \d{4}-\d{2}-\d{2}/);
 
   // 가정이 없으면 띠는 안내와 고정 문구만 있고 결과 숫자·새로 열리는 공고 구역이 없다.
   const band = host.querySelector<HTMLElement>('[data-slot="gaps-assumption-band"]');
@@ -331,10 +332,15 @@ it("요약·막는 자격 순위·보유 가정을 원래 값과 가정 값으�
 
   // 이동 뒤 결과(가정 있음). 원래 값은 그대로, 가정 값은 띠와 새로 열리는 공고에만 나온다.
   draw(ASSUMED, ASSUMED_LINKS);
-  const figures = band.querySelector('[data-slot="gaps-assumption-figures"]');
-  expect(figures?.textContent?.replace(/\s+/g, " ")).toBe(
-    "참가 가능(API 기준)원래36건가정82건차이+46건배정 예산 합원래33.8억가정286.8억차이+253억",
-  );
+  await expect
+    .poll(() =>
+      band
+        .querySelector('[data-slot="gaps-assumption-figures"]')
+        ?.textContent?.replace(/\s+/g, " "),
+    )
+    .toBe(
+      "참가 가능(API 기준)원래36건가정82건차이+46건배정 예산 합원래33.8억가정286.8억차이+253억",
+    );
   expect(band.textContent).toContain("소프트웨어사업자 신고확인서 보유");
   expect(band.textContent).toContain(
     "회사 기록 없음 74 → 28건 · 미보유 변화 없음 · 사람 확인 필요 변화 없음",

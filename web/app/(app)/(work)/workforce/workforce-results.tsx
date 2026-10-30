@@ -182,15 +182,21 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
             {item.analysisStatus && (
               <StatusBadge kind="analysis" value={item.analysisStatus} short />
             )}
-            <p>
-              분석 {item.analysisId.slice(0, 8)} · 공고 revision {item.revision}
-            </p>
-            <p>분석 시각 {item.analyzedAt ? `${formatKst(item.analyzedAt)} KST` : "정보 없음"}</p>
-            <p>
-              인력 스냅샷 기준{" "}
-              {item.snapshotAsOf ? `${formatKst(item.snapshotAsOf)} KST` : "정보 없음"}
-            </p>
-            <p>계산 기준일 {item.calculationDate}</p>
+            <p>분석 당시 스냅샷 기준</p>
+            <details>
+              <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                계산 기준
+              </summary>
+              <p>
+                분석 {item.analysisId.slice(0, 8)} · 공고 revision {item.revision}
+              </p>
+              <p>분석 시각 {item.analyzedAt ? `${formatKst(item.analyzedAt)} KST` : "정보 없음"}</p>
+              <p>
+                인력 스냅샷 기준{" "}
+                {item.snapshotAsOf ? `${formatKst(item.snapshotAsOf)} KST` : "정보 없음"}
+              </p>
+              <p>계산 기준일 {item.calculationDate}</p>
+            </details>
             {item.period && (
               <p className="tabular-nums">
                 수행 기간 {date(item.period.startsAt)} ~ {date(item.period.endsAt)}

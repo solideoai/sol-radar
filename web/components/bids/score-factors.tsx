@@ -157,8 +157,15 @@ function ScoreFactors({
         <span className="tabular-nums">
           합계 {formatPoints(sum)} → SOL Score {Math.round(sum)} (반올림)
         </span>
-        {" · "}알고리즘 {algorithmVersion} · 프로필 rev {profileRevision}
       </p>
+      <details className="type-caption text-muted-foreground">
+        <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          점수 계산 기준
+        </summary>
+        <p className="mt-2 wrap-anywhere">
+          알고리즘 {algorithmVersion} · 프로필 rev {profileRevision}
+        </p>
+      </details>
     </section>
   );
 }

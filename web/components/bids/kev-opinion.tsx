@@ -158,7 +158,14 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
           선택지에 매긴 확률 분포입니다.
         </p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
-        <p className="wrap-anywhere">최종 결정은 담당자가 기록합니다. {modelInfoText(kev)}</p>
+        <p>최종 결정은 담당자가 기록합니다.</p>
+        {kev.provider === "mock" && <p>{MOCK_MODEL_TEXT}</p>}
+        <details>
+          <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            모델 상세 정보
+          </summary>
+          <p className="mt-2 wrap-anywhere">{modelInfoText(kev)}</p>
+        </details>
         <p>{"결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."}</p>
       </div>
     </div>

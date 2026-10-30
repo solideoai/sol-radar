@@ -139,6 +139,8 @@ describe("결과", () => {
     await expect.element(region.getByText(PAYLOAD.summary)).toBeVisible();
     await expect.element(region.getByText(PAYLOAD.strengths[0]!.text)).toBeVisible();
     await expect.element(region.getByText(PAYLOAD.improvements[0]!.text)).toBeVisible();
+    await expect.element(region.getByText(/Qwen3\.8-Flash-Next-AWQ-INT4/)).not.toBeVisible();
+    await userEvent.click(region.getByText("생성 정보", { exact: true }));
     await expect.element(region.getByText(/Qwen3\.8-Flash-Next-AWQ-INT4/)).toBeVisible();
 
     const chip = region.getByRole("button", { name: "공고문 B1" });

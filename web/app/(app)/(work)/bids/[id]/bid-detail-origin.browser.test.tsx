@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { BID_LIST, FX01_VIEW } from "@/components/bids/test-data";
 import { BidDetailView, type DetailBid } from "./bid-detail-view";
 
@@ -145,5 +145,24 @@ describe("공고 상세 회사 프로필 배지", () => {
     await expect.element(page.getByText("가상 회사 프로필로 분석")).toBeVisible();
     await expect.element(page.getByText("실제 공고 × 가상 회사 프로필")).toBeVisible();
     expect(host.textContent).not.toContain("공개 자료 회사 프로필");
+  });
+});
+
+describe("분석 상세 정보 접기", () => {
+  it("모의 응답과 프로필 고지는 남기고 실행 정보는 펼쳐야 보인다", async () => {
+    render(detail({ latestAnalysis: { ...FX01_VIEW, runMode: "mock", profileIsDemo: true } }));
+    const band = page.getByRole("region", { name: "분석 요약", exact: true });
+    await expect.element(band.getByText("Mock 응답(데모 데이터)", { exact: true })).toBeVisible();
+    await expect.element(band.getByText("가상 회사 프로필로 분석", { exact: true })).toBeVisible();
+    expect(
+      band.getByText("분석 상세 정보", { exact: true }).element().closest("details")?.open,
+    ).toBe(false);
+    await userEvent.click(band.getByText("분석 상세 정보", { exact: true }));
+    await expect.element(band.getByText("분석 실행 모드: mock", { exact: true })).toBeVisible();
+    await expect.element(band.getByText("AI: mock", { exact: true })).toBeVisible();
+    await userEvent.click(band.getByText("분석 상세 정보", { exact: true }));
+    expect(
+      band.getByText("분석 상세 정보", { exact: true }).element().closest("details")?.open,
+    ).toBe(false);
   });
 });

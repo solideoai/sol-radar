@@ -101,7 +101,7 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, 보류 결정과 이
     // ② 분석 요약 띠: mock 으로 돌린 분석이고 가상 회사 프로필 배지가 있다. 분석된 공고의 머리 버튼은 [재분석]이다(19 S3).
     // 재분석은 누르지 않는다 — 데모 데이터를 바꾼다.
     const band = page.getByRole("region", { name: "분석 요약", exact: true });
-    await expect(band.getByText("AI: mock", { exact: true })).toBeVisible();
+    await expect(band.getByText("Mock 응답(데모 데이터)", { exact: true })).toBeVisible();
     await expect(band.getByText("가상 회사 프로필로 분석", { exact: true })).toBeVisible();
     const reanalyze = page.getByRole("button", { name: "재분석", exact: true });
     await expect(reanalyze).toBeVisible();

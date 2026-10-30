@@ -123,14 +123,6 @@ export function AnalysisHistoryFilters({
             onChange={(recommendation) => onChange({ recommendation })}
           />
         </div>
-        <div className="w-36">
-          <FilterSelect
-            label="실행 모드"
-            value={query.runMode}
-            options={["live", "fixture", "mock"].map((value) => ({ value, label: value }))}
-            onChange={(runMode) => onChange({ runMode })}
-          />
-        </div>
         <Button
           variant="outline"
           onClick={() =>
@@ -140,6 +132,29 @@ export function AnalysisHistoryFilters({
           필터 초기화
         </Button>
       </div>
+      {query.runMode && (
+        <p className="type-caption text-muted-foreground">
+          적용 중:{" "}
+          {query.runMode === "live"
+            ? "실제 공고·AI"
+            : query.runMode === "mock"
+              ? "mock AI 분석"
+              : "저장 공고 분석"}
+        </p>
+      )}
+      <details>
+        <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          추가 필터{query.runMode ? " (1)" : ""}
+        </summary>
+        <div className="w-36">
+          <FilterSelect
+            label="실행 모드"
+            value={query.runMode}
+            options={["live", "fixture", "mock"].map((value) => ({ value, label: value }))}
+            onChange={(runMode) => onChange({ runMode })}
+          />
+        </div>
+      </details>
       <form
         onSubmit={(event) => {
           event.preventDefault();

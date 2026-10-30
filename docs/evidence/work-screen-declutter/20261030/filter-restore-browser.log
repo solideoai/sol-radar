@@ -1,0 +1,12 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+Loaded  vitest@4.1.11  and  @vitest/browser@4.1.12 .
+Running mixed versions is not supported and may lead into bugs
+Update your dependencies and make sure the versions match.
+
+ Test Files  2 passed (2)
+      Tests  3 passed (3)
+   Start at  13:01:34
+   Duration  2.91s (transform 0ms, setup 373ms, import 772ms, tests 1.32s, environment 0ms)
+

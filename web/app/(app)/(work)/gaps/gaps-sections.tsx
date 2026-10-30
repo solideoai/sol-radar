@@ -83,14 +83,6 @@ export function GapsMeta({ view, copy }: { view: ReadyGapView; copy: GapsCopy })
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-caption text-muted-foreground">
         <ProfileBadge isDemo={view.profile.isDemo} />
-        <span className="tabular-nums">회사 프로필 r{view.profile.revision}</span>
-        {view.asOf === null ? (
-          <span>기준 시각 없음</span>
-        ) : (
-          <time dateTime={view.asOf} title={view.asOf} className="tabular-nums">
-            기준 {formatKst(view.asOf)} KST
-          </time>
-        )}
       </div>
       <p className="type-caption wrap-anywhere text-muted-foreground">{copy.sourceNotice}</p>
     </div>

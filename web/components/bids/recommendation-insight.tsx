@@ -168,8 +168,21 @@ function Body({
       <ItemGroup title="강점" items={payload.strengths} refs={payload.refs} />
       <ItemGroup title="보완할 점" items={payload.improvements} refs={payload.refs} />
       <p className="type-caption text-muted-foreground">
-        {template ? "규칙 결과로 정리" : modelText(insight.modelName)} · {madeAt} 작성
+        {template
+          ? "규칙 결과로 정리 · "
+          : insight.modelName === MOCK_INSIGHT_MODEL
+            ? `${MOCK_MODEL_TEXT} · `
+            : ""}
+        {madeAt} 작성
       </p>
+      {!template && insight.modelName !== MOCK_INSIGHT_MODEL && (
+        <details className="type-caption text-muted-foreground">
+          <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            생성 정보
+          </summary>
+          <p className="mt-2 wrap-anywhere">{modelText(insight.modelName)}</p>
+        </details>
+      )}
     </div>
   );
 }

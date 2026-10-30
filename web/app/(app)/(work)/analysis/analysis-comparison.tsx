@@ -148,16 +148,19 @@ const rows: CompareRow[] = [
     content: (view: AnalysisView) => <FactorValue view={view} factor={factor} />,
   })),
   { label: "자격 판정", content: (view) => <QualificationValue view={view} /> },
-  { label: "공고 revision", content: (view) => view.revision },
-  { label: "회사 프로필 revision", content: (view) => view.profileRevision },
-  { label: "알고리즘 버전", content: (view) => view.model.algorithmVersion },
-  { label: "실행 모드", content: (view) => view.runMode },
   {
     label: "분석 시각 (KST)",
     content: (view) =>
       `${formatKst(view.finishedAt ?? view.queuedAt)}${view.finishedAt ? "" : " · 접수"}`,
   },
   { label: "주의 사항·실패 사유", content: (view) => <AttentionValue view={view} /> },
+];
+
+const technicalRows: CompareRow[] = [
+  { label: "공고 revision", content: (view) => view.revision },
+  { label: "회사 프로필 revision", content: (view) => view.profileRevision },
+  { label: "알고리즘 버전", content: (view) => view.model.algorithmVersion },
+  { label: "실행 모드", content: (view) => view.runMode },
 ];
 
 export function AnalysisComparison({
@@ -257,6 +260,13 @@ export function AnalysisComparison({
                     {state?.kind === "loaded" ? (
                       <>
                         {state.value.isDemo && <DemoBadge dense />}
+                        {(state.value.view.runMode === "mock" ||
+                          state.value.view.model.provider === "mock") && (
+                          <p className="type-caption text-warning">Mock 응답(데모 데이터)</p>
+                        )}
+                        {state.value.view.runMode === "fixture" && (
+                          <p className="type-caption text-warning">저장 공고 기반 분석</p>
+                        )}
                         <Link className={textLink} href={`/bids/${state.value.view.bidId}`}>
                           {state.value.title}
                         </Link>
@@ -303,6 +313,44 @@ export function AnalysisComparison({
           ))}
         </TableBody>
       </Table>
+      <details>
+        <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          비교 기준
+        </summary>
+        <Table className="table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
+          <caption className="sr-only">선택한 분석의 비교 기준</caption>
+          <colgroup>
+            <col className="w-40" />
+            {ids.map((id) => (
+              <col key={id} />
+            ))}
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">비교 항목</TableHead>
+              {ids.map((id) => (
+                <TableHead key={id} scope="col" className="h-auto p-3">
+                  {columns[id]?.kind === "loaded" ? columns[id].value.title : "분석"}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {technicalRows.map((row) => (
+              <TableRow key={row.label}>
+                <th scope="row" className="p-3 text-left align-top type-label font-medium">
+                  {row.label}
+                </th>
+                {ids.map((id) => (
+                  <TableCell key={id} className="p-3 align-top tabular-nums">
+                    {columns[id]?.kind === "loaded" ? row.content(columns[id].value.view) : "—"}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </details>
       <p className="type-caption text-muted-foreground">
         {loaded[0]?.disclaimer ?? BIDS_DESCRIPTION}
       </p>
