@@ -2,7 +2,7 @@
 // fixtures/ 의 공고·추출·Kev·골든·회사 프로필·인력 명부를 AnalysisInput 으로 조립한다.
 import { existsSync, readFileSync } from "node:fs";
 import {
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   type AnalysisInput,
   type CompanyProfile,
   type KevMockResponse,
@@ -111,7 +111,7 @@ export function buildInput(id: string, overrides: Partial<AnalysisInput> = {}): 
     profile: loadProfile(),
     team: loadTeam(),
     kev: loadKev(id),
-    config: { ...SCORING_CONFIG_V0_1, today: CALCULATION_DATE },
+    config: { ...SCORING_CONFIG, today: CALCULATION_DATE },
     ...overrides,
   };
 }

@@ -4,7 +4,7 @@ import {
   analysisInputSchema,
   availableFte,
   staffAvailability,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
 } from "@/server/scoring";
 import { simulateWorkforce } from "./workforce.service";
 import type { WorkforceRepo } from "./workforce.model";
@@ -34,7 +34,7 @@ function setup() {
     ),
     team: { asOf: NOW.toISOString(), members: [], assignments: [] },
     kev: null,
-    config: { ...SCORING_CONFIG_V0_1, today: "2026-10-16" },
+    config: { ...SCORING_CONFIG, today: "2026-10-16" },
   });
   input.bid.projectPeriod = PERIOD;
   input.extraction = null;

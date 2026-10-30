@@ -725,3 +725,54 @@ docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-
 - 전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 기동
 - ingest 전용 Worker(`sol-radar-ingest`)의 `up`·`--force-recreate`·`--unschedule`(이 Worker 반영에는 필요 없다)
 - `program_notices`·`program_notice_runs`의 일괄 `update`·`delete`(필요하면 범위를 정해 따로 승인받는다)
+
+## 11. SOL Score 재채점 `sol-v0.2.0` (ADR-071)
+
+공고마다 화면에 보이는 분석 run의 저장 입력(`input_snapshot`)을 새 알고리즘으로 다시 계산해 새 run으로 넣는다. Qwen·Bosun·AI gateway·Redis를 부르지 않는다. 옛 run은 이력으로 남는다. 조직 slug는 `org-01`이다(IT 일괄 분석과 같다).
+
+### 11.1 코드 교체 — **[승인]**
+
+분석 run 행의 `algorithm_version`은 요청을 받는 쪽(redis-api·Vercel web)이 적고, 점수는 Analysis Worker가 계산한다. 세 곳의 SHA가 다르면 새 run의 버전 표시와 계산이 어긋난다. §8.6과 같은 순서(Analysis Worker → redis-api → Vercel web)로 이어서 교체하고, 그 사이에는 [분석]을 누르지 않는다. 진행 중 분석(`QUEUED`·`RUNNING`)이 없을 때 시작한다.
+
+교체 뒤 재채점 전까지 v0.1 run이 화면에 남는다. 그동안 가정 재계산은 버전이 달라 그 run을 받지 않는다. 교체를 마치면 바로 11.2로 간다.
+
+### 11.2 dry-run (운영 영향 없음)
+
+11.1에서 바꾼 Analysis Worker 이미지로 일회용 컨테이너(`run --rm`)를 띄운다. 배포 checkout(`sol-radar-deploy`)에서 돌리고, 운영 Analysis Worker 컨테이너는 건드리지 않는다. IT 일괄 분석([실행 기록](../../docs/evidence/it-scope/prod-20261029/README.md) 4단계)과 같은 compose 명령이다.
+
+```bash
+export ANALYSIS_WORKER_TAG=<교체한 SHA 12자리>
+A="docker compose -f infra/compose.analysis-only.company.yaml -f infra/compose.analysis-only.sha.company.yaml"
+$A run --rm --no-deps analysis-worker node --conditions=react-server --import tsx worker/score-rescore.ts --org-slug org-01 --dry-run
+```
+
+기대: 마지막 줄 `rescore: shown=N current=0 targets=N written=0 … invalid=0 failed=0 … before[n=… max=60 …] after[n=… max=…]`, exit 0. `invalid`가 0이 아니면 멈추고 보고한다. 로그에는 run id·건수·분포만 나온다.
+
+### 11.3 재채점 — **[승인] 운영 DB 쓰기**
+
+같은 명령에서 `--dry-run`만 뺀다. 먼저 `--limit 5`로 다섯 건을 쓰고 화면(`/bids`·공고 상세)을 확인한 뒤 나머지를 돌린다. 이미 새 버전인 공고는 건너뛰므로 다시 돌려도 된다.
+
+```bash
+$A run --rm --no-deps analysis-worker node --conditions=react-server --import tsx worker/score-rescore.ts --org-slug org-01 --limit 5
+$A run --rm --no-deps analysis-worker node --conditions=react-server --import tsx worker/score-rescore.ts --org-slug org-01
+```
+
+기대: `written`이 `targets`와 같고 `failed=0`, exit 0. 새 run은 `requested_by`가 없어 카카오 추천 알림이 나가지 않는다. 일괄 분석에서 온 run의 재채점 run은 멱등 키가 `it-batch-rescore-…`라 `/projects` 검토 대기에 새로 들어가지 않는다.
+
+### 11.4 확인 (운영 영향 없음)
+
+- 운영 DB 읽기: 화면 run이 모두 `sol-v0.2.0`인지, 점수 분포와 권고 수, `ANALYSIS_REQUEST` 감사 행 수가 `written`과 같은지 본다.
+- `/bids`·공고 상세를 1440·1280으로 본다.
+- DEMO FX-01·FX-02·FX-03 점수를 적어 `docs/19-DEMO-SCENARIO.md`·`docs/submission/slides-spec.md` 숫자 수정에 넘긴다(ADR-071 "ADR-059 영향").
+
+### 11.5 되돌리기
+
+- 화면은 공고마다 최신 run을 보이므로 새 run을 지우지 않고 되돌릴 수 없다. 되돌려야 하면 이전 SHA로 세 곳을 돌리고, 지울 run 범위(멱등 키 `…rescore-sol-v0.2.0-…`)를 정해 따로 승인받는다.
+- 옛 run은 그대로 남아 있다.
+
+### 11.6 쓰지 않는 명령
+
+§7.11과 같다. 그리고 다음을 더한다.
+
+- `score_runs`·`score_factors`의 `update`·`delete`로 점수를 직접 고치기
+- 운영 Analysis Worker 컨테이너 안에서 `docker exec`로 재채점 실행(11.2의 일회용 컨테이너를 쓴다)

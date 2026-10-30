@@ -25,7 +25,7 @@ updated: 2026-10-29
 |Qwen3.8-Flash-Next 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11. local 번역, mock은 `null`)|없음. 값마다 `state`와 인용|
 |규칙 엔진([[08-SCORING\|08 점수]])|명시 조건 검증(업종·면허, 지역, 금액, 인력 수, 자격증, 마감)|API 구조화 필드 > 추출값, 회사 프로필|항목별 `SATISFIED`/`NOT_SATISFIED`/`NEEDS_REVIEW` + 사유 코드 + 양쪽 근거|**있음**(자격 판정)|
 |결정 모델 Bosun v3.1 0.6B(`POST /kev`. 경로 이름은 호환 유지, ADR-034)|비정형 요구사항의 충족 분류, 기술 적합성, 실적 연관성, 수행 리스크|영어 state 텍스트(§5.6·§5.11) + 질문 세트(§5.5·§5.10)|질문별 확률(선택지 분포·yes 확률·등급. typed decision `choice`/`score`/`noul`)|없음. 참고 지표·`reviewFlags`만|
-|SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.1.0` 결정론 점수, 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
+|SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.2.0` 결정론 점수([[16-DECISIONS\|ADR-071]]), 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
 |설명(`POST /explain`. 분석 job 안의 Qwen 설명은 **미구현**)|규칙 결과·점수·인용·결정 모델 참고 지표를 한국어 2~4문장으로 설명. 지금은 모든 모드가 템플릿 문장이다(`explain.py`, `fallback=true`)|위 결과|`explanation` 텍스트|없음. 입력 밖 숫자가 나오면 폐기하고 템플릿으로 대체|
 |추천 분석(`POST /insight`, 버튼을 눌렀을 때만, [[16-DECISIONS\|ADR-066]])|공고 상세 [추천 분석]으로 Qwen3.8-Flash-Next 가 판단 이유·강점·보완할 점을 근거 번호(B 공고 인용·C 회사 자료)와 함께 쓴다. 판정은 바꾸지 않는다|저장된 run 의 규칙 결과·`input_snapshot`(공고·추출·회사 프로필·인력 가용)|`recommendation_insights.payload`|모양·숨은 문자·근거 번호·금지어·다른 판정 이름·참여를 권하거나 말리는 표현·입력 밖 숫자 중 하나라도 어기면 규칙 결과 템플릿(`source=TEMPLATE`, `fallbackReason`). 인젝션 의심 run 이나 guard 가 지시문을 찾은 입력은 모델을 부르지 않는다(`INJECTION_SUSPECTED`, 공고 인용 없음)|
 |Embedding + Qdrant(**미구현**, 해커톤 컷 밖)|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|

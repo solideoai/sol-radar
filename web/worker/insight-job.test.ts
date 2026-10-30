@@ -11,7 +11,7 @@ import {
 import { INSIGHT_STALE_MS, type InsightJobData } from "@/server/insight";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   type AnalysisInput,
 } from "@/server/scoring";
 import {
@@ -46,7 +46,7 @@ function runSource(): InsightRunSource {
     profile: loadProfile(),
     team: loadTeam(),
     kev: null,
-    config: { ...SCORING_CONFIG_V0_1, today: CALCULATION_DATE },
+    config: { ...SCORING_CONFIG, today: CALCULATION_DATE },
   };
   return {
     scoreRunId: SCORE_RUN_ID,

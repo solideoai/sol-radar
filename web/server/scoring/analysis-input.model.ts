@@ -5,12 +5,13 @@ import { z } from "zod";
 // docs/03 §4.1(RequirementExtraction)·§5.7(KevAssist), docs/05 §4.4(CompanyProfile), docs/08 §7(AnalysisInput).
 // 잘못된 입력(필수 누락·타입 오류·범위 밖 점수·알 수 없는 state)은 여기서 거절한다. 값을 "고쳐서 살리지" 않는다.
 
-export const ALGORITHM_VERSION = "sol-v0.1.0" as const;
+export const ALGORITHM_VERSION = "sol-v0.2.0" as const;
 export const ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input/v0.1" as const;
 
 // 가중치·임계값은 algorithm_version 에 묶인 config 다(08 §2·§5.2·§5.3). 값을 바꾸려면 버전을 올리고
-// 이전 run 은 재계산하지 않는다. 이 상수가 sol-v0.1.0 의 정본이고 스키마가 같은지 검사한다.
-export const SCORING_CONFIG_V0_1 = {
+// 이전 run 은 고치지 않고 새 run 을 만든다. 이 상수가 현재 버전의 정본이고 스키마가 같은지 검사한다.
+// sol-v0.2.0(ADR-071)은 가중치·임계값이 v0.1.0 과 같고 빈 값 처리·기술 항목 거르기만 바뀌었다(08 §3).
+export const SCORING_CONFIG = {
   algorithmVersion: ALGORITHM_VERSION,
   thresholds: { bid: 75, watch: 50, kevTau: 0.7 },
 } as const;
@@ -241,7 +242,7 @@ export const companyProfileSchema = z.object({
       id: z.string().min(1),
       name: z.string().min(1),
       domain: z.string().min(1),
-      // 공개 자료에 없으면 null. 점수는 중립값을 쓴다(금액비 0.5, 최근성 0.2).
+      // 공개 자료에 없으면 null. 점수는 중립값을 쓴다(금액비 0.5, 최근성 0.5 — sol-v0.2.0).
       amountKrw: krwString.nullable(),
       completedAt: isoDate.nullable(),
       evidenceRef: z.string().nullable().optional(),
@@ -336,7 +337,7 @@ export const scoringConfigSchema = z
     today: isoDate,
   })
   .superRefine((config, ctx) => {
-    const fixed = SCORING_CONFIG_V0_1.thresholds;
+    const fixed = SCORING_CONFIG.thresholds;
     const given = config.thresholds;
     if (given.bid !== fixed.bid || given.watch !== fixed.watch || given.kevTau !== fixed.kevTau)
       ctx.addIssue({

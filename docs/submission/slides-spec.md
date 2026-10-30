@@ -286,7 +286,7 @@ md 변환본에는 글만 남는다. 그림 · 영상 · 도형 안 글자는 �
 |---|---|---|
 | Qwen3.8-Flash-Next | 요구조건 추출, 원문 인용 span. [추천 분석] 버튼을 누르면 판단 이유 · 강점 · 보완할 점 | 회사가 운영하는 vLLM API |
 | Bosun v3.1 0.6B(Apache-2.0, 백본 Qwen3-0.6B) | 질문별 확률. 텍스트 생성 없음 | 회사 GPU 서버 `sol_decision`(우리 서빙) |
-| 규칙 엔진 `sol-v0.1.0` | 자격 · 점수 · 권고 최종 | `web/server/scoring`(순수 함수) |
+| 규칙 엔진 `sol-v0.2.0` | 자격 · 점수 · 권고 최종 | `web/server/scoring`(순수 함수) |
 
   - 아래 한 줄: 모델이 꺼져도 규칙만으로 `PARTIAL` 로 완결된다. 모델이 자격 · 점수 · 권고를 바꾸는 코드 경로는 없다.
 - 발표자 노트: "큰 모델은 비정형 공고문을 읽어 구조화하고, 인용은 원문과 대조합니다. 작은 결정 모델은 정형화된 상태를 보고 '사람이 봐야 할 신호' 만 냅니다. 최종 판정은 결정론적 규칙이라 같은 입력이면 같은 결과이고, 알고리즘 버전이 남습니다. 분석마다 붙는 설명은 아직 템플릿 문장이고, Qwen 설명은 [추천 분석] 버튼을 눌렀을 때만 만듭니다. Qdrant 검색은 구현하지 않았습니다. 첨부는 운영에서 PDF · HWPX · HWP 를 읽고, 범위 밖 첨부는 남깁니다." 상충 시 `MODEL_RULE_DISAGREEMENT` 로 사람 검토를 강제한다. 1:05 에 맞추려고(클립 7 추가) 표는 읽지 않고 가리키기만 한다. 설명 · Qdrant · 첨부 범위를 밝히는 문장은 줄이지 않는다.
@@ -362,7 +362,7 @@ md 변환본에는 글만 남는다. 그림 · 영상 · 도형 안 글자는 �
   - 교체 가능 — 수집 소스: `BidSourceConnector` + `infra/sources/registry.yaml`(부처 지원사업 공고도 같은 방식)
   - 교체 가능 — 파서: gateway `/parse`(PDF `pdfplumber` · HWPX `sol-hwpx` · HWP `sol-hwp5`, env 로 교체)
   - 교체 가능 — 모델: `ModelClient` + `services/ai/models/registry.yaml`(active · backup · retired, 기동 시 `/v1/models` 대조)
-  - 재현 — `algorithm_version` `sol-v0.1.0` + `input_snapshot` → 과거 분석을 그대로 재현
+  - 재현 — `algorithm_version` `sol-v0.2.0` + `input_snapshot` → 과거 분석을 그대로 재현
   - 고도화 — 평가셋(test 20 · dev 10) → 오류 분석 → Bosun LoRA → `sol-v0.2.x` + ADR 뒤에만 결정 모델을 점수에 반영
   - 고도화 — API · worker 는 NestJS 로 이전(ADR-028). 화면 · DB · `/api/v1` 계약은 그대로
   - 아래 한 줄: P1 화면 다섯 개(관심 공고 · 분석 결과 비교 · 입찰 프로젝트 · 인력 배치 시뮬레이션 · 조직 · 인력 편집)는 main 에 있고 운영에 배포됐다. 새 메뉴 세 개(입찰 일정 · 자격 갭 레이더 · 발주 현황, ADR-060)는 main 에 있고 운영에 배포됐다.

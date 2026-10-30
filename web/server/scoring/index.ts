@@ -14,7 +14,7 @@ export { analyze } from "./analyze";
 export {
   ALGORITHM_VERSION,
   ANALYSIS_INPUT_SCHEMA_VERSION,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   analysisInputSchema,
   companyProfileSchema,
   evidenceRefSchema,

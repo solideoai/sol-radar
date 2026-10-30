@@ -14,7 +14,7 @@ import {
 import type { BidsRepo } from "@/server/bids";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   toScoringTeam,
   type CompanyProfile,
   type RequirementExtraction,
@@ -96,7 +96,7 @@ function fx03Snapshot(): unknown {
     profile: readFixture<CompanyProfile>("company/solideo-profile.json"),
     team: toScoringTeam(people.people, people.assignments, people.asOf),
     kev: null,
-    config: { ...SCORING_CONFIG_V0_1, today: CALCULATION_DATE },
+    config: { ...SCORING_CONFIG, today: CALCULATION_DATE },
   };
 }
 

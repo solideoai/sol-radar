@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   analyze,
   type AnalysisInput,
   type AnalysisResult,
@@ -225,7 +225,7 @@ function toAnalysisInput(
     profile: context.profile,
     team: context.team,
     kev,
-    config: { ...SCORING_CONFIG_V0_1, today },
+    config: { ...SCORING_CONFIG, today },
     // 사유가 없으면 키를 넣지 않는다. 입력 스냅샷이 사유 없는 C4 입력과 같은 모양이 되게 한다.
     ...(aiUnavailableReason === null ? {} : { aiUnavailableReason }),
   };
