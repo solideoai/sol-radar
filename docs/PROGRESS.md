@@ -137,6 +137,7 @@ updated: 2026-10-30
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-30 · 이메일 가입 화면의 이메일 칸을 `@` 앞부분만 받고 `@solideos.com`으로 고정(사용자 지시, `solideos.com` MX 있음). 회사 주소 전체를 붙여 넣으면 앞만 남기고 다른 도메인은 오류 하나로 거절. 화면 제한이라 간편 로그인·Auth API 직접 호출은 막지 않음(`09-SECURITY` 가입 절) · `sign-up-schema.test.ts` 2/2, 부품 브라우저 렌더 1440·1280 입력·오류 상태 확인(임시 시험, 커밋 안 함), `pnpm verify:changed` exit 0(web 126파일·1050시험, lodestar)([화면](evidence/signup-email-domain/20261030/))
 - 2026-10-30 · 운영 SOL Score 88점 보류 원인 확인과 회사 확인 자격 반영([[16-DECISIONS|ADR-059]] 2차 개정·[[16-DECISIONS|ADR-071]]): 원인은 계산식이 아니라 필수 자격 `NEEDS_REVIEW` → 보류(추천 기준 75 그대로). 사용자 확인으로 프로필 revision 6(소프트웨어사업자·직접생산·중소기업 `HELD`, `COMPANY_CONFIRMED`)을 넣고, `score:rescore --from-profile-revision`(새 모드)으로 389건 재계산(권고 변화 15). FX-01 재분석·추천 분석(사용자가 화면에서). 대본: S3 FX-01 추천 92, 가정 재계산 FX-16, S4 사유에서 자격 문구 제거, S-GAPS 1위 업종은 화면 값 · `pnpm verify:changed` 통과(web 1048시험), 변형 시험(제품 코드를 바꿔 새 시험 1건 실패 확인 뒤 원복), 운영 DB 읽기 확인, main `1fd2c24e` pre-push 통과·Vercel success. 운영 화면(1440·1280)은 아직 보지 못했다(로그인 필요·브라우저 사용 중). [기록](evidence/company-public-profile/20261030/prod-rollout.md)
 - 2026-10-30 · 사용자 요청으로 운영 `admin@solideos.com` 프로필 사진 등록: 기본 imagegen으로 기존 가상 직원 사진 스타일의 남성 관리자 정장 원본 생성, private `profile-photos`의 계정 경로에 업로드하고 기존 사진이 null인 해당 프로필 1행의 photo_path만 갱신. 직원 명부 변경 없음 · 운영 프로필 재조회·서명 이미지 GET 200·원본 SHA-256 일치, 코드/스키마 변경 없음·앱 전체 검증과 로그인 브라우저 캡처는 미실행([기록](evidence/people/20261030-admin-portrait/README.md))
 

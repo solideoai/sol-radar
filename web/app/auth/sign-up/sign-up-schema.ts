@@ -8,6 +8,35 @@ import { createEmploymentSchema } from "@/app/auth/employment-schema";
 // 약관 동의는 가입 트리거가 user_consents 에 항목별 시각과 함께 남긴다. 필수 셋 중 하나라도 true 가 아니면 트리거가 가입을 거절한다
 // (supabase/migrations/20261027000600_signup_consents.sql). 여기의 필수 검사는 그 전에 칸 아래 오류를 보이는 편의다.
 // 휴대폰·주소·생년월일은 화면에서 받기만 하고 보내지 않는다 — 암호화 저장을 붙일 때 함께 저장한다.
+// 이메일은 @ 앞부분만 받고 뒤는 회사 도메인으로 고정한다. 이 화면의 제한이고 Supabase Auth 는 도메인을 거르지 않는다
+// (간편 로그인 가입·관리자 API 로 만든 계정은 다른 도메인일 수 있다).
+
+export const SIGN_UP_EMAIL_DOMAIN = "solideos.com";
+export const toSignUpEmail = (local: string) => `${local}@${SIGN_UP_EMAIL_DOMAIN}`;
+
+// 붙여넣기·자동 채우기로 회사 주소 전체가 들어오면 @ 앞만 남긴다. 다른 도메인은 오류로 알린다.
+// 칸에 보이는 오류는 하나다. 앞 검사가 틀리면 뒤 검사는 돌지 않는다.
+export const signUpEmailLocal = z
+  .string()
+  .trim()
+  .transform((value) =>
+    value.toLowerCase().endsWith(`@${SIGN_UP_EMAIL_DOMAIN}`)
+      ? value.slice(0, -(SIGN_UP_EMAIL_DOMAIN.length + 1))
+      : value,
+  )
+  .pipe(
+    z
+      .string()
+      .min(1, { error: "이메일 아이디를 입력하세요", abort: true })
+      .refine((local) => !local.includes("@"), {
+        error: `@ 앞부분만 입력하세요. 뒤는 ${SIGN_UP_EMAIL_DOMAIN} 으로 정해져 있습니다`,
+        abort: true,
+      })
+      .refine(
+        (local) => z.email().safeParse(toSignUpEmail(local)).success,
+        "이메일 형식이 아닙니다",
+      ),
+  );
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,7 +74,7 @@ export const createSignUpSchema = (options: SignupOptions) =>
   z
     .object({
       ...createEmploymentSchema(options).shape,
-      email: z.email("이메일 형식이 아닙니다"),
+      emailLocal: signUpEmailLocal,
       password: z.string().min(6, "비밀번호는 6자 이상입니다"),
       passwordConfirm: z.string().min(1, "비밀번호를 한 번 더 입력하세요"),
       phone: z
@@ -89,7 +118,7 @@ export const SIGN_UP_DEFAULTS: SignUpValues = {
   name: "",
   departmentId: "",
   jobTitleId: "",
-  email: "",
+  emailLocal: "",
   password: "",
   passwordConfirm: "",
   phone: "",
@@ -107,7 +136,7 @@ export const SIGN_UP_DEFAULTS: SignUpValues = {
 // 이름은 user_metadata.name 으로 가서 가입 트리거가 표시 이름으로 옮긴다(로그인 토큰에도 실린다).
 // consents 의 키 이름은 가입 트리거가 읽는 이름과 같아야 한다. 동의 시각은 트리거가 정한다(화면 시계를 믿지 않는다).
 export const toSignUpRequest = (values: SignUpValues) => ({
-  email: values.email,
+  email: toSignUpEmail(values.emailLocal),
   password: values.password,
   options: {
     data: {
