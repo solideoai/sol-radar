@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { toProfile } from "./analysis-store.model";
 import type { RescoreCandidate, RescoreSource, RescoreStore } from "./rescore.model";
 
 // ── 점수 재채점 저장 port(`pnpm score:rescore`, ADR-071)의 Supabase 구현. 규칙은 rescore.model 에 둔다 ──
@@ -16,6 +17,8 @@ const PAGE_SIZE = 500;
 /** in(…) 에 넣는 id 수. 요청 URL 이 길어지지 않게 나눈다. */
 const ID_CHUNK = 100;
 const SCORED_STATUSES = ["COMPLETED", "PARTIAL"];
+const PROFILE_SNAPSHOT_COLUMNS =
+  "revision, name, is_demo, technologies, technologies_complete, licenses, industry_codes, past_projects, financials, preferences";
 const SOURCE_COLUMNS =
   "id, bid_id, revision_id, company_profile_id, profile_revision, extraction_id, algorithm_version, run_mode, ai_provider, idempotency_key, review_flags, score, recommendation, input_snapshot, kev_output";
 /** 같은 입력(공고·revision·프로필·알고리즘)의 진행 중 run 은 하나다(20261019000004). */
@@ -84,6 +87,30 @@ export function createRescoreStore(client: Client): RescoreStore {
         : { id: profile.data.id, revision: profile.data.revision };
     },
 
+    async profileByRevision(orgId, revision) {
+      const profile = await client
+        .from("company_profiles")
+        .select("id, revision")
+        .eq("org_id", orgId)
+        .eq("revision", revision)
+        .maybeSingle();
+      if (profile.error) throw storeError("company_profiles", "select", profile.error);
+      return profile.data === null
+        ? null
+        : { id: profile.data.id, revision: profile.data.revision };
+    },
+
+    async loadProfileSnapshot(orgId, profileId) {
+      const profile = await client
+        .from("company_profiles")
+        .select(PROFILE_SNAPSHOT_COLUMNS)
+        .eq("org_id", orgId)
+        .eq("id", profileId)
+        .single();
+      if (profile.error) throw storeError("company_profiles", "snapshot", profile.error);
+      return toProfile(profile.data);
+    },
+
     // 화면(opportunity_list_items·공고 상세)과 같은 고르기: 최신 revision·최신 프로필의 COMPLETED·PARTIAL run 가운데 최신.
     async listShownRuns(orgId, companyProfileId) {
       const runs: { id: string; bidId: string; revisionId: string; algorithmVersion: string }[] =
@@ -113,7 +140,11 @@ export function createRescoreStore(client: Client): RescoreStore {
       const shown = new Map<string, RescoreCandidate>();
       for (const run of runs) {
         if (!shown.has(run.bidId) && latest.get(run.bidId) === run.revisionId) {
-          shown.set(run.bidId, { id: run.id, algorithmVersion: run.algorithmVersion });
+          shown.set(run.bidId, {
+            id: run.id,
+            bidId: run.bidId,
+            algorithmVersion: run.algorithmVersion,
+          });
         }
       }
       return [...shown]

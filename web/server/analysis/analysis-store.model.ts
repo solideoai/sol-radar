@@ -237,7 +237,8 @@ function toCachedExtraction(row: LoaderRows["extraction"]): CachedExtraction | n
   };
 }
 
-function toProfile(row: LoaderRows["profile"]) {
+/** company_profiles 행 → 점수 입력의 프로필 스냅샷. 재채점(프로필 교체)도 같은 매핑을 쓴다. */
+export function toProfile(row: LoaderRows["profile"]) {
   return parseOrThrow(
     companyProfileSchema,
     {

@@ -3,8 +3,10 @@ import {
   rescore,
   toRescorePayload,
   toRescoreRunRow,
+  type RescoreCandidate,
   type RescoreSource,
   type RescoreStore,
+  type RescoreTargetProfile,
 } from "@/server/analysis";
 import { ALGORITHM_VERSION } from "@/server/scoring";
 import { getSupabaseAdmin } from "@/server/supabase";
@@ -17,12 +19,22 @@ import { errorCode } from "@/worker/main";
 // --dry-run 은 쓰지 않고 계산만 해서 점수 분포(건수·최소·최대·평균)를 한 줄로 알린다.
 // 로그에는 run id·건수·분포만 싣는다. 공고 제목·원문·공고별 점수·오류 message 는 싣지 않는다(docs/14).
 // worker 컨테이너 안에서 돈다(service role 이 거기 있다). 운영 DB 에 쓴다.
+// --from-profile-revision <n>: 회사 프로필 revision 을 올린 뒤, revision n 프로필로 화면에 보이던 run 을
+// 최신 프로필로 바꿔 다시 계산한다(버전이 같아도 대상). 최신 프로필 run 이 이미 있는 공고는 건너뛴다.
 
 const LOAD_CHUNK = 25;
 const NO_ORG_LINE = "rescore: --org-slug 의 조직이 없다";
 const NO_PROFILE_LINE = "rescore: 조직의 회사 프로필이 없다";
+const NO_FROM_PROFILE_LINE = "rescore: --from-profile-revision 의 회사 프로필이 없다";
+const FROM_NOT_OLDER_LINE =
+  "rescore: --from-profile-revision 은 최신 프로필 revision 보다 작아야 한다";
 
-export type RescoreOptions = { orgSlug: string; dryRun: boolean; limit: number | null };
+export type RescoreOptions = {
+  orgSlug: string;
+  dryRun: boolean;
+  limit: number | null;
+  fromProfileRevision: number | null;
+};
 export type RescoreDeps = {
   store: RescoreStore;
   now: () => Date;
@@ -56,12 +68,17 @@ export async function runRescore(
   if (orgId === null) return end(1, NO_ORG_LINE);
   const profile = await deps.store.latestProfile(orgId);
   if (profile === null) return end(1, NO_PROFILE_LINE);
+  const plan = await planTargets(deps.store, orgId, profile, options.fromProfileRevision);
+  if (typeof plan === "string") return end(1, plan);
+  const { shown, stale, target } = plan;
 
-  const shown = await deps.store.listShownRuns(orgId, profile.id);
-  const stale = shown.filter((run) => run.algorithmVersion !== ALGORITHM_VERSION);
   const targets = options.limit === null ? stale : stale.slice(0, options.limit);
   const counted = `shown=${shown.length} current=${shown.length - stale.length} targets=${targets.length}`;
-  deps.log(`rescore: ${ALGORITHM_VERSION} ${options.dryRun ? "dry-run " : ""}시작 ${counted}`);
+  const profileNote =
+    target === null ? "" : `profile ${options.fromProfileRevision}->${target.revision} `;
+  deps.log(
+    `rescore: ${ALGORITHM_VERSION} ${profileNote}${options.dryRun ? "dry-run " : ""}시작 ${counted}`,
+  );
 
   const before = emptyStats();
   const after = emptyStats();
@@ -77,7 +94,7 @@ export async function runRescore(
     const ids = targets.slice(index, index + LOAD_CHUNK).map((run) => run.id);
     const sources = await deps.store.loadSources(orgId, ids);
     for (const source of sources) {
-      const outcome = await rescoreOne(deps, orgId, source, options.dryRun);
+      const outcome = await rescoreOne(deps, orgId, source, options.dryRun, target);
       if (outcome.kind === "INVALID") {
         tally.invalid += 1;
         deps.log(`rescore: ${source.id} INVALID — 스냅샷을 다시 계산하지 못해 건너뛴다`);
@@ -103,6 +120,37 @@ export async function runRescore(
   return end(tally.failed === 0 && tally.invalid === 0 ? 0 : 1, summary);
 }
 
+type Plan = {
+  shown: RescoreCandidate[];
+  stale: RescoreCandidate[];
+  target: RescoreTargetProfile | null;
+};
+
+/**
+ * 다시 계산할 run 고르기. 기본은 최신 프로필로 보이는 run 가운데 옛 버전만이다.
+ * 프로필 교체면 revision from 프로필로 보이던 run 가운데 최신 프로필 run 이 아직 없는 공고 전부다. 틀리면 오류 줄.
+ */
+async function planTargets(
+  store: RescoreStore,
+  orgId: string,
+  latest: { id: string; revision: number },
+  fromRevision: number | null,
+): Promise<Plan | string> {
+  if (fromRevision === null) {
+    const shown = await store.listShownRuns(orgId, latest.id);
+    const stale = shown.filter((run) => run.algorithmVersion !== ALGORITHM_VERSION);
+    return { shown, stale, target: null };
+  }
+  if (fromRevision >= latest.revision) return FROM_NOT_OLDER_LINE;
+  const from = await store.profileByRevision(orgId, fromRevision);
+  if (from === null) return NO_FROM_PROFILE_LINE;
+  const shown = await store.listShownRuns(orgId, from.id);
+  const done = new Set((await store.listShownRuns(orgId, latest.id)).map((run) => run.bidId));
+  const stale = shown.filter((run) => !done.has(run.bidId));
+  const snapshot = await store.loadProfileSnapshot(orgId, latest.id);
+  return { shown, stale, target: { id: latest.id, revision: latest.revision, snapshot } };
+}
+
 type Scored = { score: number; recommendation: string };
 type OneOutcome =
   | { kind: "INVALID" }
@@ -113,8 +161,9 @@ async function rescoreOne(
   orgId: string,
   source: RescoreSource,
   dryRun: boolean,
+  target: RescoreTargetProfile | null,
 ): Promise<OneOutcome> {
-  const computed = rescore(source);
+  const computed = rescore(source, target);
   const previous = scoredOf(source);
   if (computed === null || previous === null) return { kind: "INVALID" };
   const scores = {
@@ -123,7 +172,7 @@ async function rescoreOne(
   };
   if (dryRun) return { kind: "DRY_RUN", ...scores };
   const startedAt = deps.now().toISOString();
-  const inserted = await deps.store.insertRun(toRescoreRunRow(orgId, source, startedAt));
+  const inserted = await deps.store.insertRun(toRescoreRunRow(orgId, source, startedAt, target));
   if (inserted.kind !== "CREATED") return { kind: inserted.kind, ...scores };
   const payload = toRescorePayload({
     orgId,
@@ -132,6 +181,7 @@ async function rescoreOne(
     ...computed,
     startedAt,
     finishedAt: deps.now().toISOString(),
+    target,
   });
   try {
     if (payload === null) throw new Error("rescore: run_mode·ai_provider 를 모른다");
@@ -155,8 +205,11 @@ function scoredOf(source: RescoreSource): Scored | null {
 
 const ORG_SLUG_FLAG = "--org-slug";
 const LIMIT_FLAG = "--limit";
+const FROM_PROFILE_FLAG = "--from-profile-revision";
 const DRY_RUN_FLAG = "--dry-run";
-const USAGE = `사용법: score-rescore.ts ${ORG_SLUG_FLAG} <slug> [${LIMIT_FLAG} <1 이상>] [${DRY_RUN_FLAG}]`;
+const VALUE_FLAGS = [ORG_SLUG_FLAG, LIMIT_FLAG, FROM_PROFILE_FLAG];
+const USAGE = `사용법: score-rescore.ts ${ORG_SLUG_FLAG} <slug> [${LIMIT_FLAG} <1 이상>] [${FROM_PROFILE_FLAG} <1 이상>] [${DRY_RUN_FLAG}]`;
+const POSITIVE_INT = /^[1-9]\d*$/;
 const SLUG_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** pnpm 이 넘기는 `--` 는 건너뛴다. 인자 값은 오류에 싣지 않는다. 틀리면 사용법만 알린다. */
@@ -173,7 +226,7 @@ export function parseRescoreArgs(argv: readonly string[]): RescoreOptions {
       continue;
     }
     const value = args[index + 1];
-    if ((arg !== ORG_SLUG_FLAG && arg !== LIMIT_FLAG) || values.has(arg) || value === undefined) {
+    if (!VALUE_FLAGS.includes(arg) || values.has(arg) || value === undefined) {
       throw new Error(USAGE);
     }
     values.set(arg, value);
@@ -182,8 +235,15 @@ export function parseRescoreArgs(argv: readonly string[]): RescoreOptions {
   const orgSlug = values.get(ORG_SLUG_FLAG);
   if (orgSlug === undefined || !SLUG_PATTERN.test(orgSlug)) throw new Error(USAGE);
   const limit = values.get(LIMIT_FLAG);
-  if (limit !== undefined && !/^[1-9]\d*$/.test(limit)) throw new Error(USAGE);
-  return { orgSlug, dryRun, limit: limit === undefined ? null : Number(limit) };
+  if (limit !== undefined && !POSITIVE_INT.test(limit)) throw new Error(USAGE);
+  const fromProfile = values.get(FROM_PROFILE_FLAG);
+  if (fromProfile !== undefined && !POSITIVE_INT.test(fromProfile)) throw new Error(USAGE);
+  return {
+    orgSlug,
+    dryRun,
+    limit: limit === undefined ? null : Number(limit),
+    fromProfileRevision: fromProfile === undefined ? null : Number(fromProfile),
+  };
 }
 
 // ── 실행 ──

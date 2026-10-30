@@ -48,14 +48,25 @@ function source(id: string, idempotencyKey: string | null, algorithmVersion = "s
   } satisfies RescoreSource;
 }
 
-function fakeStore(sources: RescoreSource[]) {
+const NEXT_PROFILE_ID = "c0ffee00-1234-4abc-9def-000000000006";
+
+function fakeStore(
+  sources: RescoreSource[],
+  latest = { id: COMPANY_PROFILE_ID, revision: 5, snapshot: loadProfile() },
+) {
   const inserted: Parameters<RescoreStore["insertRun"]>[0][] = [];
   const finished: Parameters<RescoreStore["finish"]>[0][] = [];
+  const profiles = [{ id: COMPANY_PROFILE_ID, revision: 5 }, latest];
   const store: RescoreStore = {
     findOrgBySlug: async () => ORG_ID,
-    latestProfile: async () => ({ id: COMPANY_PROFILE_ID, revision: 5 }),
-    listShownRuns: async () =>
-      sources.map(({ id, algorithmVersion }) => ({ id, algorithmVersion })),
+    latestProfile: async () => ({ id: latest.id, revision: latest.revision }),
+    profileByRevision: async (_orgId, revision) =>
+      profiles.find((profile) => profile.revision === revision) ?? null,
+    loadProfileSnapshot: async () => latest.snapshot,
+    listShownRuns: async (_orgId, profileId) =>
+      sources
+        .filter((entry) => entry.companyProfileId === profileId)
+        .map(({ id, bidId, algorithmVersion }) => ({ id, bidId, algorithmVersion })),
     loadSources: async (_orgId, ids) => sources.filter((entry) => ids.includes(entry.id)),
     insertRun: async (row) => {
       inserted.push(row);
@@ -88,6 +99,7 @@ describe("점수 재채점 CLI", () => {
       orgSlug: "solideo",
       dryRun: false,
       limit: null,
+      fromProfileRevision: null,
     });
 
     expect(result.exitCode).toBe(0);
@@ -121,17 +133,87 @@ describe("점수 재채점 CLI", () => {
       orgSlug: "solideo",
       dryRun: true,
       limit: null,
+      fromProfileRevision: null,
     });
     expect([inserted.length, finished.length]).toEqual([0, 0]);
     expect(result.line).toMatch(/before\[n=1 min=58 max=58 avg=58\.0\] after\[n=1 /);
   });
 
-  it("인자는 --org-slug 필수, --limit·--dry-run 선택이다", () => {
+  it("프로필 교체는 옛 프로필 run 의 profile 만 최신 프로필로 바꿔 최신 프로필 run 으로 넣는다", async () => {
+    // 최신 프로필은 자격을 모두 NOT_HELD 로 적었다: 바뀐 프로필로 계산했다면 필수 자격 미충족 → NO_BID 다.
+    const base = loadProfile();
+    const snapshot = {
+      ...base,
+      revision: 6,
+      licenses: base.licenses.map((license) => ({ ...license, status: "NOT_HELD" as const })),
+    };
+    const old = source("a", `${ORG_ID}:it-batch-bid-a-r01-p5`, "sol-v0.2.0");
+    const done = { ...source("b", null, "sol-v0.2.0"), bidId: "bid-c" };
+    const fresh = { ...source("c", null, "sol-v0.2.0"), companyProfileId: NEXT_PROFILE_ID };
+    const { store, inserted, finished } = fakeStore([old, done, fresh], {
+      id: NEXT_PROFILE_ID,
+      revision: 6,
+      snapshot,
+    });
+    const lines: string[] = [];
+    const result = await runRescore(deps(store, lines), {
+      orgSlug: "solideo",
+      dryRun: false,
+      limit: null,
+      fromProfileRevision: 5,
+    });
+
+    // b 는 같은 공고(bid-c)에 최신 프로필 run(c)이 이미 있어 건너뛴다.
+    expect(result.exitCode).toBe(0);
+    expect(lines[0]).toContain("profile 5->6");
+    expect(result.line).toContain("shown=2 current=1 targets=1 written=1");
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]).toMatchObject({
+      bid_id: "bid-a",
+      company_profile_id: NEXT_PROFILE_ID,
+      profile_revision: 6,
+      algorithm_version: "sol-v0.2.0",
+      idempotency_key: `${ORG_ID}:it-batch-rescore-sol-v0.2.0-p6-a`,
+    });
+    expect(finished[0]?.run).toMatchObject({
+      recommendation: "NO_BID",
+      kev_output: KEV_OUTPUT,
+      input_snapshot: { profile: { revision: 6 }, config: { algorithmVersion: "sol-v0.2.0" } },
+    });
+  });
+
+  it("프로필 교체의 원본 revision 은 최신보다 작고 있어야 한다", async () => {
+    const { store, inserted } = fakeStore([source("a", null)]);
+    const lines: string[] = [];
+    const options = { orgSlug: "solideo", dryRun: false, limit: null };
+    const same = await runRescore(deps(store, lines), { ...options, fromProfileRevision: 5 });
+    expect([same.exitCode, same.line]).toEqual([1, expect.stringContaining("작아야")]);
+    const next = fakeStore([source("a", null)], {
+      id: NEXT_PROFILE_ID,
+      revision: 6,
+      snapshot: loadProfile(),
+    });
+    const missing = await runRescore(deps(next.store, lines), {
+      ...options,
+      fromProfileRevision: 4,
+    });
+    expect([missing.exitCode, missing.line]).toEqual([1, expect.stringContaining("프로필이 없다")]);
+    expect([inserted.length, next.inserted.length]).toEqual([0, 0]);
+  });
+
+  it("인자는 --org-slug 필수, --limit·--from-profile-revision·--dry-run 선택이다", () => {
     expect(parseRescoreArgs(["--", "--org-slug", "solideo", "--dry-run"])).toEqual({
       orgSlug: "solideo",
       dryRun: true,
       limit: null,
+      fromProfileRevision: null,
     });
+    expect(
+      parseRescoreArgs(["--org-slug", "solideo", "--from-profile-revision", "5"]),
+    ).toMatchObject({ fromProfileRevision: 5 });
     expect(() => parseRescoreArgs(["--limit", "3"])).toThrow(/사용법/);
+    expect(() =>
+      parseRescoreArgs(["--org-slug", "solideo", "--from-profile-revision", "0"]),
+    ).toThrow(/사용법/);
   });
 });
