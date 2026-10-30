@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import {
   CALENDAR_EVENT_KINDS,
@@ -24,6 +25,7 @@ import {
 } from "@/server/calendar";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { CALENDAR_PATH, CALENDAR_TITLE } from "./calendar-copy";
+import { siteOriginOf } from "./calendar-export";
 import { BidCalendar, capUpcoming } from "./calendar-view";
 
 export const metadata: Metadata = { title: CALENDAR_TITLE };
@@ -46,6 +48,21 @@ function calendarHref(
   return params.size
     ? `${CALENDAR_PATH}?${params.toString().replaceAll("%2C", ",")}`
     : CALENDAR_PATH;
+}
+
+const ICS_PATH = "/api/v1/calendar/ics";
+
+// .ics 내려받기 주소. 달은 늘 적는다(파일은 지금 보는 달이다). 보기·종류는 calendarHref 와 같게 기본값이면 뺀다.
+function icsHref(
+  month: CalendarMonth,
+  view: CalendarView,
+  kinds: readonly CalendarEventKind[],
+): string {
+  const params = new URLSearchParams({ month: monthKey(month) });
+  if (view !== DEFAULT_CALENDAR_VIEW) params.set("view", view);
+  const kindsValue = kindsParam(kinds);
+  if (kindsValue !== null) params.set("kinds", kindsValue);
+  return `${ICS_PATH}?${params.toString().replaceAll("%2C", ",")}`;
 }
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
@@ -82,6 +99,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   // 다가오는 14일은 그릴 만큼(UPCOMING_MAX)만 넘기고 나머지는 건수만 넘긴다(HTML·RSC 크기).
   const upcoming = capUpcoming(upcomingEvents(shown, now));
   const kindsFiltered = kindsParam(kinds) !== null;
+  const siteOrigin = siteOriginOf(await headers());
   const monthHref = (target: CalendarMonth) => calendarHref(target, requested, kinds);
   return (
     <BidCalendar
@@ -97,6 +115,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       kindsFiltered={kindsFiltered}
       hasAnyEvents={events.length > 0}
       relevantFailed={relevantFailed}
+      siteOrigin={siteOrigin}
       links={{
         prev: monthHref(shiftMonth(month, -1)),
         next: monthHref(shiftMonth(month, 1)),
@@ -112,6 +131,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           ]),
         ) as Record<CalendarEventKind, string>,
         allKinds: kindsFiltered ? calendarHref(month, requested, CALENDAR_EVENT_KINDS) : null,
+        ics: icsHref(month, requested, kinds),
       }}
     />
   );
