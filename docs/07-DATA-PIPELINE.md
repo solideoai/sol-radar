@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 07. 조달청 데이터 수집
@@ -319,7 +319,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 | 취소 | +1, `status=CANCELLED` | `BID_CHANGED` 1건 | 하지 않음. 기존 `score_runs`·`bid_reviews` 보존 |
 | 마감 72시간 이내 진입 | 없음 | 마감 D-3·D-1(KST 09:00 이후) 인앱 알림 1건씩, 담당자∪관심 등록자(`send_deadline_reminders`, [[13-NOTIFICATIONS\|13]]) | 없음 |
 
-"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18). 마감 D-3·D-1 알림은 수집이 아니라 알림 Worker(`web/worker/notify-only-main.ts` `deadlineWorkerRegistration`, 로컬은 전체 Worker)가 넣는다. 회사에서는 알림 Worker를 준비만 했고 띄우지 않았다([회사 실행서](../infra/company/README.md) §9).
+"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18). 마감 D-3·D-1 알림은 수집이 아니라 알림 Worker(`web/worker/notify-only-main.ts` `deadlineWorkerRegistration`, 로컬은 전체 Worker)가 넣는다. 회사에서는 2026-10-30부터 알림 전용 Worker가 돈다([회사 실행서](../infra/company/README.md) §9).
 
 ## 6. Fixture 20건 명세
 

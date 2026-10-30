@@ -403,6 +403,8 @@ docker compose -f infra/compose.documents-only.company.yaml stop documents-worke
 
 이 절은 별도 운영 승인 후 실행할 절차다. 회사 기동 성공 기록이 아니다. **[승인]** 표시 단계는 사용자 승인 뒤에만 실행한다.
 
+2026-10-30 12:45 KST 이 절의 D0~D4(§9.1~§9.5)대로 처음 기동했다. 카카오 발송은 꺼짐이고 §9.6은 하지 않았다. 기록은 [알림 전용 Worker 첫 기동](../../docs/evidence/company-rollout/20261030/notify-worker-rollout.md)이다.
+
 목적: 인앱 알림(화면의 벨)·카카오 추천 공고 알림·관심 공고 마감 알림을 처리한다. 회사 서버의 ingest·analysis·documents 전용 Worker는 알림을 처리하지 않는다. 알림 등록(`notifyWorkerRegistration`·`deadlineWorkerRegistration`)은 전체 Worker(`web/worker/main.ts`)에만 있어서, 이 Worker가 없으면 운영 `outbox_events`가 쌓이기만 한다. Compose 파일은 `infra/compose.notify-only.company.yaml`(프로젝트 `sol-radar-notify`, 서비스 `notify-worker` 하나), 진입점은 `web/worker/notify-only-main.ts`다.
 
 - 등록은 둘이다. outbox 회차는 2초마다 최대 50건을 처리한다. 대상은 인앱 `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`와 카카오 `BID_RECOMMENDED`·`KAKAO_TEST`다. 마감 회차는 5분마다 돌고, KST 09:00 뒤에 그날 D-3·D-1 인앱 알림을 넣는다. 수집·분석·documents·부처 공고·의존성 보고·Storage 정리는 돌리지 않는다.

@@ -19,7 +19,7 @@ updated: 2026-10-30
 |---|---|
 | Vercel | web 하나(`vercel.json`, 내부 ai 서비스·binding 없음). `SOL_DEPLOYMENT_ROLE=frontend`로 분석·수집 요청을 회사 redis-api에 HTTPS로 넘긴다. 함수 지역은 Supabase DB(`ap-southeast-2` 시드니)와 같은 `syd1`이다(`vercel.json` `regions`). 기본값 `iad1`(버지니아)에서는 Supabase 호출 한 번이 평균 573ms라 화면 이동이 2~4초 걸렸다(2026-10-28 Supabase edge 로그 실측) |
 | Supabase 클라우드 | DB·Auth·Storage(비공개 버킷 `bid-documents`·`bid-parsed`, [[16-DECISIONS\|ADR-048]]) |
-| 회사 서버 | 기존 Redis `:6379`, 기존 Nginx `/redis/` → `127.0.0.1:6380` redis-api, AI gateway, 전용 Worker 4종(ingest·analysis·documents·부처 공고). 알림 전용 Worker는 준비만 했다(아래 "회사 Compose 프로젝트") |
+| 회사 서버 | 기존 Redis `:6379`, 기존 Nginx `/redis/` → `127.0.0.1:6380` redis-api, AI gateway, 전용 Worker 5종(ingest·analysis·documents·부처 공고·알림). 알림 전용 Worker는 2026-10-30부터 돌고 카카오 발송은 꺼짐이다(아래 "회사 Compose 프로젝트") |
 | 회사 GPU | 회사 vLLM API(`Qwen3.8-Flash-Next-AWQ-INT4`, 회사 운영), `sol_decision.serve`(Bosun v3.1 0.6B, AI gateway와 같은 호스트 `127.0.0.1:8009`). 아래 "회사 GPU 추론 엔드포인트" |
 
 운영 상태(현재 값·확인 시각·건수는 [[PROGRESS|진행 상황]] 운영 상태 표가 정본이다):
@@ -54,12 +54,12 @@ updated: 2026-10-30
 | `infra/compose.analysis-only.company.yaml` | `sol-radar-analysis-only` | `analysis-worker`, `sol-radar-ai-worker-worker:latest`(회사 원본) | `worker/analysis-only-main.ts`. analysis 큐 + 멈춘 분석 복구 | 회사가 준 원본 파일이다. `restart: "no"` |
 | + `infra/compose.analysis-only.sha.company.yaml` | (위 덮어쓰기) | 이미지 `sol-radar-analysis-worker:<SHA>`, `web/worker/Dockerfile` 빌드, 종료 유예 180초 | 위와 같다 | `latest` 태그를 빌드·태그하지 않는다(회사 실행서 §8.6) |
 | `infra/compose.documents-only.company.yaml` | `sol-radar-documents` | `documents-worker`, `sol-radar-documents-worker:<SHA>` | `worker/documents-only-main.ts`. documents 큐 소비자 + 60초 복구 회차 | live가 아니면 exit 1. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(회사 실행서 §8) |
-| `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 기동 전이다. live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
+| `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 2026-10-30 12:45 KST 첫 기동(카카오 발송 꺼짐, [기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
 | `infra/compose.program-notices-only.company.yaml` | `sol-radar-program-notices` | `program-notices-worker`, `sol-radar-program-notices-worker:<SHA>` | `worker/program-notices-only-main.ts`. 기업마당 지원사업 공고 정기 수집 `bizinfo-scheduled`(KST 3시간 정각). 자기 큐(`program-notices`)만 쓰고 ingest 큐·일정은 건드리지 않는다 | `SOL_RUN_MODE=live` 고정. `BIZINFO_API_KEY`는 `.env.worker.local`. 전체 Worker와 같은 DB에서 함께 띄우지 않는다(회사 실행서 §10) |
 
 - ingest·analysis·documents 전용 Worker의 `AI_GATEWAY_URL`은 `http://172.20.0.1:8000`이다(`infra/compose.documents-only.company.yaml:28`). 부처 공고 Worker는 gateway를 부르지 않는다. redis-api는 `http://ai-gateway:8000`이다(`infra/compose.company.yaml:20`). 둘이 같은 gateway인지는 미확인이다(회사 실행서 §2 D0).
 - Documents Worker 처리량은 env `DOCUMENTS_MAX_PER_BID`(기본 3)·`DOCUMENTS_ROUND_MAX_REVISIONS`(10)·`DOCUMENTS_FETCH_INTERVAL_MS`(2000)·`DOCUMENTS_CONCURRENCY`(2, 최대 2)다. 문서 리스는 600초다([[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약").
-- notify·deadline 등록은 전체 Worker(`web/worker/main.ts`의 `WORKER_REGISTRATIONS`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents·부처 공고 전용 Worker에는 없다(코드 확인). 그래서 notify 전용 Worker를 기동하기 전에는 운영 알림이 처리되지 않는다. 처음 기동하면 쌓인 outbox가 한꺼번에 처리된다. 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
+- notify·deadline 등록은 전체 Worker(`web/worker/main.ts`의 `WORKER_REGISTRATIONS`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents·부처 공고 전용 Worker에는 없다(코드 확인). 그래서 운영 알림은 notify 전용 Worker만 처리한다. 2026-10-30 첫 기동 때 쌓인 인앱 28건을 한꺼번에 처리했고, 쌓인 `BID_RECOMMENDED` 22건은 카카오 발송이 꺼져 `DEAD`가 됐다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
 - 환경 파일은 `infra/.env.redis-api.local`·`.env.ai-gateway.local`·`.env.worker.local`이다. 키 이름은 `infra/env/redis-api.env.example`·`company-ai.env.example`·`company-worker.env.example`·`company.env.example`에 있다(회사 실행서 §2).
 - `infra/compose.gpu.yaml`(`sol-radar-gpu`, `model-router`)은 설계만 있고 운영에 등록하지 않았다. 아래 "회사 GPU 추론 엔드포인트"다.
 
@@ -134,7 +134,7 @@ updated: 2026-10-30
   - Worker: `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. 회사 키 이름은 `infra/env/company-worker.env.example:14-18`, 로컬은 `compose.yaml` worker `environment`에 있다.
   - web: `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`(`web/.env.example`). 연결 Route Handler는 `/api/v1/me/kakao-notify/connect`·`callback`·`test`다.
   - `mock`은 외부 호출 없이 보낸 것으로 친다. `memo`는 실발송이고 키 넷이 모두 있어야 하며 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트(AES-256-GCM)여야 한다. 틀리면 Worker가 Redis 연결 전에 키 이름만 알리고 멈춘다. 그 밖의 값도 기동을 멈춘다.
-  - 빈 값은 실행 모드에 따라 다르다. `mock`·`fixture`는 mock이다. `live`면 카카오 발송을 끄고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도 뒤 `DEAD`가 되고 발송 기록은 생기지 않는다. live에서 `mock`을 직접 적으면 경고(`notify.kakao.mock_in_live`)를 남긴다. 운영에는 알림 Worker가 없어 이 동작이 돌 곳이 없다. notify 전용 Worker를 띄우면 적용된다([live 가드 검증](evidence/live-guards/20261027.md)).
+  - 빈 값은 실행 모드에 따라 다르다. `mock`·`fixture`는 mock이다. `live`면 카카오 발송을 끄고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도 뒤 `DEAD`가 되고 발송 기록은 생기지 않는다. live에서 `mock`을 직접 적으면 경고(`notify.kakao.mock_in_live`)를 남긴다. 운영 notify 전용 Worker는 2026-10-30 빈 값으로 떠서 `notify.kakao.disabled`를 남겼다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md), [live 가드 검증](evidence/live-guards/20261027.md)).
   - `KAKAO_TOKEN_ENC_KEY`는 web이 암호화하고 Worker가 복호화하므로 두 쪽이 같은 값이다. 바꾸면 모든 연결을 다시 해야 한다. 키·시크릿은 서버 전용이다([[09-SECURITY|09 보안]] "카카오톡 알림").
   - 운영 카카오 연결·발송은 0건이다. 실발송은 사용자가 `memo`로 바꿀 때만 일어난다. 시험은 `mock`이다.
 

@@ -6,14 +6,14 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 02. 시스템 아키텍처
 
 ## 운영 구성 (ADR-049)
 
-Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 Redis를 재사용하고 그 위에 `redis-api`·AI gateway·전용 Worker 4종(ingest·analysis·documents·부처 공고)을 Compose로 띄운다. 알림 전용 Worker는 코드와 실행서만 있고 띄우지 않았다. 모델은 회사 vLLM의 `Qwen3.8-Flash-Next-AWQ-INT4`와 우리 결정 서버 `sol_decision`(Bosun v3.1 0.6B)이다. 운영은 live 수집(나라장터·LH·KEPCO·K-water 입찰공고, 기업마당 지원사업)과 첨부 처리로 돌고, AI gateway는 회사 실모델에 붙어 있다(`/health/ready` `ai: local`). 프로젝트별 구성은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트", 회사 쪽 절차는 [회사 실행서](../infra/company/README.md)다.
+Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 Redis를 재사용하고 그 위에 `redis-api`·AI gateway·전용 Worker 5종(ingest·analysis·documents·부처 공고·알림)을 Compose로 띄운다. 알림 전용 Worker는 2026-10-30부터 돌고 카카오 발송은 꺼짐이다. 모델은 회사 vLLM의 `Qwen3.8-Flash-Next-AWQ-INT4`와 우리 결정 서버 `sol_decision`(Bosun v3.1 0.6B)이다. 운영은 live 수집(나라장터·LH·KEPCO·K-water 입찰공고, 기업마당 지원사업)과 첨부 처리로 돌고, AI gateway는 회사 실모델에 붙어 있다(`/health/ready` `ai: local`). 프로젝트별 구성은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트", 회사 쪽 절차는 [회사 실행서](../infra/company/README.md)다.
 
 ## 경계
 
@@ -24,7 +24,7 @@ Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 R
   - 같은 빌드가 `SOL_DEPLOYMENT_ROLE`로 역할을 나눈다. `frontend`(Vercel)는 분석·수집 접수와 AI 상태를 회사 `redis-api`에 HTTPS로 넘긴다. `redis-api`(회사)가 BullMQ job을 넣는다(producer). `standalone`은 노트북 대체 경로다.
   - `frontend`·`redis-api`는 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 기동을 거부하고, `frontend`는 `REDIS_URL`도 거부한다(`web/app/_lib/deployment-role.ts:45-47`).
 - Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018), private **Storage**(버킷 `bid-documents`·`bid-parsed`, ADR-048). 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). pgvector·Supabase Queues는 쓰지 않는다.
-- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer. 전체 진입점 `worker/main.ts`는 system·ingest·documents·analysis·알림 outbox·마감 알림·부처 공고 등록을 한 프로세스에 둔다(`web/worker/main.ts` `WORKER_REGISTRATIONS`). 회사는 진입점을 나눠 `ingest-only-main.ts`·`analysis-only-main.ts`·`documents-only-main.ts`·`program-notices-only-main.ts`로 돌린다. `notify-only-main.ts`는 준비만 했다([[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"). analysis Worker는 추천 분석 `insight` job도 소비한다([[16-DECISIONS|ADR-066]]). 별도 extract job은 없고 `/extract`는 analysis job 안에서 부른다.
+- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer. 전체 진입점 `worker/main.ts`는 system·ingest·documents·analysis·알림 outbox·마감 알림·부처 공고 등록을 한 프로세스에 둔다(`web/worker/main.ts` `WORKER_REGISTRATIONS`). 회사는 진입점을 나눠 `ingest-only-main.ts`·`analysis-only-main.ts`·`documents-only-main.ts`·`program-notices-only-main.ts`·`notify-only-main.ts`(2026-10-30부터)로 돌린다([[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"). analysis Worker는 추천 분석 `insight` job도 소비한다([[16-DECISIONS|ADR-066]]). 별도 extract job은 없고 `/extract`는 analysis job 안에서 부른다.
   - `live` 모드에서 나라장터 Open API(data.go.kr)를 부르고 첨부를 `www.g2b.go.kr` allowlist로 내려받는 유일한 컴포넌트다(서비스별 서비스키 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]).
   - 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. `node --conditions=react-server --import tsx worker/main.ts`로 띄워야 `server-only` 모듈을 불러온다(`docs/evidence/phase-0/worker-conditions.txt`).
   - Supabase는 service role 키로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).

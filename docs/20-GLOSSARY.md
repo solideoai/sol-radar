@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 20. 용어집
@@ -116,7 +116,7 @@ updated: 2026-10-29
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
 | `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 데모 데이터를 `is_demo=true`로 멱등 적재한다. 적재 내용(조직·계정·공고 fixture·명부 200·사진 검증·사전 리뷰)은 [[10-DEPLOYMENT]] seed 절 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
-| Compose 서비스 | 로컬 `infra/compose.yaml`의 `redis`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다. 회사 서버는 `compose.company.yaml`과 `compose.{ingest,analysis,documents,program-notices}-only.company.yaml`을 쓴다. `compose.notify-only.company.yaml`은 준비만 했고 기동하지 않았다(ADR-049, `infra/company/README.md` §9) | [[10-DEPLOYMENT]] |
+| Compose 서비스 | 로컬 `infra/compose.yaml`의 `redis`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다. 회사 서버는 `compose.company.yaml`과 `compose.{ingest,analysis,documents,program-notices}-only.company.yaml`을 쓴다. `compose.notify-only.company.yaml`은 2026-10-30부터 돌고 카카오 발송은 꺼짐이다(ADR-049, `infra/company/README.md` §9) | [[10-DEPLOYMENT]] |
 
 ## 권한·보안
 
@@ -165,7 +165,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | redis-api | 회사 서버의 HTTPS 중계 서비스(`SOL_DEPLOYMENT_ROLE=redis-api`). Vercel web(`frontend`)이 서비스 token+사용자 JWT로 접수하면 회사 Redis(TCP)에 job을 넣고 readiness를 돌려준다. Redis TCP는 이것만 쓴다 | [[10-DEPLOYMENT]], [[16-DECISIONS\|ADR-045]] |
 | documents-only worker | 회사 Worker의 하나(`web/worker/documents-only-main.ts`, `infra/compose.documents-only.company.yaml`). 새 revision의 첨부를 내려받고 gateway `POST /parse`를 불러 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 적는다. ingest-only·analysis-only와 짝이다. 알림·마감은 처리하지 않는다. 회사에서 운영 중이다(처리 현황은 [[PROGRESS]]) | [[07-DATA-PIPELINE]], [[10-DEPLOYMENT]] |
 | 결함 W1 | 2026-10-24 운영 smoke에서 FX-02 분석 요청이 `202`를 받고 `QUEUED`에서 멈춘 결함이다. 원인은 회사 Worker가 분석 job을 소비하지 않은 것이다. 같은 날 운영 실모델 분석 1건(FX-02, 66 보류)이 끝나 해소됐다. 발표 경로 D1과 이름이 겹쳐 W1로 바꿨다. 증거는 `docs/evidence/deployment/20261024-prod-smoke/` | [[10-DEPLOYMENT]] |
-| 운영 알림 처리 위험 | 알림 소비자·마감 알림 등록은 전체 Worker(`web/worker/main.ts`)와 알림 전용 Worker(`web/worker/notify-only-main.ts`)에만 있다. 회사에서 도는 ingest·analysis·documents·기업마당 전용 Worker에는 없고, 알림 전용 Worker는 준비만 했고 기동하지 않았다. 운영에는 알림 Worker가 없다([기록](evidence/company-rollout/20261028/sources-rollout.md) §1). 그래서 기동 전에는 운영 `outbox_events`가 쌓이기만 한다(`infra/company/README.md` §9). 결함 W1과 다른 문제다 | [[13-NOTIFICATIONS]] |
+| 운영 알림 처리 위험 | 알림 소비자·마감 알림 등록은 전체 Worker(`web/worker/main.ts`)와 알림 전용 Worker(`web/worker/notify-only-main.ts`)에만 있다. 회사에서 도는 ingest·analysis·documents·기업마당 전용 Worker에는 없다. 그래서 알림 전용 Worker가 없으면 운영 `outbox_events`가 쌓이기만 한다(2026-10-28 상태, [기록](evidence/company-rollout/20261028/sources-rollout.md) §1). 2026-10-30 알림 전용 Worker를 띄워 인앱·마감 알림은 처리되고 카카오 발송은 꺼져 있다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md), `infra/company/README.md` §9). 결함 W1과 다른 문제다 | [[13-NOTIFICATIONS]] |
 
 ## 문서 운영
 

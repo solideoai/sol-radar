@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -353,7 +353,7 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 |`ingest_batch`|`SEED`, `LIVE`|`ingest_runs.batch`|fixture 배치. `SEED` = 기동 시 revision 1, `LIVE` = 데모 중 변경분. API `IngestionRunInput.batch`는 소문자 `"seed"\|"live"`이며 Route Handler의 zod 스키마가 대문자로 바꾼다|
 |`ingest_status`|`RUNNING`, `SUCCEEDED`, `PARTIAL`, `FAILED`|`ingest_runs.status`|`PARTIAL` = 일부 격리|
 |`notification_type`|`BID_CREATED`, `BID_CHANGED`, `DEADLINE_APPROACHING`, `ANALYSIS_COMPLETE`, `REVIEW_ASSIGNED`, `BID_RECOMMENDED`, `KAKAO_TEST`, `KAKAO_EXPIRED`|`outbox_events.event_type`, `notifications.type`|[[13-NOTIFICATIONS\|13 알림]]. 카카오 셋은 ADR-038(`20261023000700`·`20261023000701`)이다. `KAKAO_TEST`는 `outbox_events.event_type`에만, `KAKAO_EXPIRED`는 `notifications.type`에만 있다|
-|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038). `NOTIFY_KAKAO_PROVIDER`가 `memo`면 실발송, `mock`이면 보내지 않고 성공으로 적는다. 비면 live 밖은 `mock`, live는 발송 꺼짐이다(`web/worker/notify-outbox.ts`). 운영 알림 Worker는 준비만 했고 기동하지 않았다(`infra/company/README.md` §9). 운영 실발송은 미확인|
+|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038). `NOTIFY_KAKAO_PROVIDER`가 `memo`면 실발송, `mock`이면 보내지 않고 성공으로 적는다. 비면 live 밖은 `mock`, live는 발송 꺼짐이다(`web/worker/notify-outbox.ts`). 운영 알림 Worker는 2026-10-30 빈 값(live 발송 꺼짐)으로 기동했다(`infra/company/README.md` §9). 운영 실발송은 미확인|
 |`notification_status`|`PENDING`, `SENT`, `FAILED`, `DEAD`|`notifications.status`|`DEAD` = 재시도 소진(DLQ). 읽음은 `read_at`|
 |`outbox_status`|`PENDING`, `PROCESSED`, `FAILED`, `DEAD`|`outbox_events.status`|—|
 |`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`, `g2b-procurement-request`, `kwater-bid-notice`, `kwater-procurement-plan`, `lh-bid-notice`, `lh-pre-specification`, `kepco-ebid-contract`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|

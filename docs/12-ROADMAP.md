@@ -23,8 +23,8 @@ updated: 2026-10-30
 
 |날짜|할 일|조건·상태|
 |---|---|---|
-|10-30(금)~10-31(토)|알림 Worker 회사 기동|사용자 예정(2026-10-29 원문: "운영에 알림 Worker는 내일이나 모레 구현할 예정"). 준비만 했다(`infra/company/README.md` §9). 이 Worker가 없으면 인앱·카카오·마감 알림을 처리하지 않는다. 회사 기동은 승인 뒤 사람이 실행한다|
-|11-01(일) 전|카카오 사용자 연결·S0 수신 시험|운영 연결 0건. 알림 Worker 기동 뒤다(`infra/company/README.md` §9.6)|
+|10-30(금)~10-31(토)|알림 Worker 회사 기동|완료(2026-10-30 12:45 KST, 사용자 승인). 카카오 발송 꺼짐으로 띄웠다([[16-DECISIONS\|ADR-068]] 6번). 인앱 알림 2종·마감 알림을 처리한다([기록](evidence/company-rollout/20261030/notify-worker-rollout.md))|
+|11-01(일) 전|카카오 사용자 연결·S0 수신 시험|운영 연결 0건. 알림 Worker가 떠 있어 지금 할 수 있다. 카카오 실발송(`memo`)은 따로 승인받는다(`infra/company/README.md` §9.6)|
 |11-02(월)까지|리허설 중 FX-02 재분석 금지|촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필)"이 보여야 한다. 촬영의 S4 [재분석]만 한다(예상: 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류, SOL Score v0.2, [v0.2 미리 계산](evidence/sol-score-v02/20261030/fx02-forecast.md), [[16-DECISIONS\|ADR-059]]·[[16-DECISIONS\|ADR-071]]). 회사 gateway가 `req-extract/v0.2`로 바뀌어 재분석 때 Qwen을 새로 부르므로 59는 촬영 화면 값으로 다시 확인한다([[16-DECISIONS\|ADR-064]])|
 |11-01(일)|화면 동결, 리허설 1|D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함|
 |11-01(일)~11-02(월)|촬영(녹화 클립): D1 운영 사이트 장면·S-GAPS·S-LIVE·카카오 실수신, 로컬 Compose S5·S6|실공고 분석은 운영에 있다([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 카카오는 S0 수신 시험이 먼저다|
@@ -114,7 +114,7 @@ updated: 2026-10-30
 |X5|확장 컷(위 표 순서)|—|위 해커톤 컷 표 "확장 컷" 행|
 |X6|Bosun LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-034]]): 평가셋 v0.1(P0-9) → 학습셋 번들·학습 요청서(P0-11) → 회사 F1·F2·F3 → E4·E1' 채점|평가 / P0-9·P0-11|발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]]). 회사 서버에서 돈 기록은 없다. 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]]|
 |BOOST-2|데모 강화 컷 가정 재계산(`whatIf`·`POST /api/v1/analyses/{id}/what-if`·상세 스위치·띠)|데모 강화 ([[16-DECISIONS\|ADR-037]])|완료|
-|KAKAO|카카오톡 추천 공고 알림(나에게 보내기). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md)|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|main 병합, 운영 migration 적용. 운영 연결 0건. 알림 Worker 기동·사용자 S0 수신 시험·실수신 녹화는 남음|
+|KAKAO|카카오톡 추천 공고 알림(나에게 보내기). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md)|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|main 병합, 운영 migration 적용. 운영 연결 0건. 사용자 S0 수신 시험·실수신 녹화는 남음(알림 Worker는 2026-10-30 카카오 발송 꺼짐으로 기동)|
 |P1|ADR-021 P1 다섯 화면(N3·N5·N6·N7·N4b, [[16-DECISIONS\|ADR-042]]). 완료 기준은 [설계 §3.2](plans/2026-10-16-sidebar-ia-design.md) 표|3·6 / P1|완료(main 병합·운영 배포)|
 
 C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 정기 수집은 BullMQ cron `0 */3 * * *`(`Asia/Seoul`, KST 00·03·…·21시)이고 옛 `G2B_INGEST_INTERVAL_MINUTES`는 무시한다([[07-DATA-PIPELINE|07 수집]] §2.2).

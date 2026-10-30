@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - claude
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Claude Code — SOL RADAR 지침
@@ -16,7 +16,7 @@ updated: 2026-10-29
 
 - 일정: 화면 동결 2026-11-01·공식 제출 2026-11-03·발표 2026-11-04(ADR-054·061). 발표는 덱 20분 + 녹화 클립이고, D1 운영 사이트(`?origin=demo`, `demo:reset` 안 함)는 촬영 경로이자 질의응답 라이브다. 남은 일은 `docs/12-ROADMAP.md` 남은 일정 제안 표와 `docs/PROGRESS.md`를 본다.
 - 기술 스택: Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python(Qwen3.8-Flash-Next + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
-  - 배포 기준(ADR-049): Vercel은 web만 실행하고(함수 지역 `syd1`) AI binding을 두지 않는다. 회사 Compose는 기존 Redis를 재사용하는 redis-api·AI gateway와 ingest·analysis·documents·기업마당 전용 Worker를 맡는다. 알림 전용 Worker는 준비만 했고 기동하지 않았다. 관리자 AI 상태도 서비스 token+업무 JWT로 회사 API에 전달한다. 회사 기동·실모델 연결 확인과 코드 준비를 구분한다. 운영 상태는 `docs/PROGRESS.md` 운영 상태 표, 실행서는 `infra/company/README.md`다.
+  - 배포 기준(ADR-049): Vercel은 web만 실행하고(함수 지역 `syd1`) AI binding을 두지 않는다. 회사 Compose는 기존 Redis를 재사용하는 redis-api·AI gateway와 ingest·analysis·documents·기업마당·알림 전용 Worker를 맡는다. 알림 전용 Worker는 2026-10-30부터 돈다(인앱·마감 알림 처리, 카카오 발송 꺼짐). 관리자 AI 상태도 서비스 token+업무 JWT로 회사 API에 전달한다. 회사 기동·실모델 연결 확인과 코드 준비를 구분한다. 운영 상태는 `docs/PROGRESS.md` 운영 상태 표, 실행서는 `infra/company/README.md`다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
   - Supabase가 맡는 것은 DB·Auth·private Storage다. 첨부는 Supabase Storage, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
   - Vercel `frontend`는 회사 Gateway에 서비스 token+사용자 JWT로 HTTPS 접수한다. 회사 `redis-api`만 Redis TCP를 사용하고 웹에 service role을 넣지 않는다. 회사 Redis6379·HTTP loopback6380·기존 Nginx `/redis/`는 유지한다(ADR-045). 운영 변경은 검증 결과를 준비한 뒤 확인받는다.

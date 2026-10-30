@@ -34,7 +34,7 @@ flowchart TB
   NG["기존 Nginx /redis/"]
   subgraph cc["회사 Compose · infra/compose.company.yaml"]
    RA["redis-api<br/>같은 Next.js 코드 · 127.0.0.1:6380"]
-   WK["Worker (web/worker)<br/>ingest-only · analysis-only<br/>documents-only · 기업마당 전용<br/>(notify-only 는 준비만)"]
+   WK["Worker (web/worker)<br/>ingest-only · analysis-only<br/>documents-only · 기업마당 전용<br/>notify-only(카카오 발송 꺼짐)"]
    AI["AI gateway FastAPI :8000<br/>/parse /extract /kev /explain /insight"]
   end
   R[("기존 Redis 6379 · BullMQ")]
@@ -64,7 +64,7 @@ flowchart TB
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web·redis-api·worker는 Qwen·결정 모델에 직접 닿지 않는다.
 - Vercel은 web만 실행한다. 분석·수집 접수와 관리자 AI 상태 조회만 회사 Gateway로 넘기고, 조회·가정 재계산은 Supabase RLS 경로로 읽는다. Vercel에는 service role 키·Redis 주소·모델 키를 넣지 않는다([[10-DEPLOYMENT|10 배포]] "운영 구성 (ADR-049)").
-- 회사 Compose는 redis-api·AI gateway와 역할별 Worker다. Worker는 수집(`infra/compose.ingest-only.company.yaml`)·분석(`compose.analysis-only.company.yaml`)·첨부(`compose.documents-only.company.yaml`)·부처 공고(`compose.program-notices-only.company.yaml`, 기업마당)로 나뉜다. 알림 전용 Worker(`compose.notify-only.company.yaml`)는 준비만 했고 회사에서 기동하지 않았다(`infra/company/README.md` §9). 그래서 운영은 인앱·카카오·마감 알림을 처리하지 않는다. 회사의 기존 Redis와 Nginx를 재사용하고 Redis·Qdrant·DB·모델 서버를 새로 만들지 않는다. 호스트에 여는 포트는 기존 Nginx upstream인 `127.0.0.1:6380` 하나다. 모델 키는 AI gateway만, service role·수집 키는 Worker만 받는다(`infra/company/README.md`).
+- 회사 Compose는 redis-api·AI gateway와 역할별 Worker다. Worker는 수집(`infra/compose.ingest-only.company.yaml`)·분석(`compose.analysis-only.company.yaml`)·첨부(`compose.documents-only.company.yaml`)·부처 공고(`compose.program-notices-only.company.yaml`, 기업마당)로 나뉜다. 알림 전용 Worker(`compose.notify-only.company.yaml`)는 2026-10-30부터 회사에서 돈다. 인앱·마감 알림을 처리하고 카카오 발송은 꺼 두었다(`infra/company/README.md` §9, [기동 기록](../evidence/company-rollout/20261030/notify-worker-rollout.md)). 회사의 기존 Redis와 Nginx를 재사용하고 Redis·Qdrant·DB·모델 서버를 새로 만들지 않는다. 호스트에 여는 포트는 기존 Nginx upstream인 `127.0.0.1:6380` 하나다. 모델 키는 AI gateway만, service role·수집 키는 Worker만 받는다(`infra/company/README.md`).
 - 운영 상태의 정본은 [[PROGRESS|진행 상황]] 운영 상태 표다(수집 건수·첨부 처리 건수 포함). Vercel `/health/ready`는 `ai: local`을 보고한다. 회사 ingest Worker는 나라장터·LH·KEPCO·K-water 입찰공고를 3시간마다 수집하고, 다른 외부 3종은 꺼져 있다(`DISABLED`). 기업마당은 전용 Worker다(`infra/sources/registry.yaml`, `infra/company/README.md` §7·§10). 운영 회사 프로필은 공개 자료 프로필 revision 5다([[16-DECISIONS|ADR-052]]). 화면 기본 출처는 Vercel env `SOL_DEFAULT_ORIGIN`이 정하고, 발표는 `?origin=demo`로 연다(D1, ADR-054).
 - DB·Auth·Storage는 Supabase 클라우드(ADR-048)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`와 아래 (a-2).
 - 회사 GPU 서버는 외부에서 접근할 수 없다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 회사 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 서빙한다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]]). 운영 AI gateway는 같은 호스트의 회사 Compose(`network_mode: host`)에서 `KEV_BASE_URL=http://127.0.0.1:8009`로 바로 붙는다. 처음 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`(GPU 서버 안 nginx 모델 라우터 `infra/gpu/model-router.conf`)는 회사 nginx에 등록되지 않았다. 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 회사 vLLM은 Bearer 인증 조회·추론을 확인했다(2026-10-21 probe). 결정 서버는 운영 DEMO 분석과 2026-10-29 실공고 2건에서 응답했고, `GET /v1/models` 레지스트리 대조(`registryMatch: true`)를 확인했다. 지연은 측정하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 회사 프로필(운영은 공개 자료, 로컬은 가상)뿐이다.

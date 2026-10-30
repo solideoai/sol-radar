@@ -6,24 +6,24 @@ tags:
   - sol-radar
   - pipeline
   - ops
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 13. 알림 설계
 
 > [!tip] 해커톤 범위
-> 인앱 알림은 실제로 발송한다. 카카오톡은 개인 설정에서 켠 사용자에게 추천 공고(추천·보류 권고)를 카카오 **"나에게 보내기"**(카카오톡 메시지 API, 사업자 불필요)로 보낸다([[16-DECISIONS|ADR-038]]). 발송 수단은 `NOTIFY_KAKAO_PROVIDER`로 고른다. `mock`은 외부 호출 없이 즉시 성공하고 `memo`는 나에게 보내기 실발송이다. 시험·CI는 `mock`이다. DB·도메인·발송 수단·Worker 연결·API·설정 화면이 구현돼 있고, 운영 DB에는 `20261023000700`~`000704`가 적용됐다. 운영 카카오 연결·발송은 0건이다(2026-10-27 확인). 나에게 보내기는 시연용이고 운영 경로는 카카오 알림톡(비즈메시지)이다. 사업자·딜러사·템플릿 승인 뒤이며 미결정 5번이다.
-> 실제 공고 수신 녹화는 아래 알림 전용 Worker를 띄운 뒤에 한다(회사 실행서 §9.6, [[16-DECISIONS|ADR-054]]). 일정은 [[12-ROADMAP|12 로드맵]]이다. 발표는 D1이라 `demo:reset`은 하지 않는다.
+> 인앱 알림은 실제로 발송한다. 카카오톡은 개인 설정에서 켠 사용자에게 추천 공고(추천·보류 권고)를 카카오 **"나에게 보내기"**(카카오톡 메시지 API, 사업자 불필요)로 보낸다([[16-DECISIONS|ADR-038]]). 발송 수단은 `NOTIFY_KAKAO_PROVIDER`로 고른다. `mock`은 외부 호출 없이 즉시 성공하고 `memo`는 나에게 보내기 실발송이다. 시험·CI는 `mock`이다. DB·도메인·발송 수단·Worker 연결·API·설정 화면이 구현돼 있고, 운영 DB에는 `20261023000700`~`000704`가 적용됐다. 운영 카카오 연결·발송은 0건이다(2026-10-30 확인, [기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 나에게 보내기는 시연용이고 운영 경로는 카카오 알림톡(비즈메시지)이다. 사업자·딜러사·템플릿 승인 뒤이며 미결정 5번이다.
+> 실제 공고 수신 녹화는 아래 알림 전용 Worker를 `memo`로 바꾼 뒤에 한다(회사 실행서 §9.6, [[16-DECISIONS|ADR-054]]). 일정은 [[12-ROADMAP|12 로드맵]]이다. 발표는 D1이라 `demo:reset`은 하지 않는다.
 
 > [!warning] 운영 알림 처리 위험
-> 운영에는 알림을 처리하는 Worker가 없다. 회사에서 도는 전용 Worker(ingest·analysis·documents·부처 공고)에는 알림 소비자(`notifyWorkerRegistration`)와 마감 알림(`deadlineWorkerRegistration`)이 등록되지 않는다(코드). 두 등록은 전체 Worker(`web/worker/main.ts` `WORKER_REGISTRATIONS`)와 알림 전용 Worker(`web/worker/notify-only-main.ts`)에만 있다. 2026-10-28 회사 점검에서 전체 Worker는 돌지 않았다([수집 서비스 회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md) §1 Documents 사전 점검). 알림 전용 Worker는 코드와 실행서(`infra/compose.notify-only.company.yaml`, [회사 실행서](../infra/company/README.md) §9)만 있고 띄우지 않았다. 그래서 운영 `outbox_events`는 쌓이기만 하고 인앱·카카오·마감 알림이 나가지 않는다. 기동하면 쌓인 outbox를 한꺼번에 처리하므로 §9.1 기동 전 확인을 거친다. 용어는 [[20-GLOSSARY|20 용어집]] "운영 알림 처리 위험"이다.
+> 2026-10-30 12:45 KST 회사에 알림 전용 Worker(`infra/compose.notify-only.company.yaml`, [회사 실행서](../infra/company/README.md) §9)를 처음 띄웠다. 그 전에는 운영에 알림을 처리하는 Worker가 없어 `outbox_events`가 쌓이기만 했다. 회사에서 도는 다른 전용 Worker(ingest·analysis·documents·부처 공고)에는 알림 소비자(`notifyWorkerRegistration`)와 마감 알림(`deadlineWorkerRegistration`)이 등록되지 않는다(코드). 두 등록은 전체 Worker(`web/worker/main.ts` `WORKER_REGISTRATIONS`)와 알림 전용 Worker(`web/worker/notify-only-main.ts`)에만 있다. 전체 Worker는 회사에서 돌지 않는다([수집 서비스 회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md) §1, 2026-10-30 D0 다시 확인). 첫 기동 때 쌓인 인앱 28건을 처리했고, 카카오 발송은 꺼 두어 쌓인 `BID_RECOMMENDED` 22건은 `DEAD`가 됐다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 그래서 지금 운영은 인앱 알림 2종·마감 알림을 처리하고 카카오는 보내지 않는다. 다시 기동할 때도 §9.1 기동 전 확인을 거친다. 용어는 [[20-GLOSSARY|20 용어집]] "운영 알림 처리 위험"이다.
 
 ## 이벤트와 전달
 |이벤트|발생 시점|수신자|채널|구현|
 |---|---|---|---|---|
 |`BID_CREATED`|신규 공고 적재|조직의 SALES, ANALYST|in-app|outbox만 쌓는다(`ingest_save_revision`). 조직별 발송(팬아웃)은 구현 없음. 행은 `PENDING`으로 남는다|
 |`BID_CHANGED`|revision 생성 (마감·금액·정정·취소)|해당 공고 담당자 + 검토 참여자|in-app|위와 같다|
-|`DEADLINE_APPROACHING`|마감 D-3, D-1 09:00 KST|담당자 + 관심 등록자([[16-DECISIONS\|ADR-021]])|in-app|구현됨, 운영 DB 적용(`20261022000110`). Worker 주기 작업이 `send_deadline_reminders(p_now)`로 직접 삽입. 운영 발송은 위 위험 참고|
+|`DEADLINE_APPROACHING`|마감 D-3, D-1 09:00 KST|담당자 + 관심 등록자([[16-DECISIONS\|ADR-021]])|in-app|구현됨, 운영 DB 적용(`20261022000110`). Worker 주기 작업이 `send_deadline_reminders(p_now)`로 직접 삽입. 운영은 2026-10-30부터 알림 전용 Worker가 5분마다 돌린다(첫 회차 0건)|
 |`ANALYSIS_COMPLETE`|score_run `COMPLETED` 또는 `PARTIAL`|분석 요청자|in-app|구현됨(아래 "인앱 알림 2종"). `FAILED`는 알리지 않는다|
 |`REVIEW_ASSIGNED`|담당자 배정|배정 대상|in-app|구현됨(아래 "인앱 알림 2종")|
 |`BID_RECOMMENDED`|사람이 요청한 분석이 `COMPLETED`·`PARTIAL`로 끝나고 권고가 추천(`BID`)·보류(`WATCH`)일 때(조직·공고마다 처음 한 번)|그 조직 구성원 중 카카오톡 알림을 켜고 연결이 정상인 활성 계정|카카오톡|구현됨. `finish_score_run`이 outbox를 쓰고(`20261023000701`) Worker가 펼쳐 보낸다(아래 "카카오톡 추천 공고")|
@@ -87,7 +87,7 @@ sequenceDiagram
 
 ## 카카오톡 추천 공고 (나에게 보내기, [[16-DECISIONS|ADR-038]])
 
-개인 설정에서 켠 사용자에게 추천 공고를 본인 카카오톡 "나와의 채팅"으로 보낸다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §5·§6·§8이다. 구현돼 있고 운영에서는 위 "운영 알림 처리 위험" 때문에 돌지 않는다.
+개인 설정에서 켠 사용자에게 추천 공고를 본인 카카오톡 "나와의 채팅"으로 보낸다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §5·§6·§8이다. 구현돼 있고, 운영 알림 전용 Worker는 카카오 발송 꺼짐으로 떠 있어(2026-10-30) 운영에서는 아직 보내지 않는다.
 
 - **언제**: `finish_score_run`이 사람이 요청한 run(`requested_by` 있음)을 `COMPLETED`·`PARTIAL`로 마감하고 권고가 추천·보류면, 같은 트랜잭션에서 outbox `BID_RECOMMENDED` 1건을 쓴다(`20261023000701`). 키 `<orgId>:<bidId>:BID_RECOMMENDED`라 조직·공고마다 처음 한 번만 생기고, 다시 분석해도 늘지 않는다. `aggregate_type` `score_run`, payload `{scoreRunId, bidId, orgId, recommendation, status}`. 데모 사전 분석(`requested_by` null)·비추천(`NO_BID`)·FAILED는 쓰지 않는다.
 - **누구에게**: 그 조직 구성원 가운데 카카오톡 알림을 켰고(`enabled`) 연결이 `CONNECTED`이며 활성 계정(`profiles.status = 'active'`)인 사람 전원이다. 역할은 가리지 않고 분석 요청자도 받는다. 받는 사람은 보낼 때 다시 고른다(그 사이 끄거나 연결을 해제하면 보내지 않는다). 사람마다 알림 행 1개(`channel=KAKAO`, `type=BID_RECOMMENDED`, 키 `<outboxEventId>:<userId>:KAKAO`)다. 같은 공고를 이미 받은 사람은 다른 조직의 이벤트라도 건너뛴다. `SENT`와 결과 불분명 `DEAD`(`TIMEOUT_UNKNOWN`)를 받은 것으로 보고(최대 한 번), 분명히 못 보낸 `DEAD`는 받은 것으로 보지 않는다. 받는 사람이 0명이면 알림 0건으로 outbox를 `PROCESSED`로 닫는다. 이 이벤트로 인앱 알림은 만들지 않는다.

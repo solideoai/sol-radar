@@ -5,13 +5,13 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # SOL RADAR — 구현 문서 인덱스
 
 > [!note] 배포 기준 (ADR-049)
-> Vercel은 web 하나다(함수 지역 `syd1`). 회사는 기존 Redis와 redis-api·AI gateway, ingest·analysis·documents·기업마당 전용 Worker를 맡는다. 알림 전용 Worker는 준비만 했고 기동하지 않았다. web에는 AI binding이 없고 관리자 AI 상태는 인증된 회사 API로 조회한다. [회사 실행서](../infra/company/README.md)와 [[10-DEPLOYMENT]]를 따른다. 코드 준비와 회사 반영은 구분한다. 지금 상태는 [[PROGRESS]]다.
+> Vercel은 web 하나다(함수 지역 `syd1`). 회사는 기존 Redis와 redis-api·AI gateway, ingest·analysis·documents·기업마당 전용 Worker를 맡는다. 알림 전용 Worker는 2026-10-30부터 돈다(인앱·마감 알림 처리, 카카오 발송 꺼짐). web에는 AI binding이 없고 관리자 AI 상태는 인증된 회사 API로 조회한다. [회사 실행서](../infra/company/README.md)와 [[10-DEPLOYMENT]]를 따른다. 코드 준비와 회사 반영은 구분한다. 지금 상태는 [[PROGRESS]]다.
 
 > 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + Supabase Storage + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 

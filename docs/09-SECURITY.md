@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -229,7 +229,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
   - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·로컬 운영자 CLI 전용. 웹 서버·클라이언트 번들 금지), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - 카카오톡 알림([[16-DECISIONS|ADR-038]]): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`(토큰 암호화 키, base64 32바이트). 웹 서버·worker 전용이고 `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다(ADR-018 예외). 키 이름만 `infra/env/company-worker.env.example`·`web/.env.example`에 있고 값은 없다.
   - redis 비밀번호는 `demo` 프로필에서도 기본값을 쓰지 않는다. `pnpm check:env`는 `CHANGE_ME`와 `minioadmin` 값을 placeholder로 거부한다.
-- `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038). 운영에는 알림 Worker가 아직 없다([[13-NOTIFICATIONS|13 알림]] "운영 알림 처리 위험"). 실제 공고 수신을 녹화할 때만 회사 알림 전용 Worker를 띄워 `memo`로 켠다([회사 실행서](../infra/company/README.md) §9.6, [[16-DECISIONS|ADR-054]]). 그 Worker에서 `mock`은 쓰지 않는다(보내지 않은 카카오를 `SENT`로 적는다). 증거에 토큰·카카오 사용자 ID를 남기지 않는다.
+- `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038). 운영 알림 전용 Worker는 2026-10-30부터 빈 값(카카오 발송 꺼짐)으로 돈다([[13-NOTIFICATIONS|13 알림]] "운영 알림 처리 위험"). 실제 공고 수신을 녹화할 때만 그 Worker를 `memo`로 켠다([회사 실행서](../infra/company/README.md) §9.6, [[16-DECISIONS|ADR-054]]). 그 Worker에서 `mock`은 쓰지 않는다(보내지 않은 카카오를 `SENT`로 적는다). 증거에 토큰·카카오 사용자 ID를 남기지 않는다.
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "로컬 Compose 서비스 (대체 경로)" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.

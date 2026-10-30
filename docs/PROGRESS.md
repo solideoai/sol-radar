@@ -18,7 +18,7 @@ updated: 2026-10-30
 - 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 공고 최신 run 49 보류, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
 - 운영에서 실공고를 수집·첨부 파싱·분석한다. 수집 출처는 나라장터·LH·KEPCO·K-water 입찰공고와 기업마당 부처 공고다. 실공고 분석과 추천 분석(ADR-066)이 운영에서 돈다(아래 운영 상태).
 - SOL Score `sol-v0.2.0`([[16-DECISIONS|ADR-071]])을 2026-10-30 운영에 반영하고 화면에 보이는 run 390건을 다시 계산했다(모두 보류). 발표 대본은 ADR-059 2026-10-30 개정을 따른다. 가정 재계산은 S3 FX-01(세 자격 → 추천 92), S4는 FX-02 재분석(예상 59 보류) → 사람 비추천이다.
-- 운영에 알림 Worker가 없어 인앱·카카오·마감 알림이 처리되지 않는다. 기동은 승인 뒤다(아래 "알림 처리" 행). 사용자가 운영 알림 Worker를 곧 구현할 예정이다(2026-10-29, 날짜는 [[12-ROADMAP|12 로드맵]] 남은 일정 제안 표).
+- 2026-10-30 12:45 KST 회사에 알림 전용 Worker를 처음 띄웠다(사용자 승인). 인앱 알림 2종과 마감 D-3·D-1 알림을 처리하고, 카카오 발송은 꺼 두었다([[16-DECISIONS|ADR-068]] 6번, 아래 "알림 처리" 행). 카카오 S0 수신 시험·실수신 녹화는 따로 승인받는다.
 - X6 파인튜닝과 실험 E0~E3·X1·X2는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다.
 
 ### 운영 상태
@@ -38,8 +38,8 @@ updated: 2026-10-30
 | 분석 | 2026-10-30 SOL Score v0.2로 화면에 보이는 run 390건을 저장 입력으로 다시 계산했다([[16-DECISIONS\|ADR-071]], AI 재호출 없음, 회사 일회용 컨테이너). 실공고 372건 43~88(평균 66.1, 75 이상 60건), DEMO 18건 68~95, 모두 보류, 실패 0·권고 변화 0·알림 0. 그 전 기록: IT 실공고 371건 1회 일괄 분석(10-29, [[16-DECISIONS\|ADR-069]] 5번, [기록](evidence/it-scope/prod-20261029/README.md)), 실공고 3건(10-29, 부경대는 `RULES_ONLY`로 멈춤). 새 공고는 자동 분석하지 않는다. DEMO는 FX-02만 옛 분석(66 보류, 프로필 revision 2, 재채점 대상 아님). [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 09:40 KST |
 | 추천 분석 | 운영 반영. DEMO FX-01은 v0.2 재채점 run에 다시 만들었다(92 보류, `DONE`·`MODEL`). 재채점 전 run에 붙은 결과(실공고 2건 포함)는 run이 바뀌어 보이지 않는다. [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 09:41 KST |
 | DEMO 공고 | 19건 그대로, 16건 마감 +15일. 운영 DEMO 삭제는 발표 뒤다. FX-02는 촬영 때만 재분석한다([[16-DECISIONS\|ADR-059]], 예상 59 보류). v0.2 재채점 뒤 FX-01 92·FX-03 90 보류. [기록](evidence/demo-deadline/20261027/prod-run.md) | 2026-10-30 09:40 KST |
-| 알림 처리 | 처리되지 않는다. 회사에 알림 전용 Worker가 없고 outbox만 쌓인다. 기동 전 쌓인 수는 실행서 §9.1 SQL로 센다(`infra/company/README.md` §9). [기록](evidence/company-rollout/20261028/sources-rollout.md) | 2026-10-28 |
-| 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
+| 알림 처리 | 회사 알림 전용 Worker `sol-radar-notify-notify-worker-1`(`sol-radar-notify-worker:7b5a79dc9054`, 12:45 첫 기동)이 인앱 알림 2종(`ANALYSIS_COMPLETE`·`REVIEW_ASSIGNED`)과 마감 D-3·D-1 알림(5분마다)을 처리한다. 카카오 발송은 꺼짐(기동 로그 `notify.kakao.disabled`). 쌓인 인앱 28건(실공고 6·DEMO 22)을 알림 28건으로 넣었고 받는 사람은 모두 admin@admin.com 1명이다(읽지 않음 28, "모두 읽음" 기능 없음). 쌓인 `BID_RECOMMENDED` 22건(실공고 3·DEMO 19)은 재시도 4회 뒤 `DEAD`, `notify.outbox.failed` 0. 마감 알림 첫 회차는 0건(대상 공고에 관심 등록자·담당자 없음)이고 실제로 넣은 회차는 아직 못 봤다. 전체 Worker(`worker/main.ts`)는 띄우지 않는다. [기록](evidence/company-rollout/20261030/notify-worker-rollout.md) | 2026-10-30 12:47 KST |
+| 카카오 | 운영 연결 0건·카카오 발송 0건(`kakao_send_claims` 0행). 알림 Worker의 카카오 발송은 꺼짐. S0 수신 시험·실수신 녹화 전. [기록](evidence/company-rollout/20261030/notify-worker-rollout.md) | 2026-10-30 12:47 KST |
 | CI | GitHub Actions job이 2026-10-24부터 계정 결제 문제로 시작되지 않는다. 검사는 로컬 pre-push 게이트와 직접 돌린 `pnpm verify`다 | 2026-10-27 |
 | hosted 모델 API | 승인 0건, 쓰지 않는다([[16-DECISIONS\|ADR-010]]) | — |
 
@@ -49,8 +49,8 @@ updated: 2026-10-30
 
 ### 남은 일
 
-- [[16-DECISIONS|ADR-056]] 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다)는 2026-10-30 회사 Analysis Worker `7b5a79dc9054`에 들어갔다. 대기 동작을 운영 로그로 아직 보지 않았다.
-- 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표(사용자 확인 전)에 있다. 순서는 알림 전용 Worker 회사 기동(승인 뒤) → 카카오 연결·S0 수신 시험 → D1 리허설·촬영(S-LIVE·카카오 실수신, 로컬 Compose의 S5·S6) → 덱·녹화 클립 완성 → 제출 → 발표다.
+- [[16-DECISIONS|ADR-056]] 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다)는 2026-10-30 회사 Analysis Worker `7b5a79dc9054`에 들어갔다. 대기 동작을 운영 로그로 아직 보지 않았다. 09:15 재생성 뒤 실공고 분석이 없어 `analysis.waiting_documents`는 0건이다([기록](evidence/company-rollout/20261030/notify-worker-rollout.md) "남은 것").
+- 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표(사용자 확인 전)에 있다. 알림 전용 Worker 회사 기동은 2026-10-30에 끝났다(카카오 발송 꺼짐). 순서는 카카오 연결·S0 수신 시험(승인 뒤) → D1 리허설·촬영(S-LIVE·카카오 실수신, 로컬 Compose의 S5·S6) → 덱·녹화 클립 완성 → 제출 → 발표다.
 - 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]).
 - 덱 pptx(`docs/submission/deck/sol-radar-deck.pptx`, git 밖)는 [[slides-spec|덱 제작 명세]]와 18장을 대조해 맞췄다. 그림·포스터는 옛 mock 화면이라 촬영 뒤 바꾼다. 명세가 정본이다.
 - 화면 동결 뒤 덱 클립을 찍는다([[16-DECISIONS|ADR-061]]). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인하고, 연결 안 된 곳의 로고를 뺄지 사용자가 정한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md)).
@@ -94,7 +94,7 @@ updated: 2026-10-30
 | C4 | 규칙 엔진·골든 94/72/68·인력 200명 입력 | 완료. FX-15 68, 가용 95.5 FTE([[16-DECISIONS\|ADR-043]]) | [골든](evidence/phase-4/goldens-report.txt) |
 | C5 | gateway `/extract`·`/kev`·`/explain`·`/parse`·`/insight`, worker 분석·`PARTIAL`, `local` 어댑터 | 완료. 운영 gateway에 파서 3종 | [회사 반영](evidence/company-rollout/20261029/ai-gateway-rollout.md) |
 | C6 | `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler | 완료 | [[06-UI-UX\|06]] |
-| C7 | 결정 기록·audit·outbox·인앱 알림 2종 | 완료(코드). 운영 알림 처리는 알림 Worker 기동 뒤 | [[13-NOTIFICATIONS\|13]] |
+| C7 | 결정 기록·audit·outbox·인앱 알림 2종 | 완료. 운영 인앱 알림 2종은 2026-10-30부터 회사 알림 Worker가 처리한다 | [[13-NOTIFICATIONS\|13]] |
 | C8 | S-LIVE 실공고 `live` 분석·녹화 | 운영 실공고 분석 run 있음(재난 정신건강 45 보류, Bosun 정상). 녹화 남음 | [기록](evidence/company-rollout/20261029/ai-gateway-rollout.md) |
 | C9 | 리허설·대체 경로·세 모드 | 로컬 `mock` 리허설 기록 있음. D1 리허설·촬영 남음 | [리허설 로그](evidence/demo-day/rehearsal-log.md) |
 | X1 | E3 대조 실험(축소 규모) | 발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]]) | [[21-MODEL-TRAINING\|21]] |
@@ -104,7 +104,7 @@ updated: 2026-10-30
 | X6 | Bosun LoRA 파인튜닝 트랙 | 발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]]). 도구는 main에 있고 회사 서버 실행 기록은 없다 | [[22-FINETUNE-RUNBOOK\|22]] |
 | 평가 리포트 | E0·E2·E3 전체 평가셋 리포트, `/admin/ai/eval-runs` | 발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]]). `/admin/ai/eval-runs`는 코드 없음 | [[12-ROADMAP\|12]] |
 | BOOST-2 | 가정 재계산 | 완료(main, E2E 통과) | [E2E](evidence/boost2/20261020-boost2-what-if-e2e.md) |
-| KAKAO | 카카오 "나에게 보내기" | main·운영 migration. 운영 연결 0건. S0 수신 시험·실수신 녹화 남음(알림 Worker 기동 뒤) | [[16-DECISIONS\|ADR-038]] |
+| KAKAO | 카카오 "나에게 보내기" | main·운영 migration. 운영 연결 0건. 운영 알림 Worker는 카카오 발송 꺼짐(2026-10-30). S0 수신 시험·실수신 녹화 남음(승인 뒤) | [[16-DECISIONS\|ADR-038]] |
 | S5 | 변경 감지(revision diff·`BID_CHANGED`) | 완료(main). `BID_CHANGED`는 outbox에만 남고 조직 팬아웃은 남은 일이다(닫힌 미결정 30-4) | [기록](evidence/s5/summary.md) |
 | N1 | 앱 셸·사이드바(ADR-021) | 완료(main). `/ops` 분리는 해커톤 뒤 | [[06-UI-UX\|06]] §4 |
 | N2 | 설정 개인·조직 탭 | 완료(main) | [통합 기록](evidence/committed-integrations/integration.md) |
@@ -115,7 +115,7 @@ updated: 2026-10-30
 | P1 | N3 관심 공고·N5 분석 결과 비교·N6 입찰 프로젝트·N7 인력 배치 시뮬레이션·N4b 조직·인력 ADMIN 편집([[16-DECISIONS\|ADR-042]]) | 완료(main·운영 배포) | [N3~N7](evidence/navigation/20261022-implementation.md) |
 | 부처 공고 | 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) | 완료. 운영은 기업마당 전용 Worker. 화면 확인 남음 | [기업마당 정기 수집](evidence/program-notices/20261028-bizinfo-schedule.md) |
 | 메일 알림 | [[16-DECISIONS\|ADR-041]] | 해커톤에서 뺐다(코드 없음) | [[13-NOTIFICATIONS\|13]] |
-| 운영 구성 | Vercel web + 회사 redis-api·AI gateway·전용 Worker 4종(ingest·analysis·documents·부처 공고), Storage `bid-documents`·`bid-parsed`([[16-DECISIONS\|ADR-045·048·049]]) | 운영 중. 알림 Worker는 준비만 했다 | [[10-DEPLOYMENT\|10]] |
+| 운영 구성 | Vercel web + 회사 redis-api·AI gateway·전용 Worker 5종(ingest·analysis·documents·부처 공고·알림), Storage `bid-documents`·`bid-parsed`([[16-DECISIONS\|ADR-045·048·049]]) | 운영 중. 알림 Worker는 2026-10-30부터(카카오 발송 꺼짐). 전체 Worker는 띄우지 않는다 | [[10-DEPLOYMENT\|10]] |
 | 실운영 전환 | 3시간 정기 수집·수동 수집 gate·본문 없는 공고 분석 차단·상단바 실행 모드 표시 제거 | 운영 중. 운영 DEMO 삭제는 발표 뒤 | [기록](evidence/live-ops/20261026/summary.md) |
 | 첨부 처리 | 다운로더·Documents Worker·`/parse`·분석의 첨부 텍스트 읽기([[16-DECISIONS\|ADR-054]] 3번)·첨부 조립 v0.2([[16-DECISIONS\|ADR-064]]) | 운영 중. ADR-055·056 제안 | [회사 기동](evidence/attachment-pipeline/20261028-documents-worker.md) |
 | live 가드 | live에서 카카오 발송 수단이 비면 발송 끔. 이메일 가입 약관 동의 저장(`user_consents`) | main·운영 DB·Vercel. 간편 가입(OAuth) 동의는 후속 | [검증](evidence/live-guards/20261027.md) |
@@ -129,7 +129,7 @@ updated: 2026-10-30
 | 화면 개편 | 파스텔 선택색·묶음 머리 아이콘 사이드바·업무 화면 공통 틀·랜딩 업무 데모([[16-DECISIONS\|ADR-061]]), 권고 표기 추천·보류·비추천([[16-DECISIONS\|ADR-062]]) | 운영 배포. 화면 동결 일정은 12 | [증거](evidence/ui-refresh/README.md) |
 | 자격 갭 | `/gaps`: 실공고 구조화 필드 1차 선별·막는 자격 순위·보유 가정([[16-DECISIONS\|ADR-060]]) | 운영 배포. 운영 실숫자 미확인(로그인 필요) | [증거](evidence/gaps/20261028/README.md) |
 | 발주 현황 | `/market`: 기간·기관·분야·예산 구간·주별 집계, 자격 갭 묶음 겹쳐 보기([[16-DECISIONS\|ADR-060]]) | 운영 배포. 운영 실숫자 미확인 | [1440 스크린샷](evidence/market/20261028/market-overview-1440.png) |
-| 입찰 일정 | `/calendar`: 관심·프로젝트·관련 실공고 마감과 나라장터 원본 일정 5종, 일정 종류 거르기([[16-DECISIONS\|ADR-060]]). 구글 캘린더 일정 링크·이 달 `.ics` 내려받기(OAuth 없음, [[2026-10-30-calendar-export\|계획]]) | 운영 배포. 내보내기는 main(push 전). 마감 D-3·D-1 알림은 알림 Worker 기동 전이라 오지 않는다 | [증거](evidence/calendar/20261028/README.md) · [내보내기](evidence/calendar/20261030-export/README.md) |
+| 입찰 일정 | `/calendar`: 관심·프로젝트·관련 실공고 마감과 나라장터 원본 일정 5종, 일정 종류 거르기([[16-DECISIONS\|ADR-060]]). 구글 캘린더 일정 링크·이 달 `.ics` 내려받기(OAuth 없음, [[2026-10-30-calendar-export\|계획]]) | 운영 배포. 내보내기는 main(push 전). 마감 D-3·D-1 알림은 2026-10-30부터 알림 Worker가 5분마다 돌린다(실제로 넣은 회차는 아직 못 봤다) | [증거](evidence/calendar/20261028/README.md) · [내보내기](evidence/calendar/20261030-export/README.md) |
 | 팀별 인력 배치 | `/workforce`: [추천 공고 불러오기](추천순 3건), 역할별 필요 인력·팀별 후보, 팀×공고 "팀별 지원 요청" 표. 저장 없음([[2026-10-30-team-staffing\|계획]]) | main(push 전) | [증거](evidence/workforce/20261030-team-staffing/README.md) |
 | 추천 분석 | 공고 상세 [추천 분석]: 버튼을 누를 때만 Qwen이 판단 이유·강점·보완할 점을 근거 번호와 함께 쓴다. 판정은 규칙 엔진 그대로([[16-DECISIONS\|ADR-066]]) | 운영 반영. 연 1회 재학습 구현은 발표 뒤 | [운영 반영](evidence/company-rollout/20261029/rec-insight-rollout.md) |
 
@@ -137,6 +137,7 @@ updated: 2026-10-30
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-30 · 회사 알림 전용 Worker 첫 기동(`infra/company/README.md` §9 D0~D4, 사용자 승인 D1·D2 "1"·D3 "1"): `sol-radar-notify-worker:7b5a79dc9054`, 12:45 KST, 카카오 발송 꺼짐([[16-DECISIONS|ADR-068]] 6번). 쌓인 인앱 28건 → 알림 28건(받는 사람 admin@admin.com 1명, 읽지 않음 28), 쌓인 `BID_RECOMMENDED` 22건 `DEAD`, 마감 알림 첫 회차 0건. 설계·제출 문서와 회사 실행서의 "알림 Worker 없음·준비만·기동 전" 서술을 고침 · 회사에서 `compose config --quiet` 통과, `notify-only-main.ts --check` exit 0, 기동 30초 뒤 `healthy`, 첫 회차 `checked 50·sent 28·retried 22·dead 0`, `notify.outbox.failed` 0, 운영 DB SELECT 다시 세기(인앱 `PENDING` 0, `kakao_send_claims` 0행, `DEADLINE_APPROACHING` 0행). 문서 쪽 `pnpm format:check` exit 0(`.md`는 Prettier 무시 목록이라 서식 검사 대상이 아니다)([기록](evidence/company-rollout/20261030/notify-worker-rollout.md))
 - 2026-10-30 · 기능 백로그 결정 D1~D6 1안([[2026-10-29-feature-backlog|백로그]]). ① 팀별 인력 배치(`feat/team-staffing`, 2+8번): 공고 원문 역할을 직무 코드로 바꾸는 대응표(`server/shared/work-role`, "개발"→DEVELOPER, 대응 없으면 짐작하지 않음), 역할별 필요·팀 묶음·팀×공고 표(`server/workforce/team-plan`, 10팀 넘으면 접음), [추천 공고 불러오기]. 저장·분석·점수 변경 없음 ② 캘린더 내보내기(`feat/calendar-export`, 7번): 다가오는 14일 일정마다 구글 캘린더 링크, `GET /api/v1/calendar/ics`(RFC 5545, 75옥텟 접기, IT 공고 읽기 실패면 503), 담당자 이름은 내보내지 않음. main `2b465840`(push 전) · 작업 세션 2곳 각자 `pnpm verify:changed` exit 0, 마스터가 노드 시험(인력 34·캘린더 45)·브라우저 시험(인력 6·캘린더 11) 다시 실행 통과, 합친 main 전체 `pnpm verify` exit 0(web 125파일·1046시험, `next build`, AI 264·결정 57). 격리 스택 1440·1280 넘침 0, `.ics` VEVENT 수 = 화면 일정 수(16). 구글 계정 가져오기·운영 화면은 미확인([인력](evidence/workforce/20261030-team-staffing/README.md), [캘린더](evidence/calendar/20261030-export/README.md))
 
 - 2026-10-30 · 인물 수행 이력·조직도 검색 리뷰 후속(`fix/people-review-followups`): 가상 직원 등급·수행 이력을 직급에 맞춤(사용자 결정 "등급·이력 함께", `synthetic-people/v3`: 인턴 초급 1건·담당 초급·책임 중급/고급·수석·팀장 고급/특급에 최근 PL/PM·본부장 특급, 마이그레이션 `20261030001000`은 직급이 fixture 와 같은 데모 행의 `grade`·`past_projects`·`capability_version`만 바꿈, 운영에서 직급이 다른 SOL-P0065(그룹장)는 `20261030001100`이 운영 직급 기준으로 맞춤, 등급은 점수 계산이 읽지 않음), 조직도 이름 찾기에 한글 조합 중 Enter 시험 2건 추가, 이전 증거의 건수 정정(3건 42·4건 88·5건 70) · `node --test scripts/people/*.test.mjs` 12/12(변형 5건 실패 확인), 브라우저 시험 9/9(변형 2건 실패 확인), `pnpm verify:changed` exit 0(web 999시험·AI 264·결정 57). 운영 DB `20261030001000`·`20261030001100` 적용(73개, `db-verify` 통과, 데모 200행 v3), main `a145cdc0` Vercel 배포 성공, 로그인 운영 화면 1440·1280 확인 20/20·콘솔 오류 0. 후속: 자동완성 목록이 열린 동안 [검색] 이 `aria-hidden`으로 숨던 것을 `aria-live="off"`로 남김(`fix/org-search-a11y`, 브라우저 시험 10/10·수정 전 1건 실패, `pnpm verify:changed` exit 0, main `78dddfa7` 배포 뒤 운영 확인 8/8)([기록](evidence/people/20261030-grade-alignment/README.md))
@@ -147,7 +148,6 @@ updated: 2026-10-30
 - 2026-10-29 · 인물 서랍에 수행 이력·자격증 구역 추가, 가상 직원 수행 이력 v2(1인당 3~5건·가상 발주기관 14곳·등급별 경력, 마이그레이션 `20261029001000`은 `past_projects`·`capability_version`만 바꿈, 점수 입력 불변). 운영 DB `20261029001000` 적용·`db-verify` 통과(마이그레이션 69개, v2 200행·발주기관 200), Vercel 운영 배포 `c8b4a504`(10-30 00:24). pre-push 를 막던 랜딩 업무 데모 E2E 를 순간 측정으로 보강(`e7cd5915`) · `node --test scripts/people/*.test.mjs` 9/9(변형 5건 실패 확인), `people:check:fixtures` ok, `pnpm verify:changed` exit 0(web 996시험), 격리 Supabase에 마이그레이션 적용 v2 200행, 서랍 1440·1280 넘침 0, 랜딩 시험 반복 8회 수정 전 8 failed·뒤 8 passed. `test:e2e:auth`·운영 로그인 화면 미확인([기록](evidence/people/20261029-project-history/README.md))
 - 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 DB `000500`·main `a9d3a107` 반영 · 반영 뒤 edge 로그로 version 22~117ms, 두 번째 `/bids` 방문 filter_options 호출 없음([기록](evidence/deployment/20261029-list-rpc-latency.md))
 - 2026-10-29 · 지원사업 IT 판정을 제목 본문(괄호 밖)으로 좁힘([[16-DECISIONS|ADR-069]] 7번): 사업개요·괄호 안 사업명은 보지 않는다 · `list.service.test.ts` 새 시험 수정 전 실패 확인, `pnpm verify:changed` exit 0(web 996시험), 운영 지원사업 104건 대조로 마감 전 IT 30→19건
-- 2026-10-29 · IT 공고만 보이기([[16-DECISIONS|ADR-069]]): 목록·집계·고르기 목록에서 IT 아닌 공고 숨김, 분야 칩 8개, AI·SI 우선 + 추천순, 지원사업 IT만, 검토 대기에서 일괄 분석 제외. 운영 DB `000300`·`000400`, main `7f6909ec`, 회사에서 IT 실공고 371건 1회 일괄 분석 · 통합 브랜치 전체 `pnpm verify` exit 0(web 시험 995건)·`test:browser` 98건, 독립 리뷰 1회 반영, `db-verify` 통과, D1 10개 화면 1440·1280 넘침 0, 일괄 분석 `completed=371 failed=0`([기록](evidence/it-scope/prod-20261029/README.md), [화면 증거](evidence/it-scope/bids-qa-20261029.md))
 
 ## 관련 문서
 

@@ -829,7 +829,7 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 
 ## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], 기본 `mock`)
 
-개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`에, Route Handler는 `web/app/api/v1/me/kakao-notify/` 아래 `route.ts`·`connect`·`callback`·`test`에 있다. 실발송(`memo`)은 확인하지 않았다. 발송을 맡는 회사 알림(Notify) Worker는 준비만 했고 기동하지 않았다(`infra/company/README.md` §9). 운영 카카오 연결은 0건이다. 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
+개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`에, Route Handler는 `web/app/api/v1/me/kakao-notify/` 아래 `route.ts`·`connect`·`callback`·`test`에 있다. 실발송(`memo`)은 확인하지 않았다. 발송을 맡는 회사 알림(Notify) Worker는 2026-10-30 카카오 발송 꺼짐으로 기동했다(`infra/company/README.md` §9). 운영 카카오 연결은 0건이다. 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
 
 ```ts
 interface KakaoNotifyView {

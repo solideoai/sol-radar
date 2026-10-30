@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 17. Claude Code 구현 운영 규칙
@@ -42,7 +42,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 
 ## 해커톤 모드
 
-운영 배포는 Vercel web 단독(함수 지역 `syd1`, `vercel.json`)과 회사 Compose다. 회사 Compose는 기존 Redis에 붙는 redis-api·AI gateway와 ingest·analysis·documents·기업마당 전용 Worker를 띄운다. 알림 전용 Worker는 준비만 했고 기동하지 않았다([[16-DECISIONS|ADR-049]], [회사 실행서](../infra/company/README.md) §7~§10, [[10-DEPLOYMENT|10 배포]]). 지금 운영 상태는 [[PROGRESS]]다. Vercel 배포·회사 컨테이너 교체·`pnpm db:push` 같은 운영 변경은 검증 결과를 준비한 뒤 사용자 승인을 받고 한다. 로컬 Compose는 대체 경로·녹화·시험용이다.
+운영 배포는 Vercel web 단독(함수 지역 `syd1`, `vercel.json`)과 회사 Compose다. 회사 Compose는 기존 Redis에 붙는 redis-api·AI gateway와 ingest·analysis·documents·기업마당 전용 Worker를 띄운다. 알림 전용 Worker는 2026-10-30부터 인앱·마감 알림을 처리하고 카카오 발송은 꺼 두었다([[16-DECISIONS|ADR-049]], [회사 실행서](../infra/company/README.md) §7~§10, [[10-DEPLOYMENT|10 배포]], [기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 지금 운영 상태는 [[PROGRESS]]다. Vercel 배포·회사 컨테이너 교체·`pnpm db:push` 같은 운영 변경은 검증 결과를 준비한 뒤 사용자 승인을 받고 한다. 로컬 Compose는 대체 경로·녹화·시험용이다.
 
 ### 우선순위 (ADR-023·042·054)
 1. [[12-ROADMAP|12 로드맵]] **Critical Path C0~C9**를 순서와 선행 조건대로 끝낸다. 독립 작업은 병렬, 같은 파일은 한 작업자. P0-0(C1)은 서비스키·GPU 접속 정보가 들어오는 즉시 다른 작업과 나란히 시작하고, 막힌 항목은 즉시 사용자에게 보고한다. 회사 GPU의 모델 기동·GPU 메모리 배분은 회사 운영이라 우리는 하지 않는다([[16-DECISIONS|ADR-025]]).
