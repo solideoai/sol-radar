@@ -7,6 +7,11 @@ export type {
   WorkforceCandidate,
   WorkforceOverload,
   WorkforceSharedCandidate,
+  WorkforceRoleNeed,
+  WorkforceTeamPerson,
+  WorkforceTeamPlanCell,
+  WorkforceTeamPlanRow,
+  WorkforceTeamSupply,
 } from "./workforce.model";
 export { workforceRepo } from "./workforce.repo";
 export { simulateWorkforce } from "./workforce.service";

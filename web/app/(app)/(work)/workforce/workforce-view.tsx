@@ -21,6 +21,10 @@ const optionsPageSchema = z.object({
   items: z.array(z.object({ id: z.uuid(), title: z.string(), isDemo: z.boolean() })),
   pageInfo: z.object({ nextCursor: z.string().nullable() }),
 });
+// 추천 공고(ADR-069 추천순·AI·SI 우선)는 공고 탐색 목록 API 에서 읽는다.
+const recommendedPageSchema = z.object({
+  items: z.array(z.object({ bidId: z.uuid(), title: z.string(), isDemo: z.boolean() })),
+});
 
 export function WorkforceView({
   origin,
@@ -59,6 +63,8 @@ export function WorkforceView({
   const [result, setResult] = useState(initialResult);
   const [notice, setNotice] = useState(initialNotice);
   const [busy, setBusy] = useState(false);
+  const [recommending, setRecommending] = useState(false);
+  const locked = busy || recommending;
   const picker = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
   const optionsInFlight = useRef(false);
@@ -107,13 +113,13 @@ export function WorkforceView({
       )?.focus(),
     );
   };
-  const simulate = async () => {
-    if (inFlight.current || selected.length < 1 || selected.length > 3) return;
+  const simulate = async (bids: BidOption[] = selected) => {
+    if (inFlight.current || bids.length < 1 || bids.length > 3) return;
     inFlight.current = true;
     setBusy(true);
     setNotice(null);
     setResult(null);
-    const query = new URLSearchParams({ bidIds: selected.map((bid) => bid.id).join(",") });
+    const query = new URLSearchParams({ bidIds: bids.map((bid) => bid.id).join(",") });
     window.history.replaceState(null, "", `/workforce?${query}`);
     try {
       const response = await fetch(`/api/v1/workforce/simulation?${query}`, { cache: "no-store" });
@@ -133,6 +139,39 @@ export function WorkforceView({
       setBusy(false);
     }
   };
+  // 추천 공고로 선택을 바꾸고 곧바로 조회한다. 0건·실패면 선택과 결과를 그대로 둔다.
+  const loadRecommended = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setRecommending(true);
+    setNotice(null);
+    let bids: BidOption[] | null = null;
+    try {
+      const query = new URLSearchParams({ origin, recommendation: "BID", limit: "3" });
+      for (const status of ["OPEN", "AMENDED"]) query.append("status", status);
+      const response = await fetch(`/api/v1/opportunities?${query}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("추천 공고를 읽지 못했습니다");
+      const page = recommendedPageSchema.parse(await response.json());
+      bids = [...new Map(page.items.map((item) => [item.bidId, item])).values()].map((item) => ({
+        id: item.bidId,
+        title: item.title,
+        isDemo: item.isDemo,
+      }));
+    } catch {
+      setNotice("추천 공고를 읽지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      inFlight.current = false;
+      setRecommending(false);
+    }
+    if (!bids) return;
+    if (bids.length === 0) {
+      setNotice("추천 공고가 없습니다. 공고를 직접 고르세요.");
+      return;
+    }
+    setSelected(bids);
+    setOptionId(null);
+    await simulate(bids);
+  };
   return (
     <>
       <p className="type-body text-muted-foreground">
@@ -142,6 +181,19 @@ export function WorkforceView({
         aria-label="시뮬레이션 공고 선택"
         className="min-w-0 space-y-4 rounded-lg border border-border p-4"
       >
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            disabled={locked}
+            aria-describedby="workforce-recommended-help"
+            onClick={() => void loadRecommended()}
+          >
+            {recommending ? "불러오는 중…" : "추천 공고 불러오기"}
+          </Button>
+          <p id="workforce-recommended-help" className="type-caption text-muted-foreground">
+            추천 공고를 추천순(AI·SI 우선)으로 3건까지 고르고 바로 조회합니다.
+          </p>
+        </div>
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(event) => {
@@ -169,7 +221,7 @@ export function WorkforceView({
             <FieldLabel htmlFor="workforce-picker">공고 선택</FieldLabel>
             <Select
               value={optionId}
-              disabled={busy || optionsBusy || selected.length === 3}
+              disabled={locked || optionsBusy || selected.length === 3}
               items={available.map((item) => ({
                 value: item.id,
                 label: `${item.isDemo ? "DEMO · " : ""}${item.title}`,
@@ -200,7 +252,7 @@ export function WorkforceView({
           </Field>
           <Button
             variant="outline"
-            disabled={!optionId || busy || selected.length === 3}
+            disabled={!optionId || locked || selected.length === 3}
             onClick={() => {
               const item = available.find((bid) => bid.id === optionId);
               if (item) {
@@ -247,7 +299,7 @@ export function WorkforceView({
                   data-workforce-remove
                   variant="ghost"
                   size="icon-sm"
-                  disabled={busy}
+                  disabled={locked}
                   aria-label={`${bid.title} 선택 해제`}
                   onClick={() => remove(bid.id)}
                 >
@@ -258,7 +310,7 @@ export function WorkforceView({
           </ul>
         )}
         <Button
-          disabled={selected.length === 0 || busy}
+          disabled={selected.length === 0 || locked}
           aria-describedby="workforce-selection-help"
           onClick={() => void simulate()}
         >

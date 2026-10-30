@@ -34,6 +34,8 @@ export {
   recommendationWithObject,
   relabelLegacyExplanation,
 } from "./recommendation-label";
+export { WORK_ROLE_CODES, WORK_ROLE_LABELS, workRoleLabel, workRoleOf } from "./work-role";
+export type { WorkRoleCode } from "./work-role";
 export {
   PHOTO_BUCKET,
   PHOTO_INPUT_MAX_BYTES,

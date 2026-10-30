@@ -1,7 +1,7 @@
 import { z } from "zod";
 export const WORKFORCE_TITLE = "인력 배치 시뮬레이션";
 export const WORKFORCE_DESCRIPTION =
-  "저장된 분석의 인력 가용성과 현재 배정의 기간 충돌을 확인합니다.";
+  "추천 공고의 역할별 필요 인력과 팀별 후보, 현재 배정의 기간 충돌을 확인합니다.";
 export function workforceSelection(raw: string | string[] | undefined): {
   ids: string[];
   notice: string | null;
