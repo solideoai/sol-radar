@@ -308,7 +308,7 @@ function UpcomingItem({
         </p>
         <Link
           href={event.href}
-          className="mt-0.5 line-clamp-2 type-label font-medium wrap-anywhere hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          className="mt-0.5 line-clamp-2 type-label font-medium wrap-anywhere hover:underline focus-visible:outline-2 focus-visible:outline-ring max-md:inline-flex max-md:min-h-11 max-md:items-center"
         >
           {event.bid.title}
         </Link>
@@ -328,7 +328,7 @@ function UpcomingItem({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${event.bid.title} ${KIND_LABELS[event.kind]} ${GOOGLE_ADD}(새 창)`}
-            className="inline-flex items-center gap-0.5 rounded-sm text-foreground underline underline-offset-4 outline-hidden hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-0.5 rounded-sm text-foreground underline underline-offset-4 outline-hidden hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11"
           >
             <CalendarPlusIcon aria-hidden className="size-3" />
             {GOOGLE_ADD}
@@ -406,26 +406,36 @@ export function BidCalendar({
   // 다가오는 일정이 많으면(IT 실공고) 앞 몇 건만 보이고 나머지는 JS 없이 펼친다.
   const upcomingShown = upcoming.slice(0, UPCOMING_VISIBLE);
   const upcomingRest = upcoming.slice(UPCOMING_VISIBLE);
+  const monthDays = weeks.flat().filter((day) => day.inMonth && eventsByDate[day.date]?.length);
   return (
     <AppPage title={CALENDAR_TITLE} description={CALENDAR_DESCRIPTION} contentClassName="max-w-360">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="type-heading tabular-nums">{monthLabel}</h2>
           <nav aria-label="달 이동" className="flex items-center gap-1">
             <Link
               href={links.prev}
               aria-label="이전 달"
-              className={buttonVariants({ variant: "outline", size: "icon-sm" })}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "icon-sm" }),
+                "max-md:size-11",
+              )}
             >
               <ChevronLeftIcon aria-hidden />
             </Link>
-            <Link href={links.today} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Link
+              href={links.today}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "max-md:min-h-11")}
+            >
               오늘
             </Link>
             <Link
               href={links.next}
               aria-label="다음 달"
-              className={buttonVariants({ variant: "outline", size: "icon-sm" })}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "icon-sm" }),
+                "max-md:size-11",
+              )}
             >
               <ChevronRightIcon aria-hidden />
             </Link>
@@ -440,7 +450,7 @@ export function BidCalendar({
                 href={links.views[option]}
                 aria-current={option === view ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex items-center rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11",
                   option === view
                     ? "bg-selected font-semibold text-selected-foreground"
                     : "text-muted-foreground hover:bg-muted",
@@ -502,7 +512,43 @@ export function BidCalendar({
       {/* 단이 넓으면(사이드바를 편 1440px 이상) 다가오는 14일을 오른쪽에, 좁으면 아래에 둔다. */}
       <div className="@container">
         <div className="grid gap-6 @5xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <section aria-label={`${monthLabel} 달력`} className="min-w-0">
+          <section aria-label={`${monthLabel} 일정 목록`} className="min-w-0 md:hidden">
+            <h2 className="type-heading">{monthLabel} 일정</h2>
+            {monthDays.length === 0 ? (
+              hasAnyEvents ? (
+                <p className="mt-3 type-label text-muted-foreground">
+                  {kindsFiltered ? KIND_FILTER_EMPTY : MONTH_EMPTY}
+                  {links.allKinds !== null && (
+                    <Link href={links.allKinds} className="ml-2 underline underline-offset-4">
+                      {KIND_FILTER_ALL}
+                    </Link>
+                  )}
+                </p>
+              ) : null
+            ) : (
+              <div className="mt-3 space-y-5">
+                {monthDays.map((day) => (
+                  <section key={day.date} aria-label={day.date}>
+                    <h3 className="type-label font-semibold">
+                      <time dateTime={day.date}>{day.date.slice(5).replace("-", "/")}</time>
+                      {day.date === today && <span className="ml-2 text-brand">오늘</span>}
+                    </h3>
+                    <ol className="mt-1 divide-y divide-border border-y border-border">
+                      {(eventsByDate[day.date] ?? []).map((event) => (
+                        <UpcomingItem
+                          key={event.key}
+                          event={event}
+                          now={nowDate}
+                          siteOrigin={siteOrigin}
+                        />
+                      ))}
+                    </ol>
+                  </section>
+                ))}
+              </div>
+            )}
+          </section>
+          <section aria-label={`${monthLabel} 달력`} className="hidden min-w-0 md:block">
             <table className="w-full table-fixed border-collapse">
               <caption className="sr-only">
                 {CALENDAR_CAPTION} {monthLabel}

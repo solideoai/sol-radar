@@ -133,8 +133,8 @@ export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCop
   const { summary } = view.radar;
   return (
     <section aria-label="자격 갭 요약">
-      <dl className="grid grid-cols-5 gap-y-1 border-y border-border">
-        <div className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-3 first:border-l-0 first:pl-0">
+      <dl className="grid grid-cols-2 gap-y-1 border-y border-border md:grid-cols-3 xl:grid-cols-5">
+        <div className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-3 py-3 odd:border-l-0 md:odd:border-l xl:px-5 xl:first:border-l-0 xl:first:pl-0">
           <dt className="type-label wrap-anywhere text-muted-foreground">대상 공고</dt>
           <dd>
             <CountValue count={summary.total.count} />
@@ -150,7 +150,7 @@ export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCop
             <div
               key={bucket}
               data-bucket={bucket}
-              className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-3 last:pr-0"
+              className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-3 py-3 odd:border-l-0 md:odd:border-l xl:px-5 xl:last:pr-0"
             >
               <dt className="flex items-start gap-1.5 type-label wrap-anywhere text-muted-foreground">
                 <Icon aria-hidden="true" className={cn("mt-0.5 size-4 shrink-0", className)} />

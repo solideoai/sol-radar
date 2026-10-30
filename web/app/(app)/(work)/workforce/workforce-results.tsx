@@ -271,7 +271,7 @@ function TeamPlanTable({ result }: { result: WorkforceResult }) {
   const rows = expanded ? result.teamPlan : result.teamPlan.slice(0, VISIBLE_TEAM_ROWS);
   return (
     <>
-      <Table id="team-plan-table" className="w-full table-fixed">
+      <Table id="team-plan-table" className="w-full min-w-160 table-fixed">
         <caption className="sr-only">팀별 지원 요청: 팀마다 공고별 후보와 맡을 역할</caption>
         <TableHeader>
           <TableRow>
@@ -341,7 +341,7 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
           분석 당시 인력 가용성
         </h2>
         <div
-          className={`grid min-w-0 gap-4 ${result.bids.length === 3 ? "grid-cols-3" : result.bids.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
+          className={`grid min-w-0 gap-4 ${result.bids.length === 3 ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : result.bids.length === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
         >
           {result.bids.map((item) => (
             <BidCard key={item.bidId} item={item} />
@@ -391,7 +391,7 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
             현재 조회 범위에서 확인된 기존 배정 과부하가 없습니다.
           </p>
         ) : (
-          <Table className="w-full table-fixed">
+          <Table className="w-full min-w-160 table-fixed">
             <caption className="sr-only">기존 배정이 현재 가용량을 초과한 실제 구간</caption>
             <TableHeader>
               <TableRow>
@@ -437,7 +437,7 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
             현재 조회 범위에서 확인된 공유 후보가 없습니다.
           </p>
         ) : (
-          <Table className="w-full table-fixed">
+          <Table className="w-full min-w-160 table-fixed">
             <caption className="sr-only">겹치는 수행 기간의 공고 간 공유 후보</caption>
             <TableHeader>
               <TableRow>

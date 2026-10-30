@@ -219,7 +219,7 @@ test("움직임 줄이기면 분석 예시는 첫 공고 완성 화면에 멈춰
     .toBe(1);
 });
 
-[1280, 1440, 1920].forEach((width) =>
+[360, 390, 768, 1280, 1440, 1920].forEach((width) =>
   test(`${width}px 폭에서 가로로 넘치지 않는다`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
@@ -227,16 +227,28 @@ test("움직임 줄이기면 분석 예시는 첫 공고 완성 화면에 멈춰
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBe(0);
+    if (width === 390 || width === 1440) {
+      await page.screenshot({ path: `test-results/mobile-web/landing-${width}.png` });
+    }
   }),
 );
 
-test("1280px 미만에서만 데스크톱 화면 안내가 보인다", async ({ page }) => {
-  const notice = page.getByRole("note").filter({ hasText: "데스크톱 화면" });
-  await page.setViewportSize({ width: 1024, height: 800 });
+test("모바일 랜딩은 메뉴 서랍에서 기능 소개로 이동하고 미지원 안내를 표시하지 않는다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(notice).toBeVisible();
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(notice).toBeHidden();
+  await expect(page.getByRole("note").filter({ hasText: "데스크톱 화면" })).toHaveCount(0);
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  const menu = page.getByRole("dialog", { name: "둘러보기" });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(menu).toBeHidden();
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  await menu.getByRole("link", { name: "주요 기능", exact: true }).click();
+  await expect(menu).toBeHidden();
+  await expect(page).toHaveURL(/#features$/);
+  await expect(page.locator("#features")).toBeInViewport();
 });
 
 // 등장 애니메이션은 motion-safe 에만 걸려 있다. 움직임 줄이기를 켜면 하나도 남지 않아야 한다.

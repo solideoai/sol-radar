@@ -34,7 +34,10 @@ export default function Loading() {
       description={<InlineBlock className="h-5 w-96 max-w-full" />}
       contentClassName={DETAIL_CONTENT_CLASS}
     >
-      <div role="status" className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-6">
+      <div
+        role="status"
+        className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] items-start gap-6"
+      >
         <span className="sr-only">변경 이력을 불러오는 중…</span>
         <div aria-hidden="true" className="flex min-w-0 flex-col gap-3">
           <Block className="h-6 w-28" />

@@ -11,7 +11,7 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">회사 프로필을 불러오는 중…</span>
         <div aria-hidden className="contents">
-          <Skeleton className={`h-5 w-80 ${pulse}`} />
+          <Skeleton className={`h-5 w-80 max-w-full ${pulse}`} />
           {/* 탭 줄은 바깥 선 없는 알약 줄이다(2026-10-28 화면 개편). 알약 높이 32px 와 같다. */}
           <div className="flex gap-1">
             {Array.from({ length: 7 }, (_, key) => (
@@ -20,7 +20,7 @@ export default function Loading() {
           </div>
           <Skeleton className={`h-6 w-40 ${pulse}`} />
           <Card className="gap-0 py-0">
-            <div className="grid grid-cols-4">
+            <div className="grid grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 8 }, (_, key) => (
                 <div key={key} className="px-4 py-3">
                   <Skeleton className={`h-5 w-24 ${pulse}`} />

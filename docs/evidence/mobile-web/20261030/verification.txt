@@ -1,0 +1,24 @@
+SOL RADAR mobile web verification — 2026-10-30
+
+pnpm verify:changed — PASS
+pnpm verify (final sequential run) — PASS, exit 0
+  root: 311 passed
+  web: 131 test files, 1085 passed; type/lint/guards/layers/tokens/colors/build passed
+  AI: 264 passed
+  decision: 57 passed
+pnpm -C web test:browser — PASS, 19 files / 129 cases
+pnpm -C web exec playwright test e2e/landing.spec.ts — PASS, 23 cases
+Mobile authenticated owner flow — PASS, 1 case
+Screenshot run (390px, 1440px) — PASS, 2 cases
+Independent integration review — 5 findings corrected and verified
+
+Separate existing auth suite limitation:
+  owner/member setup: 2 passed
+  outsider/invitee/admin setup: 3 failed, existing heading mismatch
+  expected organization invitation notice, actual signup request notice
+  9 dependent existing tests did not run
+  Mobile flow used the successful owner session; no failure was removed or weakened.
+
+Initial full verify under concurrent browser load failed one existing 20ms decision deadline case.
+Final sequential full verify passed all decision cases and exited 0.
+Local missing migrations were applied without DB reset. No production DB change or deployment.

@@ -99,7 +99,7 @@ export function IngestRunDrawer({
       {/* 근거 서랍(EvidenceDrawer)과 같은 폭 덮어쓰기. 지원 폭(1280 이상)에서 480px 이다. */}
       <SheetContent
         side="right"
-        className="data-[side=right]:w-[480px] data-[side=right]:max-w-full data-[side=right]:xl:max-w-[480px]"
+        className="data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:md:w-[480px] data-[side=right]:md:max-w-[480px]"
       >
         {runId !== null && (
           <RunDetail
@@ -261,7 +261,7 @@ function DetailSkeleton() {
             <Skeleton key={key} className={`h-5 w-full ${pulse}`} />
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           {Array.from({ length: 6 }, (_, key) => (
             <Skeleton key={key} className={`h-12 ${pulse}`} />
           ))}
@@ -284,7 +284,7 @@ function NotStarted({ run }: { run: IngestRun | null }) {
         수집 작업이 아직 시작되지 않았습니다. 시작되면 여기에 표시됩니다.
       </p>
       {run !== null && (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
           <dt className="type-label text-muted-foreground">요청 시각</dt>
           <dd className="type-body tabular-nums">
             <time dateTime={run.startedAt} title={run.startedAt}>
@@ -316,7 +316,7 @@ function RunDetailView({ run }: { run: IngestRun }) {
         {quota !== null && <p className="type-body text-destructive">{QUOTA_CAUSE_TEXT[quota]}</p>}
       </div>
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
         <dt className="type-label text-muted-foreground">시작</dt>
         <dd className="type-body tabular-nums">
           <time dateTime={run.startedAt} title={run.startedAt}>
@@ -342,7 +342,7 @@ function RunDetailView({ run }: { run: IngestRun }) {
         <dd className="type-body tabular-nums">{quotaText(run)}</dd>
       </dl>
 
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-4 rounded-lg border border-border p-4">
+      <dl className="grid grid-cols-2 gap-x-4 md:grid-cols-3 gap-y-4 rounded-lg border border-border p-4">
         <SummaryCell label="신규" value={summary.created} />
         <SummaryCell label="변경" value={summary.changed} note="새 revision" />
         <SummaryCell label="취소" value={summary.cancelled} />
@@ -401,7 +401,7 @@ function RunDetailView({ run }: { run: IngestRun }) {
         />
       )}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border-t border-border pt-4 font-mono type-caption text-muted-foreground">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 border-t border-border pt-4 font-mono type-caption text-muted-foreground">
         <dt>실행 id</dt>
         <dd className="wrap-anywhere">{run.id}</dd>
         <dt>체크포인트</dt>

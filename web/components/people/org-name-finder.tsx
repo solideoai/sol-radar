@@ -47,7 +47,7 @@ export function OrgNameFinder({
     <form
       role="search"
       aria-label="이름 찾기"
-      className="flex w-88 min-w-0 gap-2"
+      className="flex w-full min-w-0 gap-2 md:w-88"
       onSubmit={(event) => {
         event.preventDefault();
         search();

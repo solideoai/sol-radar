@@ -20,7 +20,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 - service role 키(`SUPABASE_SERVICE_ROLE_KEY`, RLS 무시)는 worker·seed 스크립트와 사람이 로컬에서 직접 실행하는 운영자 CLI(`scripts/ops/`)만 쓴다. 운영자 CLI의 클라우드 변경 적용은 사용자 확인 뒤다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키 또는 Bearer 토큰)으로 DB를 부르고 권한은 RLS가 정한다. service role 키를 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 ([[09-SECURITY|09 보안]]).
 - 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 조직 데이터는 `org_id` + `org_id in (select public.my_org_ids())`, 업무 역할은 `memberships.sol_role`. 마이그레이션은 `supabase/migrations/`에 새 파일로만 쌓고(이미 있는 파일 수정 금지), 클라우드 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 결정 모델(Bosun. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) 대신 Laya 적용 금지. 결정 모델을 낙찰 확률 모델로 오용 금지. 결정 모델 호출은 AI gateway만 한다. Worker·Next 서버의 직접 호출 금지 ([[02-ARCHITECTURE|02 아키텍처]]).
-- **모바일 레이아웃·1280px 미만 breakpoint·네이티브 앱 코드 작성 금지.** 데스크톱 1280~1920만 ([[16-DECISIONS|16 ADR]] ADR-007).
+- **모바일 웹 기본 대응 허용, 네이티브 앱은 금지.** 2026-10-30 사용자 승인(ADR-072)으로 ADR-007의 웹 폭 제한을 개정했다. 1280px 이상 기존 배치를 유지하고 좁은 폭은 재배치한다. 360·390·768·1280·1440px를 확인한다.
 - **결제·구독·요금제·결제 게이트웨이 코드 작성 금지.** 관련 패키지 설치도 금지 (ADR-007).
 - **hosted 모델 API 호출 전 사용자 명시 승인 필수.** 승인은 `AI_HOSTED_APPROVED=true`로만 표현하고, 승인 전에는 `AI_PROVIDER=hosted` 설정·키 입력·호출 코드 실행 금지. 승인 없이 hosted면 gateway는 기동 거부. 테스트·CI·골든은 항상 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`) (ADR-010).
 - **클라우드 GPU 임대도 비용 승인 대상이다.** 해커톤 실추론·평가는 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트에 붙여 한다([[16-DECISIONS|ADR-025]]). 클라우드 GPU를 빌리는 일은 hosted API와 같이 사용자 명시 승인 전에는 하지 않는다 ([[16-DECISIONS|ADR-020]], ADR-010).

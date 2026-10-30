@@ -368,7 +368,7 @@ export function ProjectDetailView({
           공고가 취소되었습니다. 프로젝트 종료는 직접 기록하세요.
         </p>
       )}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
+      <div className="grid min-w-0 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
         <div className="flex min-w-0 flex-col gap-6">
           <section className="rounded-lg border border-border p-5">
             <h2 className="type-heading">프로젝트 개요</h2>

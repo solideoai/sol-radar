@@ -163,6 +163,87 @@ function render(content: React.ReactNode) {
 }
 
 describe("공공조달 업무 화면", () => {
+  it("390px: 공고 카드에서 0점·출처 충돌·초기 단계를 보존하고 관심 버튼과 상세 링크를 조작한다", async () => {
+    await page.viewport(390, 900);
+    const watch = vi.fn();
+    const title = "공공주택데이터플랫폼통합구축및정보시스템유지보수장기계속사업공고";
+    const host = render(
+      <AppPage title="입찰 공고">
+        <OpportunityTable
+          items={[{ ...BID, title }, CONFLICT, EARLY]}
+          now={NOW}
+          listQuery="origin=demo&keyword=AI"
+          watchColumn={(item, titleId) => (
+            <button
+              type="button"
+              aria-label={`${item.title} 관심 등록`}
+              aria-describedby={titleId}
+              onClick={() => watch(item.bidId)}
+            >
+              관심
+            </button>
+          )}
+        />
+      </AppPage>,
+    );
+    host.style.width = "100%";
+    host.style.marginLeft = "0";
+    const list = page.getByRole("list", { name: "입찰 공고 요약 목록" });
+    await expect.element(list).toBeVisible();
+    const cards = list.element().querySelectorAll(":scope > li");
+    const value = (card: Element | undefined, label: string) =>
+      [...(card?.querySelectorAll("dl > div") ?? [])]
+        .find((cell) => cell.querySelector("dt")?.textContent === label)
+        ?.querySelector("dd")?.textContent;
+    expect(value(cards[0], "SOL Score")).toBe("0");
+    expect(value(cards[1], "예산")).toBe("확인 필요");
+    expect(value(cards[1], "권고")).toBe("검토 필요");
+    expect(value(cards[2], "SOL Score")).toBe("—");
+    expect(value(cards[2], "권고")).toBe("—");
+    await expect
+      .element(list.getByRole("link", { name: title, exact: true }))
+      .toHaveAttribute(
+        "href",
+        `/bids/${BID.bidId}?list=${encodeURIComponent("origin=demo&keyword=AI")}`,
+      );
+    await userEvent.click(list.getByRole("button", { name: `${title} 관심 등록`, exact: true }));
+    expect(watch).toHaveBeenCalledWith(BID.bidId);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+  });
+
+  it("360px: 요약 지표가 여러 줄로 배치되고 핵심 업무와 숫자를 화면 안에서 읽을 수 있다", async () => {
+    await page.viewport(360, 900);
+    const host = render(
+      <AppPage title="대시보드" contentClassName="max-w-360" typeScale="dashboard">
+        <DashboardView
+          activeProjects={0}
+          summary={SUMMARY}
+          metrics={METRICS}
+          nextIngest={null}
+          review={[]}
+          early={[]}
+          sources={SOURCES}
+          reviewQuery="origin=demo"
+          earlyQuery="origin=demo&includeEarly=true"
+          now={NOW}
+          canRunIngestion={false}
+        />
+      </AppPage>,
+    );
+    host.style.width = "100%";
+    host.style.marginLeft = "0";
+    const summary = page.getByRole("region", { name: "공공조달 요약" });
+    await expect.element(summary).toBeVisible();
+    const figures = [...summary.element().querySelectorAll("dl > div")];
+    expect(figures).toHaveLength(5);
+    const rows = new Set(figures.map((figure) => Math.round(figure.getBoundingClientRect().top)));
+    expect(rows.size).toBe(3);
+    await expect
+      .element(page.getByRole("heading", { name: "우선 검토할 입찰", exact: true }))
+      .toBeVisible();
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(360);
+  });
+
   it("1280px에서 11열은 표 안에서만 이동하고 LH 배지·0점·early 권고를 정확히 표시한다", async () => {
     await page.viewport(1280, 900);
     const host = render(

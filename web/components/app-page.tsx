@@ -28,7 +28,7 @@ export function AppPage({
       id="main-content"
       tabIndex={-1}
       data-type-scale={typeScale}
-      className="flex-1 px-4 pt-4 pb-6 outline-none sm:px-6 lg:px-8"
+      className="min-w-0 flex-1 px-4 pt-4 pb-6 outline-none sm:px-6 lg:px-8"
     >
       <div className={cn("mx-auto flex w-full max-w-5xl flex-col gap-6", contentClassName)}>
         {/* 구분선 위아래 여백은 위 여백(pt-4)과 함께 줄여 잡았다. 발표 동선(/gaps 1440×900 첫 화면에 순위 1~3행)이

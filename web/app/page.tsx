@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ComparisonSection } from "@/components/landing/comparison-section";
-import { DesktopNotice } from "@/components/landing/desktop-notice";
 import { FaqSection } from "@/components/landing/faq-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { FinalCtaSection } from "@/components/landing/final-cta-section";
@@ -37,7 +36,6 @@ export default async function Home() {
   const startHref = startHrefFor(await getMyHome());
   return (
     <>
-      <DesktopNotice />
       <SiteHeader startHref={startHref} />
       {/* 루트 layout 의 건너뛰기 링크가 여기로 온다. 머리말을 지나 본문부터 Tab 이 이어진다. */}
       {/* 본문 바탕은 흰색이다. 구역은 면 색이 아니라 여백이 나누고, 구역 안의 목록은 1px 선이 나눈다. */}

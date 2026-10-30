@@ -58,7 +58,7 @@ export function PrinciplesSection() {
     <section
       id="principles"
       aria-labelledby="principles-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28"
     >
       <SectionHeading
         id="principles-title"
@@ -66,16 +66,19 @@ export function PrinciplesSection() {
         title={"점수만 보여주지 않고, 판단의\u00a0근거를 함께 제공합니다."}
         description="SOL RADAR의 분석 화면은 다음 네 가지 원칙으로 설계하고 있습니다."
       />
-      <ul className="mt-14 divide-y divide-border border-y border-border">
+      <ul className="mt-8 xl:mt-14 divide-y divide-border border-y border-border">
         {PRINCIPLES.map((principle) => (
-          <li key={principle.title} className="grid grid-cols-12 items-start gap-x-12 py-9">
-            <div className="col-span-7">
+          <li
+            key={principle.title}
+            className="grid grid-cols-1 items-start gap-5 py-7 xl:grid-cols-12 xl:gap-x-12 xl:py-9"
+          >
+            <div className="min-w-0 xl:col-span-7">
               <h3 className="type-heading-lg text-foreground">{principle.title}</h3>
               <p className="mt-3 type-body-lg text-pretty text-muted-foreground">
                 {principle.body}
               </p>
             </div>
-            <div className="col-span-5">
+            <div className="min-w-0 xl:col-span-5">
               <p className="type-label-lg font-semibold text-muted-foreground">화면에서</p>
               <p className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-2">
                 {principle.onScreen}

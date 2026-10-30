@@ -285,3 +285,25 @@ describe("칩", () => {
     expect(style.color).toBe("rgb(27, 100, 218)");
   });
 });
+
+it("모바일 업무 틀은 제목과 메뉴 서랍을 보여주고 메뉴 이동 뒤 서랍을 닫는다", async () => {
+  await page.viewport(390, 844);
+  show({
+    children: (
+      <AppPage title="입찰 공고">
+        <p>모바일 본문</p>
+      </AppPage>
+    ),
+  });
+  await expect.element(page.getByRole("banner")).toHaveTextContent("입찰 공고");
+  await expect.element(page.getByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
+  await page.getByRole("button", { name: "사이드바 여닫기" }).click();
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  const target = page.getByRole("link", { name: "관심 공고", exact: true });
+  expect(target.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+  // 부품 시험에서 페이지를 떠나지 않고 기존 서랍 닫기 핸들러를 확인한다.
+  target.element().addEventListener("click", (event) => event.preventDefault(), { once: true });
+  await target.click();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+});

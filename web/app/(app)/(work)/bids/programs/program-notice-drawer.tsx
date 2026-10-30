@@ -57,7 +57,7 @@ export function ProgramNoticeDrawer({
       <SheetContent
         side="right"
         finalFocus={returnFocus}
-        className="data-[side=right]:w-[480px] data-[side=right]:max-w-full data-[side=right]:xl:max-w-[480px] motion-reduce:transition-none"
+        className="data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:md:w-[480px] data-[side=right]:md:max-w-[480px] motion-reduce:transition-none"
       >
         {item !== null && <NoticeDetail item={item} today={today} />}
       </SheetContent>

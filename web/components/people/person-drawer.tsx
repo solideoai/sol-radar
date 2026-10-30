@@ -42,7 +42,7 @@ export function PersonDrawer({
       }}
     >
       <SheetContent
-        className="p-6 data-[side=right]:w-120 data-[side=right]:sm:max-w-none motion-reduce:transition-none"
+        className="p-4 data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:md:w-120 data-[side=right]:md:max-w-120 md:p-6 motion-reduce:transition-none"
         finalFocus={returnFocus}
       >
         <SheetHeader className="gap-3 p-0 pr-8">

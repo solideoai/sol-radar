@@ -12,13 +12,13 @@ function Table({
     <div
       data-slot="table-container"
       className={cn(
-        "relative w-full overflow-x-auto rounded-lg border border-border",
+        "relative min-w-0 max-w-full w-full overflow-x-auto rounded-lg border border-border",
         containerClassName,
       )}
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom type-body", className)}
+        className={cn("w-full max-md:min-w-max caption-bottom type-body", className)}
         {...props}
       />
     </div>

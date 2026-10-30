@@ -288,11 +288,11 @@ type Figure = { label: string; value: string; hint: React.ReactNode };
 function SummaryStrip({ figures }: { figures: Figure[] }) {
   return (
     <section aria-label="공공조달 요약">
-      <dl className="grid grid-cols-5 gap-y-1 border-y border-border">
+      <dl className="grid grid-cols-2 gap-y-1 border-y border-border md:grid-cols-3 xl:grid-cols-5">
         {figures.map((figure) => (
           <div
             key={figure.label}
-            className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-4 first:border-l-0 first:pl-0 last:pr-0"
+            className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-3 py-4 odd:border-l-0 md:odd:border-l xl:px-5 xl:first:border-l-0 xl:first:pl-0 xl:last:pr-0"
           >
             <dt className="type-label wrap-anywhere text-muted-foreground">{figure.label}</dt>
             <dd className="type-title text-foreground tabular-nums">{figure.value}</dd>

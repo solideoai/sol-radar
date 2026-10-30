@@ -32,7 +32,7 @@ export function DemoCursor({
     <div
       ref={ref}
       aria-hidden
-      className="pointer-events-none absolute top-0 left-0 z-20 transition-transform duration-720 ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none"
+      className="pointer-events-none absolute top-0 left-0 hidden xl:block z-20 transition-transform duration-720 ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none"
       style={{ transform: translateOf(rest) }}
     >
       <div

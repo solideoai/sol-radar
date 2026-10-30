@@ -76,7 +76,7 @@ export function ProjectBoardView({ board }: { board: ProjectBoard }) {
         검토 대기는 분석 결과가 있고 아직 사람 결정이 없는 공고입니다. 카드를 열어 상태를 바꿀 수
         있습니다.
       </p>
-      <div className="grid min-w-0 grid-cols-5 items-start gap-3">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-5">
         <BoardColumn title="검토 대기">
           {board.pending.map((card) => (
             <Link

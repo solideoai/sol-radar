@@ -103,7 +103,7 @@ export function OrgInvitationTable({ invitations }: { invitations: OrgInvitation
       ) : (
         <CardContent className="-mb-4 px-0">
           {error ? <ErrorParagraph error={error} className="mb-3 px-6" /> : null}
-          <Table className="table-fixed" containerClassName="rounded-none border-0">
+          <Table className="min-w-180 table-fixed" containerClassName="rounded-none border-0">
             <caption className="sr-only">{INVITATIONS_COPY.caption(invitations.length)}</caption>
             <TableHeader>
               <TableRow>

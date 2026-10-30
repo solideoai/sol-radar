@@ -235,7 +235,7 @@ export function AnalysisComparison({
           비교 기준이 다릅니다. 각 분석의 입력과 실행 모드를 확인하세요.
         </p>
       )}
-      <Table className="table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
+      <Table className="min-w-200 table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
         <caption className="sr-only">저장된 분석 결과 비교</caption>
         <colgroup>
           <col className="w-40" />
@@ -317,7 +317,7 @@ export function AnalysisComparison({
         <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           비교 기준
         </summary>
-        <Table className="table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
+        <Table className="min-w-200 table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
           <caption className="sr-only">선택한 분석의 비교 기준</caption>
           <colgroup>
             <col className="w-40" />

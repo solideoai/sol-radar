@@ -10,7 +10,7 @@ export default function Loading() {
         <div aria-hidden className="space-y-6">
           <Skeleton className="h-10 w-full motion-reduce:animate-none" />
           <Skeleton className="h-28 w-full motion-reduce:animate-none" />
-          <div className="grid grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
             <Skeleton className="h-96 w-full motion-reduce:animate-none" />
             <Skeleton className="h-96 w-full motion-reduce:animate-none" />
           </div>

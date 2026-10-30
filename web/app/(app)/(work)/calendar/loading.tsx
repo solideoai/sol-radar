@@ -11,14 +11,14 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">{CALENDAR_LOADING}</span>
         <div aria-hidden className="contents">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Skeleton className={`h-8 w-64 ${pulse}`} />
             <Skeleton className={`h-8 w-44 ${pulse}`} />
           </div>
-          <Skeleton className={`h-5 w-96 ${pulse}`} />
+          <Skeleton className={`h-5 w-96 max-w-full ${pulse}`} />
           <div className="@container">
             <div className="grid gap-6 @5xl:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="grid grid-cols-7 gap-px">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-7 md:gap-px">
                 {Array.from({ length: 35 }, (_, key) => (
                   <Skeleton key={key} className={`h-32 rounded-none ${pulse}`} />
                 ))}

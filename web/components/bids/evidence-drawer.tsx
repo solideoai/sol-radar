@@ -145,7 +145,7 @@ function EvidenceDrawer({
           xl(80rem=1280px)을 쓴다. min-[1280px] 같은 임의 값은 Tailwind 가 sm 보다 앞에 두어 sm 에 진다. */}
       <SheetContent
         side="right"
-        className="data-[side=right]:w-[480px] data-[side=right]:max-w-full data-[side=right]:xl:max-w-[480px]"
+        className="data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:md:w-[480px] data-[side=right]:md:max-w-[480px]"
       >
         <SheetHeader className="pr-12">
           <SheetTitle>근거</SheetTitle>

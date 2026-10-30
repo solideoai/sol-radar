@@ -31,10 +31,10 @@ export function FaqSection() {
     <section
       id="faq"
       aria-labelledby="faq-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 py-28"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-4 sm:px-6 xl:px-10 py-14 xl:py-28"
     >
-      <div className="grid grid-cols-[320px_minmax(0,1fr)] items-start gap-16">
-        <div className="sticky top-28">
+      <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-16">
+        <div className="xl:sticky xl:top-28">
           <SectionHeading id="faq-title" title="자주 묻는 질문" />
           <p className="mt-5 type-body-lg text-muted-foreground">
             시작하기 전에 궁금한 점을 확인하세요.

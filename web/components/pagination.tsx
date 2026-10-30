@@ -46,7 +46,7 @@ export function Pagination({
   );
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-3 sm:px-6">
       <p className="type-label text-muted-foreground tabular-nums">
         <span aria-hidden>
           {page} / {pageCount}쪽

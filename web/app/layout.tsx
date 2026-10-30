@@ -43,7 +43,7 @@ export default async function RootLayout({
           </a>
           {/* 머리말은 여기 두지 않는다 — 틀이 화면 종류마다 다르다(마케팅·앱 틀·인증 틀). */}
           {/* flex-1 이 빠지면 각 화면의 틀(사이드바 옆 본문 등)이 화면 아래까지 차지 않는다. */}
-          <div className="flex flex-1 flex-col">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
         </Providers>
       </body>
     </html>

@@ -150,11 +150,11 @@ export function OrgChart({
           ) : null}
         </div>
       ) : (
-        <div className="grid min-w-0 grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
+        <div className="grid min-w-0 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
           {/* 상단 막대·페이지 제목·요약과 아래 여백까지 확보해 긴 트리만 스크롤한다. */}
           <aside
             aria-label="부서 탐색"
-            className="sticky top-18 max-h-[calc(100dvh-14rem)] min-w-0 overflow-y-auto border-r border-border pr-4"
+            className="max-h-80 min-w-0 overflow-y-auto border-b border-border pb-4 xl:sticky xl:top-18 xl:max-h-[calc(100dvh-14rem)] xl:border-r xl:border-b-0 xl:pr-4 xl:pb-0"
           >
             <ul className="grid min-w-0 gap-1">{chart.roots.map(renderNode)}</ul>
           </aside>

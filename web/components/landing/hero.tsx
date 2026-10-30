@@ -10,20 +10,20 @@ export function Hero({ startHref }: { startHref: string }) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="mx-auto w-full max-w-300 px-10 pt-8 pb-6 text-center"
+      className="mx-auto w-full max-w-300 px-4 sm:px-6 xl:px-10 pt-8 pb-6 text-center"
     >
       <div className="relative motion-safe:animate-in motion-safe:duration-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
-        <h1 id="hero-title" className="type-display text-foreground">
+        <h1 id="hero-title" className="type-title sm:type-headline xl:type-display text-foreground">
           수많은 공고 속,
           <br />
           솔리데오가 검토할 사업부터
         </h1>
-        <p className="mx-auto mt-4 max-w-190 type-lead text-pretty text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-190 type-body-lg xl:type-lead text-pretty text-muted-foreground">
           공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 플랫폼입니다. 기업의 기술·자격·실적과 공고
           요구사항을 비교해 참가 자격, 사업 적합도, 추가 확인 사항을 한눈에 확인하세요.
         </p>
         {/* 주요 버튼(default)은 시작하기 하나다. 분석 예시 보기는 테두리 버튼으로 낮춘다. */}
-        <div className="mt-6 flex items-center justify-center gap-3">
+        <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
           <Link
             href={startHref}
             className={cn(

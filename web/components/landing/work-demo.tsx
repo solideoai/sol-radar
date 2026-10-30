@@ -14,6 +14,10 @@ import {
   SettingsIcon,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { WORK_DEMO_BIDS } from "@/components/landing/demo-bids";
+import { DemoBadge, RecommendationBadge } from "@/components/landing/status-badges";
+import { COLLECTED_TOTAL, COLLECTED } from "@/components/landing/work-demo-data";
 import { useEffect, useRef, useState } from "react";
 import { DemoCursor, pointAt, translateOf } from "@/components/landing/demo-cursor";
 import { useOnScreen, useReducedMotion, useStepLoop } from "@/components/landing/demo-playback";
@@ -92,7 +96,7 @@ export function WorkDemo() {
       data-step={shownStep}
       className="mt-8 border-t border-border"
     >
-      <div className="mx-auto w-full max-w-300 px-10 pt-28 pb-6">
+      <div className="mx-auto w-full max-w-300 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28 pb-6">
         <SectionHeading
           id="work-demo-title"
           title="매일 아침, 새 공고가 검토 목록이 되기까지"
@@ -111,13 +115,14 @@ export function WorkDemo() {
           판정하고 다섯 요소 점수를 보여 줍니다. 담당자가 관심 공고에 담으면 마감 사흘 전에 알림을
           보냅니다. 참여 결정은 사람이 합니다. 가상 공고로 만든 예시입니다.
         </p>
+        <MobileWorkSummary />
         <div
           ref={frameRef}
           aria-hidden
           inert
           className={cn(
             styles.frame,
-            "relative mt-14 grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
+            "relative mt-8 xl:mt-14 hidden h-150 xl:grid grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
             !running && styles.paused,
           )}
         >
@@ -147,7 +152,7 @@ export function WorkDemo() {
         {/* 멈춤·재생 버튼은 판 밖 오른쪽 끝이고 키보드 초점이 올 때만 보인다. 어떤 장면의 내용과도 겹치지 않는다. */}
         {/* 판 아래 캡션 문장은 2026-10-28 사용자 요청으로 뺐다. 가상임은 기관 이름("가상 …")과 sr-only 문단이 알린다. */}
         {/* not-sr-only 는 여백을 0 으로 되돌리므로 판과의 간격은 버튼 쪽에 둔다. */}
-        <div className="sr-only flex justify-end has-focus-visible:not-sr-only">
+        <div className="sr-only hidden justify-end xl:flex xl:has-focus-visible:not-sr-only">
           <Button
             variant="outline"
             size="icon-sm"
@@ -248,6 +253,59 @@ function DemoTopBar({ alert }: { alert: boolean }) {
           )}
         />
       </span>
+    </div>
+  );
+}
+
+// 작은 화면에서는 시간에 따라 사라지는 넓은 장면 대신 같은 예시의 흐름을 세로로 읽는다.
+function MobileWorkSummary() {
+  return (
+    <div className="mt-8 rounded-xl border border-border xl:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-4">
+        <h3 className="type-heading">수집부터 참여 검토까지</h3>
+        <DemoBadge />
+      </div>
+      <ol className="divide-y divide-border">
+        <li className="p-4">
+          <h4 className="type-heading">공고 수집</h4>
+          <p className="mt-2 type-body-lg">
+            출처 {COLLECTED.length}곳에서 새 공고 {COLLECTED_TOTAL}건을 가져왔어요.
+          </p>
+          <p className="mt-1 type-label-lg text-muted-foreground">
+            우리 회사 업종에 맞는 공고 {WORK_DEMO_BIDS.length}건을 골랐어요.
+          </p>
+        </li>
+        <li className="p-4">
+          <h4 className="type-heading">검토할 공고</h4>
+          <ul className="mt-3 divide-y divide-border">
+            {WORK_DEMO_BIDS.slice(0, 3).map((bid) => (
+              <li key={bid.id} className="py-3 first:pt-0 last:pb-0">
+                <p className="type-ui-lg font-semibold wrap-anywhere">{bid.title}</p>
+                <p className="mt-1 type-label-lg text-muted-foreground">{bid.agency}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <span className="type-label-lg">
+                    SOL Score <b>{bid.score}</b>
+                  </span>
+                  <RecommendationBadge value={bid.recommendation} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </li>
+        <li className="p-4">
+          <h4 className="type-heading">근거 확인 후 참여 결정</h4>
+          <p className="mt-2 type-label-lg text-muted-foreground">
+            점수는 적합도이며 수주 확률이 아닙니다. 공고문 근거와 추가 확인 사항을 검토하고 담당자가
+            참여 여부를 정합니다.
+          </p>
+          <Link
+            href="#demo"
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg type-ui-lg font-semibold text-brand outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            분석 예시 직접 살펴보기
+          </Link>
+        </li>
+      </ol>
     </div>
   );
 }

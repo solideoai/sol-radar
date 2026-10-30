@@ -2,7 +2,7 @@ import { useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 import { OpportunityFilters } from "@/components/work/opportunities-filters";
 
 const navigation = vi.hoisted(() => ({
@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 let root: Root | undefined;
-function show(query = "", pathname = "/bids") {
+function show(query = "", pathname = "/bids", agencyName = "시험 기관") {
   navigation.pathname = pathname;
   navigation.query = query;
   function Harness() {
@@ -27,11 +27,11 @@ function show(query = "", pathname = "/bids") {
       setQuery(navigation.query);
     });
     return (
-      <div style={{ width: "calc(100vw - 320px)" }}>
+      <div style={{ width: "100%", maxWidth: "calc(100vw - 32px)" }}>
         <OpportunityFilters
           query={currentQuery}
           defaultOrigin="live"
-          agencies={[{ id: "agency-1", name: "시험 기관" }]}
+          agencies={[{ id: "agency-1", name: agencyName }]}
           companies={[{ id: "company-1", name: "시험 회사" }]}
           startTransition={startTransition}
         />
@@ -92,4 +92,53 @@ it("관심 목록에서도 필터를 바로 조작하고 초기화하면 기본 
     .toHaveAttribute("aria-pressed", "false");
   await expect.element(page.getByRole("button", { name: "필터 초기화" })).not.toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1440);
+});
+
+it("모바일 필터는 적용 전 URL을 바꾸지 않고 취소·적용·조건 해제가 동작한다", async () => {
+  await page.viewport(360, 800);
+  show("q=cloud&origin=demo&cursor=next");
+  await expect.element(page.getByRole("button", { name: "필터 1", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "필터 1", exact: true }).click();
+  await page.getByRole("button", { name: "AI·AX", exact: true }).click();
+  expect(navigation.push).not.toHaveBeenCalled();
+  await page.getByRole("button", { name: "취소", exact: true }).click();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  expect(navigation.push).not.toHaveBeenCalled();
+  await page.getByRole("button", { name: "필터 1", exact: true }).click();
+  await expect
+    .element(page.getByRole("button", { name: "AI·AX", exact: true }))
+    .toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "AI·AX", exact: true }).click();
+  await page.getByRole("button", { name: "필터 적용", exact: true }).click();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  const applied = new URLSearchParams(navigation.query);
+  expect(applied.get("keyword")).toBe("AI_AX");
+  expect(applied.get("q")).toBe("cloud");
+  expect(applied.get("origin")).toBe("demo");
+  expect(applied.has("cursor")).toBe(false);
+  await page.getByRole("button", { name: "키워드: AI·AX 조건 해제", exact: true }).click();
+  expect(new URLSearchParams(navigation.query).has("keyword")).toBe(false);
+  expect(new URLSearchParams(navigation.query).get("q")).toBe("cloud");
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(360);
+});
+
+it("긴 기관 조건은 모바일 폭 안에서 줄바꿈하고 상태 묶음은 한 번에 해제한다", async () => {
+  await page.viewport(360, 800);
+  const agencyName = "공공정보시스템통합운영지원사업본부".repeat(3);
+  show(
+    "q=cloud&agencyId=agency-1&status=OPEN&status=AMENDED&status=CLOSED&status=CANCELLED",
+    "/bids",
+    agencyName,
+  );
+  const agency = page.getByRole("button", { name: `기관: ${agencyName} 조건 해제`, exact: true });
+  await expect.element(agency).toBeVisible();
+  expect(agency.element().scrollWidth).toBeLessThanOrEqual(agency.element().clientWidth);
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(360);
+  await page
+    .getByRole("button", { name: "상태: 진행 중 · 정정 · 마감 · 취소 조건 해제", exact: true })
+    .click();
+  const params = new URLSearchParams(navigation.query);
+  expect(params.getAll("status")).toEqual([]);
+  expect(params.get("q")).toBe("cloud");
+  expect(params.get("agencyId")).toBe("agency-1");
 });

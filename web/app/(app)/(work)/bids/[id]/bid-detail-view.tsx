@@ -1022,7 +1022,7 @@ export function BidDetailView({
         <p data-slot="what-if-live" role="status" aria-live="polite" className="sr-only">
           {whatIf.live}
         </p>
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div data-slot="bid-detail-main" className="flex min-w-0 flex-col gap-6">
             <AnalysisBand bid={bid} latest={latest} polling={progress} history={history} />
             {statusFailure !== null && (
@@ -1081,7 +1081,7 @@ export function BidDetailView({
           </div>
           <div
             data-slot="bid-detail-rail"
-            className="sticky top-18 flex max-h-[calc(100dvh-5.5rem)] min-w-0 flex-col gap-4 overflow-y-auto"
+            className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-18 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto"
           >
             {projectEntry !== null && <BidProjectEntry entry={projectEntry} />}
             {/* 새 분석이면 라디오 기본값(시스템 권고)도 새로 잡는다(P2). */}

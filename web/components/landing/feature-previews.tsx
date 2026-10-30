@@ -18,7 +18,7 @@ const BY_DEADLINE = DEMO_BIDS.toSorted((a, b) => a.proposalDue.localeCompare(b.p
 
 function PreviewHead({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-15 items-center gap-2.5 border-b border-border bg-muted/50 px-5 py-3.5">
+    <div className="flex min-h-15 flex-wrap items-center gap-2.5 border-b border-border bg-muted/50 px-5 py-3.5">
       {children}
     </div>
   );
@@ -50,7 +50,7 @@ export function CollectPreview() {
         ))}
         <span className="ml-auto type-label-lg text-muted-foreground">마감 빠른 순</span>
       </PreviewHead>
-      <table className="w-full border-collapse text-left">
+      <table className="w-full min-w-150 border-collapse text-left">
         <thead>
           <tr className="border-b border-border">
             <th scope="col" className={TABLE_HEAD}>
@@ -100,7 +100,7 @@ export function QualifyPreview() {
         {SAMPLE_CHECKS.map((check) => (
           <li
             key={check.requirement}
-            className="grid grid-cols-[104px_minmax(0,1fr)] items-start gap-3 px-5 py-3.5"
+            className="grid grid-cols-1 sm:grid-cols-[104px_minmax(0,1fr)] items-start gap-3 px-5 py-3.5"
           >
             <QualificationLabel status={check.status} />
             <div className="min-w-0">
@@ -133,10 +133,10 @@ export function ScorePreview() {
         {SCORED.factors.map((factor) => (
           <li
             key={factor.label}
-            className="grid grid-cols-[150px_minmax(0,1fr)_72px] items-center gap-4 px-5 py-2.5 type-ui-lg"
+            className="grid grid-cols-[minmax(0,1fr)_60px] sm:grid-cols-[150px_minmax(0,1fr)_72px] items-center gap-4 px-5 py-2.5 type-ui-lg"
           >
             <span className="text-foreground">{factor.label}</span>
-            <span className="h-2.5 overflow-hidden rounded-full bg-muted">
+            <span className="col-span-2 row-start-2 h-2.5 overflow-hidden rounded-full bg-muted sm:col-span-1 sm:row-auto">
               <span
                 className="block h-full rounded-full bg-brand"
                 style={{ width: `${(factor.points / factor.max) * 100}%` }}
@@ -193,7 +193,7 @@ export function HistoryPreview() {
               <span className="block type-ui-lg font-semibold text-foreground">{event.kind}</span>
               <span className="mt-0.5 block type-label-lg text-muted-foreground">{event.text}</span>
             </span>
-            <span className="shrink-0 type-label-lg text-muted-foreground tabular-nums">
+            <span className="shrink-0 type-label text-muted-foreground tabular-nums sm:type-label-lg">
               {event.time}
             </span>
           </li>

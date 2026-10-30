@@ -16,11 +16,11 @@ export default function Loading() {
         <span className="sr-only">자격 갭을 계산하는 중…</span>
         <div aria-hidden className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <Skeleton className={`h-4 w-96 ${PULSE}`} />
+            <Skeleton className={`h-4 w-96 max-w-full ${PULSE}`} />
             <Skeleton className={`h-4 w-2/3 ${PULSE}`} />
           </div>
           <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
               {[1, 2, 3, 4, 5].map((id) => (
                 <Skeleton key={id} className={`h-24 w-full ${PULSE}`} />
               ))}

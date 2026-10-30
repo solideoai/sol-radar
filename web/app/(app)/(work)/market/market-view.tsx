@@ -357,7 +357,7 @@ function Upcoming({ overview, now }: { overview: MarketOverview; now: Date }) {
           {overview.upcomingDays}일 안에 마감하는, 예산이 확인된 공고가 없습니다
         </p>
       ) : (
-        <Table containerClassName="mt-3">
+        <Table className="min-w-160" containerClassName="mt-3">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50%]">공고명</TableHead>
@@ -410,11 +410,11 @@ type Figure = { label: string; value: string; title?: string; hint: React.ReactN
 function SummaryStrip({ figures }: { figures: Figure[] }) {
   return (
     <section aria-label="발주 현황 요약">
-      <dl className="grid grid-cols-4 gap-y-1 border-y border-border">
+      <dl className="grid grid-cols-2 gap-y-1 border-y border-border xl:grid-cols-4">
         {figures.map((figure) => (
           <div
             key={figure.label}
-            className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-4 first:border-l-0 first:pl-0 last:pr-0"
+            className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-3 py-4 odd:border-l-0 xl:px-5 xl:odd:border-l xl:first:border-l-0 xl:first:pl-0 xl:last:pr-0"
           >
             <dt className="type-label wrap-anywhere text-muted-foreground">{figure.label}</dt>
             <dd className="type-title text-foreground tabular-nums" title={figure.title}>

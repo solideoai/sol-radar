@@ -13,9 +13,12 @@ export function FinalCtaSection({ startHref }: { startHref: string }) {
       aria-labelledby="get-started-title"
       className="scroll-mt-24 bg-foreground text-background"
     >
-      <div className="mx-auto flex w-full max-w-300 items-center justify-between gap-16 px-10 py-20">
+      <div className="mx-auto flex w-full max-w-300 flex-col items-stretch justify-between gap-6 xl:flex-row xl:items-center xl:gap-16 px-4 sm:px-6 xl:px-10 py-12 xl:py-20">
         <div className="min-w-0">
-          <h2 id="get-started-title" className="max-w-180 type-headline text-balance">
+          <h2
+            id="get-started-title"
+            className="max-w-180 type-subhead xl:type-headline text-balance"
+          >
             다음 사업 검토, 근거부터 확인하세요.
           </h2>
           <p className="mt-5 max-w-190 type-body-lg text-background/75">

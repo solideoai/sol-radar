@@ -106,7 +106,7 @@ export function IngestRunTable({
 }) {
   return (
     <div>
-      <Table className="table-fixed">
+      <Table className="min-w-250 table-fixed">
         <caption className="sr-only">수집 실행 이력. 최근 실행이 위에 있습니다.</caption>
         <TableHeader>
           <TableRow className="hover:bg-transparent">

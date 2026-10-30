@@ -149,7 +149,7 @@ export function OrgMemberTable({
       <CardContent className="px-0">
         {error ? <ErrorParagraph error={error} className="mb-3 px-6" /> : null}
         {/* table-fixed 가 없으면 긴 이름·이메일이 표를 넓혀 말줄임되지 않는다. */}
-        <Table className="table-fixed" containerClassName="rounded-none border-0">
+        <Table className="min-w-180 table-fixed" containerClassName="rounded-none border-0">
           <caption className="sr-only">{MEMBERS_COPY.caption(members.length)}</caption>
           <TableHeader>
             <TableRow>

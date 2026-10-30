@@ -8,7 +8,6 @@ import {
   MailIcon,
   SettingsIcon,
   ShieldCheckIcon,
-  TriangleAlertIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -16,6 +15,7 @@ import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import {
+  breadcrumbOf,
   currentNavGroupId,
   isCurrentItem,
   visibleFooterNavItems,
@@ -130,14 +130,6 @@ export function AppShell({
       {/* min-w-0 이 없으면 넓은 표·긴 글이 이 단을 밀어 화면이 가로로 넘친다. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopBar current={workspace.current} status={status} />
-        {/* 1280 미만은 지원하지 않는다(D25). 레이아웃을 바꾸지 않고 한 줄로 알린다. */}
-        <p
-          data-slot="narrow-notice"
-          className="flex items-center gap-2 border-b border-border bg-background px-4 py-2 type-label text-warning min-[1280px]:hidden"
-        >
-          <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
-          데스크톱 화면에서 이용하세요
-        </p>
         {/* 화면 머리의 경로(AppBreadcrumb)가 지금 주소를 여기서 받는다. */}
         <AppPathnameProvider pathname={pathname}>{children}</AppPathnameProvider>
       </div>
@@ -323,7 +315,7 @@ function NavGroupSection({
           aria-expanded={isOpen}
           aria-controls={listId}
           onClick={onToggle}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left type-label font-semibold text-foreground ring-sidebar-ring outline-hidden hover:bg-accent focus-visible:ring-2"
+          className="flex h-8 max-md:min-h-11 w-full items-center gap-2 rounded-md px-2 text-left type-label font-semibold text-foreground ring-sidebar-ring outline-hidden hover:bg-accent focus-visible:ring-2"
         >
           <group.icon
             aria-hidden
@@ -501,20 +493,27 @@ function UserMenu({
 // 상단바 상태 값. defaultOrigin 은 화면 기본 데이터 출처로, DEMO 배지가 주소에 ?origin= 이 없을 때 따른다.
 type ShellStatus = Omit<TopbarStatusProps, "demoIndicator"> & { defaultOrigin: ViewOrigin };
 
-// 화면 이름은 위 막대에 두지 않는다. 본문 머리의 경로·제목이 보인다(2026-10-28 화면 개편: 한 화면에 같은 이름이 세 번 나오지 않게).
+// 데스크톱 화면 이름은 본문 머리에만 둔다. 메뉴가 서랍으로 바뀌는 모바일에서는 위 막대에도 현재 화면을 표시한다(ADR-072).
 function AppTopBar({ current, status }: { current: CurrentOrg; status?: ShellStatus }) {
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
+  const pathname = usePathname();
+  const screen = breadcrumbOf(pathname)?.screen ?? current.name;
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.
     <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
       {/* -ml-2 는 버튼 안쪽 여백만큼 당겨 아이콘을 본문 선에 맞춘다. */}
       <SidebarTrigger className="-ml-2" />
+      {isMobile && (
+        <p className="min-w-0 flex-1 truncate type-body font-medium" title={current.name}>
+          {screen}
+        </p>
+      )}
       {/* 사이드바가 안 보이면(서랍 폭, 접은 넓은 폭) 지금 조직을 알 수 없어 조직 이름을 둔다 —
           다른 조직에 작업을 잘못 추가하지 않게. 구분선은 조직 이름과 함께만 보인다. */}
       <div
         className={cn(
-          "flex min-w-0 items-center gap-2 self-stretch",
+          "hidden min-w-0 items-center gap-2 self-stretch md:flex",
           state === "expanded" && "md:hidden",
         )}
       >

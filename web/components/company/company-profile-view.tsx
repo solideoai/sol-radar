@@ -24,7 +24,7 @@ import { COMPANY_TABS, companyTabHref, type CompanyTab } from "./company-tabs";
 
 // 탭은 주소를 바꾸는 화면 이동 탭이라 설정 메뉴처럼 바깥 상자 없이 파스텔 알약으로 둔다(2026-10-28 화면 개편).
 const LINK_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground";
+  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground max-md:min-h-11";
 // 프로필 출처 배지(가상·공개 자료)다. 출처 배지는 회색 Chip 으로 바꾸지 않는다(2026-10-28 화면 개편 규칙).
 const CHIP =
   "inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
@@ -55,7 +55,7 @@ function TabNav({
 }) {
   return (
     <nav aria-label="회사 역량 항목">
-      <ul className="flex gap-1">
+      <ul className="flex flex-wrap gap-1">
         {COMPANY_TABS.map((tab) => {
           const count = countOf(tab.id, profile, revisions);
           return (

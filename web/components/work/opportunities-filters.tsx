@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "cn";
-import { ChevronDownIcon, FilterXIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, FilterIcon, FilterXIcon, SearchIcon, XIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useOptimistic, useState, type TransitionStartFunction } from "react";
 import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
@@ -22,10 +22,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/lib/use-mobile";
 import { Switch } from "@/components/ui/switch";
 import {
   ALL_STATUSES,
   EARLY_STAGES,
+  OPPORTUNITY_CATEGORIES,
   OPPORTUNITY_KEYWORD_LABELS,
   OPPORTUNITY_SORT_LABELS,
   OPPORTUNITY_STAGES,
@@ -178,7 +189,10 @@ export function OpportunityFilters({
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useOptimistic(query);
-  const params = new URLSearchParams(search);
+  const isMobile = useIsMobile();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draft, setDraft] = useState(query);
+  const params = new URLSearchParams(isMobile && filterOpen ? draft : search);
   const sourceFamilies = params.getAll("sourceFamily");
   const keywords = params.getAll("keyword");
   const selectedStages = params.getAll("stage");
@@ -196,7 +210,7 @@ export function OpportunityFilters({
             ? "withCancelled"
             : "active";
   const go = (changes: Changes) => {
-    const next = new URLSearchParams(search);
+    const next = new URLSearchParams(isMobile && filterOpen ? draft : search);
     for (const key of ["cursor", "limit", "asOf"]) next.delete(key);
     for (const [key, value] of Object.entries(changes)) {
       next.delete(key);
@@ -205,6 +219,10 @@ export function OpportunityFilters({
     }
     if (pathname === "/watchlist") next.delete("watched");
     const nextQuery = next.toString();
+    if (isMobile && filterOpen) {
+      setDraft(nextQuery);
+      return;
+    }
     startTransition(() => {
       setSearch(nextQuery);
       router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
@@ -227,11 +245,93 @@ export function OpportunityFilters({
     !includeEarly &&
     (params.get("origin") ?? defaultOrigin) === defaultOrigin &&
     !params.get("sort");
-  return (
-    <section
-      aria-label="입찰 공고 검색 조건"
-      className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4"
+  const applied = new URLSearchParams(search);
+  const filterLabels: Record<string, string> = {
+    sourceFamily: "출처",
+    agencyId: "기관",
+    companyId: "회사",
+    stage: "단계",
+    status: "상태",
+    recommendation: "권고",
+    decision: "결정",
+    category: "분야",
+    keyword: "키워드",
+    origin: "데이터",
+    sort: "정렬",
+    siAiFirst: "AI·SI 우선",
+    includeEarly: "Early 포함",
+  };
+  const valueLabels: Record<string, string> = {
+    ...OPPORTUNITY_CATEGORIES,
+    ...SOURCE_LABELS,
+    ...OPPORTUNITY_STAGES,
+    ...RECOMMENDATION_LABEL,
+    ...OPPORTUNITY_KEYWORD_LABELS,
+    ...OPPORTUNITY_SORT_LABELS,
+    ...Object.fromEntries([...agencies, ...companies].map(({ id, name }) => [id, name])),
+    OPEN: "진행 중",
+    AMENDED: "정정",
+    CLOSED: "마감",
+    CANCELLED: "취소",
+    NONE: "미결정",
+    live: "실제 공고",
+    demo: "데모 공고",
+    all: "전체",
+    false: "끄기",
+    true: "켜기",
+  };
+  const activeFilters = [...applied.entries()]
+    .filter(([key]) => key in filterLabels)
+    .filter(
+      ([key], index, entries) =>
+        key !== "status" || entries.findIndex(([entryKey]) => entryKey === key) === index,
+    )
+    .map(([key, value]) => ({
+      key,
+      value,
+      label: `${filterLabels[key]}: ${
+        key === "status"
+          ? applied
+              .getAll(key)
+              .map((statusValue) => valueLabels[statusValue] ?? statusValue)
+              .join(" · ")
+          : (valueLabels[value] ?? value)
+      }`,
+    }));
+  const searchForm = (
+    <form
+      role="search"
+      className="min-w-0 flex-1 md:min-w-60"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const value = new FormData(event.currentTarget).get("q");
+        const text = typeof value === "string" ? value.trim() : "";
+        go({ q: text || null });
+      }}
     >
+      <Field>
+        <FieldLabel htmlFor="opportunity-search">검색</FieldLabel>
+        <div className="relative">
+          <SearchIcon
+            aria-hidden
+            className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground"
+          />
+          <Input
+            id="opportunity-search"
+            key={params.get("q") ?? ""}
+            name="q"
+            type="search"
+            maxLength={100}
+            defaultValue={params.get("q") ?? ""}
+            placeholder="제목·기관·공고번호"
+            className="pl-9"
+          />
+        </div>
+      </Field>
+    </form>
+  );
+  const controls = (
+    <>
       <div role="group" aria-label="분야 키워드" className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -304,7 +404,7 @@ export function OpportunityFilters({
             </Button>
           ))}
         </div>
-        <div className="w-40">
+        <div className="w-full md:w-40">
           <MultipleFilter
             id="opportunity-agency-quick"
             label="기관 선택"
@@ -334,37 +434,8 @@ export function OpportunityFilters({
         </label>
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <form
-          role="search"
-          className="min-w-60 flex-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = new FormData(event.currentTarget).get("q");
-            const text = typeof value === "string" ? value.trim() : "";
-            go({ q: text || null });
-          }}
-        >
-          <Field>
-            <FieldLabel htmlFor="opportunity-search">검색</FieldLabel>
-            <div className="relative">
-              <SearchIcon
-                aria-hidden
-                className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground"
-              />
-              <Input
-                id="opportunity-search"
-                key={params.get("q") ?? ""}
-                name="q"
-                type="search"
-                maxLength={100}
-                defaultValue={params.get("q") ?? ""}
-                placeholder="제목·기관·공고번호"
-                className="pl-9"
-              />
-            </div>
-          </Field>
-        </form>
-        <div className="w-32">
+        {!isMobile && searchForm}
+        <div className="w-full md:w-32">
           <MultipleFilter
             id="opportunity-source"
             label="출처"
@@ -373,7 +444,7 @@ export function OpportunityFilters({
             onChange={(values) => multiple("sourceFamily", values)}
           />
         </div>
-        <div className="w-40">
+        <div className="w-full md:w-40">
           <MultipleFilter
             id="opportunity-agency"
             label="기관"
@@ -383,7 +454,7 @@ export function OpportunityFilters({
             searchable
           />
         </div>
-        <div className="w-32">
+        <div className="w-full md:w-32">
           <MultipleFilter
             id="opportunity-stage"
             label="단계"
@@ -401,7 +472,7 @@ export function OpportunityFilters({
         </div>
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-40">
+        <div className="w-full md:w-40">
           <SingleFilter
             id="opportunity-status"
             label="상태"
@@ -429,7 +500,7 @@ export function OpportunityFilters({
             }
           />
         </div>
-        <div className="w-32">
+        <div className="w-full md:w-32">
           <MultipleFilter
             id="opportunity-recommendation"
             label="권고"
@@ -438,7 +509,7 @@ export function OpportunityFilters({
             onChange={(values) => multiple("recommendation", values)}
           />
         </div>
-        <div className="w-32">
+        <div className="w-full md:w-32">
           <MultipleFilter
             id="opportunity-decision"
             label="최종 결정"
@@ -448,7 +519,7 @@ export function OpportunityFilters({
           />
         </div>
         {companies.length > 0 && (
-          <div className="w-40">
+          <div className="w-full md:w-40">
             <MultipleFilter
               id="opportunity-company"
               label="KEPCO 회사 구분"
@@ -459,7 +530,7 @@ export function OpportunityFilters({
             />
           </div>
         )}
-        <div className="w-36">
+        <div className="w-full md:w-36">
           <SingleFilter
             id="opportunity-origin"
             label="데이터 구분"
@@ -472,7 +543,7 @@ export function OpportunityFilters({
             onChange={(value) => go({ origin: value === defaultOrigin ? null : value })}
           />
         </div>
-        <div className="w-40">
+        <div className="w-full md:w-40">
           <SingleFilter
             id="opportunity-sort"
             label="정렬"
@@ -490,18 +561,102 @@ export function OpportunityFilters({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() =>
+            onClick={() => {
+              if (isMobile && filterOpen) {
+                setDraft("");
+                return;
+              }
               startTransition(() => {
                 setSearch("");
                 router.push(pathname, { scroll: false });
-              })
-            }
+              });
+            }}
           >
             <FilterXIcon aria-hidden className="size-4" />
             필터 초기화
           </Button>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <section
+      aria-label="입찰 공고 검색 조건"
+      className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4"
+    >
+      {isMobile ? (
+        <>
+          <div className="flex min-w-0 items-end gap-2">
+            {searchForm}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDraft(search);
+                setFilterOpen(true);
+              }}
+            >
+              <FilterIcon aria-hidden className="size-4" />
+              필터{activeFilters.length > 0 ? ` ${activeFilters.length}` : ""}
+            </Button>
+          </div>
+          {activeFilters.length > 0 && (
+            <div aria-label="적용한 검색 조건" className="flex flex-wrap gap-2">
+              {activeFilters.map(({ key, value, label }) => (
+                <Button
+                  key={`${key}-${value}`}
+                  variant="outline"
+                  size="sm"
+                  className="h-auto max-w-full py-2 whitespace-normal text-left"
+                  aria-label={`${label} 조건 해제`}
+                  onClick={() => {
+                    const values = new URLSearchParams(search)
+                      .getAll(key)
+                      .filter((item) => item !== value);
+                    go({ [key]: key !== "status" && values.length > 0 ? values : null });
+                  }}
+                >
+                  <span className="min-w-0 flex-1 wrap-anywhere">{label}</span>
+                  <XIcon aria-hidden className="size-3.5" />
+                </Button>
+              ))}
+            </div>
+          )}
+          <Sheet
+            open={filterOpen}
+            onOpenChange={(open) => {
+              if (open) setDraft(search);
+              setFilterOpen(open);
+            }}
+          >
+            <SheetContent className="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md">
+              <SheetHeader className="shrink-0 border-b border-border pr-14">
+                <SheetTitle>공고 필터</SheetTitle>
+                <SheetDescription>조건을 고른 뒤 적용하세요.</SheetDescription>
+              </SheetHeader>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
+                {controls}
+              </div>
+              <SheetFooter className="shrink-0 border-t border-border">
+                <Button
+                  onClick={() => {
+                    startTransition(() => {
+                      setSearch(draft);
+                      router.push(draft ? `${pathname}?${draft}` : pathname, { scroll: false });
+                    });
+                    setFilterOpen(false);
+                  }}
+                >
+                  필터 적용
+                </Button>
+                <SheetClose render={<Button variant="outline" />}>취소</SheetClose>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : (
+        controls
+      )}
     </section>
   );
 }

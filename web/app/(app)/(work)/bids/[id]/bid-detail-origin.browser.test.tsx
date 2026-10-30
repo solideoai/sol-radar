@@ -83,6 +83,29 @@ afterEach(() => {
 });
 
 describe("공고 상세 출처 표시", () => {
+  it("360px: 긴 공고명과 분석 결과가 한 열에 맞고 검토 패널은 본문 아래에서 스크롤된다", async () => {
+    await page.viewport(360, 900);
+    const host = render(
+      detail({
+        title: "공공데이터통합플랫폼구축및클라우드전환사업을위한차세대정보시스템구축",
+        latestAnalysis: { ...FX01_VIEW, runMode: "mock", profileIsDemo: true },
+      }),
+    );
+    host.style.width = "100%";
+    await expect
+      .element(page.getByRole("region", { name: "분석 요약", exact: true }))
+      .toBeVisible();
+    const main = host.querySelector<HTMLElement>('[data-slot="bid-detail-main"]');
+    const rail = host.querySelector<HTMLElement>('[data-slot="bid-detail-rail"]');
+    if (main === null || rail === null) throw new Error("상세 본문과 검토 패널이 없습니다");
+    expect(rail.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      main.getBoundingClientRect().bottom,
+    );
+    expect(getComputedStyle(rail).position).toBe("static");
+    expect(getComputedStyle(rail).maxHeight).toBe("none");
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(360);
+  });
+
   it("G2B 실제 공고: DEMO 없음, 수요기관·공고기관을 원본 필드대로, 원문 링크와 마지막 변경", async () => {
     const host = render(detail({}), "2026-10-25T02:10:00.000Z");
     await expect.element(page.getByText(/수요기관 서울특별시 강남구/)).toBeVisible();

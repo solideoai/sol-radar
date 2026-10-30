@@ -74,7 +74,7 @@ export function OrgChartPending() {
     <AppPage title="조직도" contentClassName="max-w-none">
       <div role="status" className="grid gap-4">
         <p className="type-body text-muted-foreground">조직도를 불러오는 중입니다</p>
-        <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6">
           <Skeleton aria-hidden className="h-96" />
           <Skeleton aria-hidden className="h-96" />
         </div>

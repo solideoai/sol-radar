@@ -29,7 +29,7 @@ export function PeopleTable({
   const departmentNames = new Map(departments.map((item) => [item.id, item.name]));
   const titleNames = new Map(jobTitles.map((item) => [item.id, item.label]));
   return (
-    <Table className="table-fixed">
+    <Table className="min-w-140 table-fixed">
       <TableHeader>
         <TableRow>
           <TableHead scope="col" className="w-1/4">

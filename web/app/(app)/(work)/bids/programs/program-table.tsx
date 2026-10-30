@@ -57,7 +57,7 @@ export function ProgramTable({
 }) {
   const sorted = SORTED_COLUMN[sort];
   return (
-    <Table className="table-fixed">
+    <Table className="min-w-180 table-fixed">
       <caption className="sr-only">{TABLE_CAPTION}</caption>
       <TableHeader>
         <TableRow className="hover:bg-transparent">

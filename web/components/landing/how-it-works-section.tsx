@@ -30,18 +30,21 @@ export function HowItWorksSection() {
     <section
       id="analysis"
       aria-labelledby="analysis-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28"
     >
       <SectionHeading
         id="analysis-title"
         title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
       />
       {/* 세 단계를 가는 선으로 나눈다. 번호는 순서라는 정보라서 쓰되, 강조색 없이 본문 색으로 둔다. */}
-      <ol className="mt-14 grid grid-cols-3 border-y border-border">
+      <ol className="mt-8 xl:mt-14 grid grid-cols-1 xl:grid-cols-3 border-y border-border">
         {STEPS.map((step, index) => (
           <li
             key={step.title}
-            className={cn("py-8 pr-8", index > 0 && "border-l border-border pl-8")}
+            className={cn(
+              "py-6 xl:py-8 xl:pr-8",
+              index > 0 && "border-t border-border xl:border-t-0 xl:border-l xl:pl-8",
+            )}
           >
             <p className="type-label-lg font-semibold text-foreground tabular-nums">0{index + 1}</p>
             <h3 className="mt-3 type-heading-lg text-foreground">{step.title}</h3>

@@ -11,7 +11,7 @@ export default function WorkforceLoading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">인력 시뮬레이션을 불러오는 중…</span>
         <Skeleton className="h-36 motion-reduce:animate-none" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((key) => (
             <Skeleton key={key} className="h-64 motion-reduce:animate-none" />
           ))}

@@ -46,7 +46,7 @@ export function CalendarKindFilter({
                 title={KIND_LABELS[kind]}
                 data-kind={kind}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11",
                   on
                     ? "border-transparent bg-selected font-semibold text-selected-foreground"
                     : "border-border text-muted-foreground hover:bg-muted",

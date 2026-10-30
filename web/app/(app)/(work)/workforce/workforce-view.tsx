@@ -201,7 +201,7 @@ export function WorkforceView({
             void readOptions(false);
           }}
         >
-          <Field className="w-72">
+          <Field className="w-full md:w-72">
             <FieldLabel htmlFor="workforce-search">공고 검색</FieldLabel>
             <Input
               id="workforce-search"
@@ -217,7 +217,7 @@ export function WorkforceView({
           </Button>
         </form>
         <div className="flex flex-wrap items-end gap-3">
-          <Field className="min-w-0 w-100">
+          <Field className="min-w-0 w-full md:w-100">
             <FieldLabel htmlFor="workforce-picker">공고 선택</FieldLabel>
             <Select
               value={optionId}

@@ -40,11 +40,11 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">대시보드를 불러오는 중…</span>
         <div aria-hidden className="contents">
-          <div className="grid grid-cols-5 border-y border-border">
+          <div className="grid grid-cols-2 border-y border-border md:grid-cols-3 xl:grid-cols-5">
             {[0, 1, 2, 3, 4].map((key) => (
               <div
                 key={key}
-                className="flex min-w-0 flex-col gap-1 border-l border-border px-5 py-4 first:border-l-0 first:pl-0 last:pr-0"
+                className="flex min-w-0 flex-col gap-1 border-l border-border px-3 py-4 odd:border-l-0 md:odd:border-l xl:px-5 xl:first:border-l-0 xl:first:pl-0 xl:last:pr-0"
               >
                 <Skeleton className={`h-[23px] w-20 max-w-full ${pulse}`} />
                 <Skeleton className={`h-[39px] w-14 ${pulse}`} />

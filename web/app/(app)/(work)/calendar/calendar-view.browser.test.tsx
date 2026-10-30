@@ -119,7 +119,7 @@ function show(overrides: Partial<Props> = {}) {
     root.render(
       // 펼친 사이드바(256px) 자리를 비워 업무 틀과 같은 본문 폭에서 그린다.
       <div className="flex min-h-svh">
-        <div aria-hidden className="w-64 shrink-0 border-r border-border" />
+        <div aria-hidden className="hidden w-64 shrink-0 border-r border-border md:block" />
         <div className="flex min-w-0 flex-1 flex-col">
           <BidCalendar
             monthLabel="2026년 10월"
@@ -145,6 +145,38 @@ function show(overrides: Partial<Props> = {}) {
 }
 
 describe("입찰 일정 화면", () => {
+  it("390px: 선택한 달 전체를 일정 목록으로 표시하고 달 이동과 상세 링크가 화면 안에 있다", async () => {
+    await page.viewport(390, 900);
+    const laterDate = "2026-10-31";
+    const later = event("month-end", "2026-10-31T06:00:00.000Z", laterDate);
+    show({ eventsByDate: { ...EVENTS, [laterDate]: [later] }, upcoming: [] });
+
+    const agenda = page.getByRole("region", { name: "2026년 10월 일정 목록" });
+    await expect.element(agenda).toBeVisible();
+    await expect
+      .element(agenda.getByRole("link", { name: later.bid.title, exact: true }))
+      .toHaveAttribute("href", later.href);
+    expect(page.getByRole("table", { name: "월간 입찰 일정 2026년 10월" }).elements()).toHaveLength(
+      0,
+    );
+    const previous = page.getByRole("link", { name: "이전 달", exact: true });
+    await expect.element(previous).toHaveAttribute("href", LINKS.prev);
+    expect(previous.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(
+      agenda
+        .getByRole("link", { name: later.bid.title, exact: true })
+        .element()
+        .getBoundingClientRect().height,
+    ).toBeGreaterThanOrEqual(44);
+    expect(
+      agenda
+        .getByRole("link", { name: /month-end.*구글.*새 창/ })
+        .element()
+        .getBoundingClientRect().height,
+    ).toBeGreaterThanOrEqual(44);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+  });
+
   for (const width of [1440, 1280]) {
     it(`${width}px: 달력·겹침·더 보기·다가오는 14일을 그리고 가로로 넘치지 않는다`, async () => {
       // 1280px 는 다가오는 14일이 달력 아래로 내려가 화면이 길다. 사진에 다 담기게 높이를 잡는다.

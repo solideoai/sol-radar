@@ -11,7 +11,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: { baseURL, trace: "retain-on-failure" },
-  // 데스크톱 chromium 하나로 돈다. 휴대폰 기기 프로젝트는 두지 않는다(모바일 범위 외, docs/16-DECISIONS.md ADR-007).
+  // Chromium 프로젝트에서 데스크톱과 모바일 웹 viewport를 검사한다(ADR-072).
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `pnpm start --hostname 127.0.0.1 --port ${port}`,

@@ -55,7 +55,10 @@ export default function Loading() {
       contentClassName={DETAIL_CONTENT_CLASS}
     >
       {/* 본문 랜드마크(main)는 AppPage 가 그린다. 읽는 중 알림은 안쪽 요소가 맡는다. */}
-      <div role="status" className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
+      <div
+        role="status"
+        className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] items-start gap-6"
+      >
         <span className="sr-only">공고를 불러오는 중…</span>
         <div aria-hidden="true" className="flex min-w-0 flex-col gap-6">
           <Block className="h-24 w-full rounded-lg" />

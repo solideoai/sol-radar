@@ -169,7 +169,7 @@ function DataFreshnessIndicator({
 }) {
   const view = describeFreshness(summary, now, failed, staleAfterMs);
   return (
-    <Indicator name="freshness" className={view.className} tip={view.tip}>
+    <Indicator name="freshness" className={cn("max-md:hidden", view.className)} tip={view.tip}>
       {summary !== null && <ClockIcon aria-hidden="true" className="size-3.5 shrink-0" />}
       {/* 서버가 그린 시각과 브라우저 시각이 달라도 경고를 내지 않는다. */}
       <span suppressHydrationWarning>{view.text}</span>
@@ -345,11 +345,13 @@ export function TopbarStatus({
     };
   }, [initialSummary, pollIntervalMs]);
 
-  const divider = <Separator orientation="vertical" className="h-4 data-vertical:self-center" />;
+  const divider = (
+    <Separator orientation="vertical" className="hidden h-4 data-vertical:self-center md:block" />
+  );
   return (
     <div
       data-slot="topbar-status"
-      className="flex items-center gap-3 whitespace-nowrap text-foreground"
+      className="flex shrink-0 items-center gap-2 whitespace-nowrap text-foreground md:gap-3"
     >
       {demoIndicator}
       <DataFreshnessIndicator

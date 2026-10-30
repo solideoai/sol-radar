@@ -27,9 +27,9 @@ const FIRST_PUBLISHED_YEAR = 2026;
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-background text-foreground break-keep">
-      <div className="mx-auto flex w-full max-w-300 flex-col px-10 pt-14 pb-8">
-        <div className="grid grid-cols-12 gap-8">
-          <div className="col-span-5 flex flex-col items-start">
+      <div className="mx-auto flex w-full max-w-300 flex-col px-4 sm:px-6 xl:px-10 pt-14 pb-8">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-12">
+          <div className="xl:col-span-5 flex flex-col items-start">
             <Link
               href="/"
               className="max-w-full rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -41,19 +41,22 @@ export function SiteFooter() {
               {project.description}
             </p>
           </div>
-          <nav aria-label="바닥글 메뉴" className="col-span-6 col-start-7 grid grid-cols-2 gap-8">
+          <nav
+            aria-label="바닥글 메뉴"
+            className="xl:col-span-6 xl:col-start-7 grid grid-cols-2 gap-8"
+          >
             {GROUPS.map((group) => (
               <div key={group.id}>
                 {/* 묶음 이름은 제목 요소로 쓰지 않는다. 첫 화면의 제목 차례(h1·h2·h3)에 끼어들지 않고 목록의 이름만 된다. */}
                 <p id={group.id} className="type-label-lg font-semibold text-foreground">
                   {group.title}
                 </p>
-                <ul aria-labelledby={group.id} className="mt-3 flex flex-col gap-3">
+                <ul aria-labelledby={group.id} className="mt-3 flex flex-col gap-1 xl:gap-3">
                   {group.links.map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}
-                        className="inline-block rounded-sm type-label-lg text-muted-foreground outline-none hover:text-foreground hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="inline-flex min-h-11 items-center xl:min-h-0 rounded-sm type-label-lg text-muted-foreground outline-none hover:text-foreground hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         {link.label}
                       </Link>

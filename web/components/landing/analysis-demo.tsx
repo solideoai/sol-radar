@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useIsMobile } from "@/lib/use-mobile";
 import { CURSOR_REST, SHOWN_ALL, STEPS } from "@/components/landing/analysis-demo-data";
 import type { DemoBid } from "@/components/landing/demo-bids";
 import { DemoCursor, pointAt, translateOf } from "@/components/landing/demo-cursor";
@@ -23,10 +24,12 @@ export function AnalysisDemo({ children }: { children: React.ReactNode }) {
   // 사람이 고른 공고. null 이면 아직 판에 손대지 않았다.
   const [manualBid, setManualBid] = useState<DemoBid["id"] | null>(null);
   const reducedMotion = useReducedMotion();
+  const isMobile = useIsMobile();
   // 판이 화면에 30% 이상 보이고 탭이 보일 때만 흐른다.
   const onScreen = useOnScreen(figureRef);
 
-  const playback: Playback = manualBid !== null ? "manual" : reducedMotion ? "static" : "auto";
+  const playback: Playback =
+    manualBid !== null ? "manual" : reducedMotion || isMobile ? "static" : "auto";
   const auto = playback === "auto";
   const step = useStepLoop(STEPS, auto && onScreen);
   const current = STEPS[step];
@@ -54,7 +57,7 @@ export function AnalysisDemo({ children }: { children: React.ReactNode }) {
       data-playback={playback}
       className="border-y border-border"
     >
-      <div className="mx-auto w-full max-w-300 px-10 pt-28 pb-8 motion-safe:animate-in motion-safe:delay-150 motion-safe:duration-700 motion-safe:fill-mode-both motion-safe:fade-in motion-safe:slide-in-from-bottom-4">
+      <div className="mx-auto w-full max-w-300 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28 pb-8 motion-safe:animate-in motion-safe:delay-150 motion-safe:duration-700 motion-safe:fill-mode-both motion-safe:fade-in motion-safe:slide-in-from-bottom-4">
         {children}
         {/* 분석 예시 보기는 제목이 아니라 이 틀(figure)로 바로 온다 — 점수와 고지가 13인치 화면 안에 함께 들어와야 한다. */}
         {/* 판 아래 캡션 문장은 2026-10-28 사용자 요청으로 뺐다. 예시임은 판 머리의 "예시 데이터" 표시가 알린다. */}
@@ -63,7 +66,7 @@ export function AnalysisDemo({ children }: { children: React.ReactNode }) {
           ref={figureRef}
           onPointerDown={takeOver}
           onFocus={takeOver}
-          className="relative mt-14 scroll-mt-24"
+          className="relative mt-8 xl:mt-14 scroll-mt-24"
         >
           <ProductPreview
             value={selected}

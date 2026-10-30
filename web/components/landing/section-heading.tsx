@@ -13,7 +13,7 @@ export function SectionHeading({
 }) {
   return (
     <div className={className}>
-      <h2 id={id} className="max-w-200 type-headline text-balance text-foreground">
+      <h2 id={id} className="max-w-200 type-subhead xl:type-headline text-balance text-foreground">
         {title}
       </h2>
       {description && (

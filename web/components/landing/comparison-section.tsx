@@ -114,7 +114,7 @@ export function ComparisonSection() {
     <section
       id="about"
       aria-labelledby="about-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28"
     >
       <SectionHeading
         id="about-title"
@@ -125,68 +125,75 @@ export function ComparisonSection() {
         }
       />
       {/* 표는 가는 선과 열 정렬로 비교 관계를 드러낸다. 묶음마다 tbody 하나다. */}
-      <table className="mt-14 w-full border-collapse text-left">
-        <thead>
-          <tr className="border-t border-border">
-            <th
-              scope="col"
-              className="py-3.5 pr-6 type-label-lg font-semibold text-muted-foreground"
-            >
-              기능
-            </th>
-            {SERVICES.map((service) => (
+      <div
+        role="region"
+        aria-label="서비스 기능 비교, 가로 스크롤 가능"
+        tabIndex={0}
+        className="relative mt-8 overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/50 xl:mt-14"
+      >
+        <table className="w-full min-w-180 border-collapse text-left">
+          <thead>
+            <tr className="border-t border-border">
               <th
-                key={service}
                 scope="col"
-                className="w-[11%] px-3 py-3.5 text-center type-label-lg font-semibold tracking-wide text-muted-foreground"
+                className="py-3.5 pr-6 type-label-lg font-semibold text-muted-foreground"
               >
-                {service}
+                기능
               </th>
-            ))}
-            <th
-              scope="col"
-              className={cn(
-                "w-[12%] border-t-2 border-brand px-3 py-3.5 text-center type-label-lg font-bold text-brand",
-                SOL_COLUMN,
-              )}
-            >
-              SOL RADAR
-            </th>
-          </tr>
-        </thead>
-        {GROUPS.map((group) => (
-          <tbody key={group.name} className="last:border-b last:border-border">
-            <tr>
+              {SERVICES.map((service) => (
+                <th
+                  key={service}
+                  scope="col"
+                  className="w-[11%] px-3 py-3.5 text-center type-label-lg font-semibold tracking-wide text-muted-foreground"
+                >
+                  {service}
+                </th>
+              ))}
               <th
-                scope="rowgroup"
-                colSpan={SERVICES.length + 2}
-                className="pt-7 pb-2 type-label-lg font-semibold text-muted-foreground"
+                scope="col"
+                className={cn(
+                  "w-[12%] border-t-2 border-brand px-3 py-3.5 text-center type-label-lg font-bold text-brand",
+                  SOL_COLUMN,
+                )}
               >
-                {group.name}
+                SOL RADAR
               </th>
             </tr>
-            {group.rows.map((row) => (
-              <tr key={row.label} className="border-t border-border">
+          </thead>
+          {GROUPS.map((group) => (
+            <tbody key={group.name} className="last:border-b last:border-border">
+              <tr>
                 <th
-                  scope="row"
-                  className="py-5 pr-6 align-middle type-body-lg font-semibold text-foreground"
+                  scope="rowgroup"
+                  colSpan={SERVICES.length + 2}
+                  className="pt-7 pb-2 type-label-lg font-semibold text-muted-foreground"
                 >
-                  {row.label}
-                  {row.hint && (
-                    <span className="mt-1 block type-body font-normal text-muted-foreground">
-                      {row.hint}
-                    </span>
-                  )}
+                  {group.name}
                 </th>
-                {row.others.map((mark, index) => (
-                  <MarkCell key={SERVICES[index]} mark={OTHER_MARKS[mark]} />
-                ))}
-                <MarkCell mark={SOL_MARKS[row.sol]} className={SOL_COLUMN} />
               </tr>
-            ))}
-          </tbody>
-        ))}
-      </table>
+              {group.rows.map((row) => (
+                <tr key={row.label} className="border-t border-border">
+                  <th
+                    scope="row"
+                    className="py-5 pr-6 align-middle type-body-lg font-semibold text-foreground"
+                  >
+                    {row.label}
+                    {row.hint && (
+                      <span className="mt-1 block type-body font-normal text-muted-foreground">
+                        {row.hint}
+                      </span>
+                    )}
+                  </th>
+                  {row.others.map((mark, index) => (
+                    <MarkCell key={SERVICES[index]} mark={OTHER_MARKS[mark]} />
+                  ))}
+                  <MarkCell mark={SOL_MARKS[row.sol]} className={SOL_COLUMN} />
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
       <p className="mt-4 type-body text-muted-foreground">
         ✓ 공개 페이지에서 확인 · △ 일부만 확인(사람 검수 · 일부 업종, 등록만 가능 등) · — 공개
         페이지에서 확인되지 않음.

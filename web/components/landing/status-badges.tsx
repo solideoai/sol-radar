@@ -79,9 +79,11 @@ export function DemoBadge({ className }: { className?: string }) {
 // 쪽수는 줄지 않게 두고, 긴 인용은 쪽수 옆 칸 안에서 줄을 바꾼다.
 export function EvidenceQuote({ evidence }: { evidence: Evidence }) {
   return (
-    <span className="flex items-start gap-2 type-label-lg text-foreground">
+    <span className="flex flex-wrap items-start gap-x-2 gap-y-1 type-label-lg text-foreground">
       <span className="shrink-0 font-semibold text-foreground">공고문 p.{evidence.page}</span>
-      <span className="rounded-sm bg-brand/8 px-0.5">「{evidence.quote}」</span>
+      <span className="min-w-0 rounded-sm bg-brand/8 px-0.5 wrap-anywhere">
+        「{evidence.quote}」
+      </span>
     </span>
   );
 }

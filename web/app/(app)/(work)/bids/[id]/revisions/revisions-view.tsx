@@ -183,7 +183,7 @@ function ChangesTable({
 }) {
   // 바깥 둥근 1px 테두리는 ui/table 이 그린다(2026-10-28 화면 개편).
   return (
-    <Table className="table-fixed">
+    <Table className="min-w-160 table-fixed">
       <TableCaption className="sr-only">
         바뀐 항목 표: 이전 r{previous.revision}, 이후 r{current.revision}
       </TableCaption>
@@ -293,7 +293,7 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
     <nav
       data-slot="revision-list"
       aria-labelledby="revision-list-title"
-      className="sticky top-18 max-h-[calc(100dvh-5.5rem)] min-w-0 overflow-y-auto rounded-lg border border-border"
+      className="min-w-0 xl:sticky xl:top-18 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto rounded-lg border border-border"
     >
       <div className="flex items-baseline gap-2 px-4 pt-4 pb-3">
         <h2 id="revision-list-title" className="type-heading text-foreground">
@@ -418,7 +418,7 @@ export function RevisionsView({ comparison }: { comparison: RevisionComparison }
       description={<Description comparison={comparison} />}
       contentClassName={DETAIL_CONTENT_CLASS}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] items-start gap-6">
         <div className="flex min-w-0 flex-col gap-6">
           {cancelled && (
             <div data-slot="revision-cancelled">

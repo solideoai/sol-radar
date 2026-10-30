@@ -101,7 +101,7 @@ export function TechPanel({ profile }: { profile: CompanyProfile }) {
       ) : (
         <Card className={TABLE_CARD}>
           {/* 칸마다 오른쪽·아래 선을 긋고, 바깥 줄의 선은 -m 으로 카드 테두리 밖으로 밀어 겹치지 않게 한다. */}
-          <ul className="-mr-px -mb-px grid grid-cols-4">
+          <ul className="-mr-px -mb-px grid grid-cols-2 xl:grid-cols-4">
             {technologies.map((technology) => {
               const detail = [
                 technology.level ? LEVEL_LABEL[technology.level] : null,
@@ -159,7 +159,7 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
           등록된 자격이 없습니다. 자격 요건이 있는 공고는 ‘확인 필요’로 판정합니다.
         </EmptyNote>
       ) : (
-        <Table className="table-fixed">
+        <Table className="min-w-180 table-fixed">
           <caption className="sr-only">보유 자격과 미보유로 확인한 자격</caption>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -277,7 +277,7 @@ export function ProjectsPanel({ profile }: { profile: CompanyProfile }) {
           계산합니다.
         </EmptyNote>
       ) : (
-        <Table className="table-fixed">
+        <Table className="min-w-180 table-fixed">
           <caption className="sr-only">수행 실적. 최근 완료한 사업이 위에 있습니다.</caption>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -355,7 +355,7 @@ export function PeoplePanel({ staffing }: { staffing: CompanyStaffing }) {
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card size="sm">
           <CardContent className="flex flex-col gap-1">
             <p className="type-label text-muted-foreground">점수 계산 대상</p>
@@ -397,7 +397,10 @@ function DefinitionList({ rows }: { rows: { term: string; value: string }[] }) {
     <Card className={TABLE_CARD}>
       <dl className="divide-y divide-border">
         {rows.map((row) => (
-          <div key={row.term} className="grid grid-cols-[200px_1fr] gap-4 px-4 py-3">
+          <div
+            key={row.term}
+            className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-4 px-4 py-3"
+          >
             <dt className="type-label text-muted-foreground">{row.term}</dt>
             <dd className="type-body wrap-anywhere text-foreground">{row.value}</dd>
           </div>
@@ -507,7 +510,7 @@ export function HistoryPanel({
       title={`변경 이력 ${revisions.length}건`}
       usage="프로필은 고쳐 쓰지 않고 새 revision 으로 쌓습니다. 분석 결과는 그때 쓴 revision 번호를 남겨서, 프로필이 바뀌어도 지난 분석은 그대로입니다."
     >
-      <Table className="table-fixed">
+      <Table className="min-w-180 table-fixed">
         <caption className="sr-only">회사 프로필 revision 이력. 최신이 위에 있습니다.</caption>
         <TableHeader>
           <TableRow className="hover:bg-transparent">

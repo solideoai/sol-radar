@@ -49,7 +49,7 @@ export function FeaturesSection() {
     <section
       id="features"
       aria-labelledby="features-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-4 sm:px-6 xl:px-10 pt-14 xl:pt-28"
     >
       <SectionHeading
         id="features-title"
@@ -59,10 +59,13 @@ export function FeaturesSection() {
       <p role="note" className="mt-5 max-w-190 type-label-lg text-muted-foreground">
         화면은 예시 데이터로 그렸습니다.
       </p>
-      <ul className="mt-14 divide-y divide-border border-y border-border">
+      <ul className="mt-8 xl:mt-14 divide-y divide-border border-y border-border">
         {FEATURES.map((feature) => (
-          <li key={feature.id} className="grid grid-cols-12 items-start gap-x-12 py-14">
-            <div className="col-span-4">
+          <li
+            key={feature.id}
+            className="grid grid-cols-1 items-start gap-6 py-8 xl:grid-cols-12 xl:gap-x-12 xl:py-14"
+          >
+            <div className="min-w-0 xl:col-span-4">
               <h3 className="type-subhead text-balance text-foreground">{feature.title}</h3>
               <p className="mt-3.5 type-body-lg text-muted-foreground">{feature.body}</p>
             </div>
@@ -70,7 +73,7 @@ export function FeaturesSection() {
             <div
               aria-hidden
               inert
-              className="col-span-8 min-w-0 overflow-hidden rounded-lg border border-border bg-background"
+              className="min-w-0 overflow-x-auto xl:col-span-8 rounded-lg border border-border bg-background"
             >
               {feature.preview}
             </div>

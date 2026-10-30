@@ -41,9 +41,9 @@ export function ProductPreview({ value, onSelect, shown, pointing, pressed }: Pr
           if (bid !== undefined) onSelect(bid.id);
         }}
         orientation="vertical"
-        className="grid min-h-158 grid-cols-[260px_minmax(0,1fr)_288px]"
+        className="grid grid-cols-1 xl:min-h-158 xl:grid-cols-[260px_minmax(0,1fr)_288px]"
       >
-        <div className="border-r border-border bg-muted/50 p-3">
+        <div className="border-b border-border bg-muted/50 p-3 xl:border-r xl:border-b-0">
           <p
             id="demo-list-title"
             className="px-2.5 pt-1 pb-2.5 type-label-lg text-muted-foreground"
@@ -69,7 +69,7 @@ export function ProductPreview({ value, onSelect, shown, pointing, pressed }: Pr
           <Tabs.Panel
             key={bid.id}
             value={bid.id}
-            className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_288px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="grid min-w-0 grid-cols-1 xl:col-span-2 xl:grid-cols-[minmax(0,1fr)_288px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <BidReview bid={bid} shown={shown} />
             <DecisionRail bid={bid} shown={shown} />
@@ -89,11 +89,11 @@ const reveal = (on: boolean) =>
 // 주소 칸·브라우저 창 흉내(창 점·큰 그림자)는 두지 않는다 — 실제 서비스 주소처럼 보이지 않게 한다. 판은 1px 선으로만 나눈다.
 function PreviewBar() {
   return (
-    <div className="flex h-12 items-center gap-3 border-b border-border px-5">
+    <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3 xl:px-5 xl:py-0">
       <p className="type-label-lg text-muted-foreground">
         업무 / 입찰 공고 / <span className="font-semibold text-foreground">공고 분석</span>
       </p>
-      <p className="ml-auto type-label-lg text-muted-foreground">분석 기준: 가상 기업 프로필</p>
+      <p className="type-label-lg text-muted-foreground xl:ml-auto">분석 기준: 가상 기업 프로필</p>
       <span aria-hidden className="h-4 w-px bg-border" />
       <DemoBadge />
     </div>
@@ -137,31 +137,37 @@ function BidReview({ bid, shown }: { bid: DemoBid; shown: Shown }) {
   const [followUp] = bid.followUps;
   const allChecks = shown.checks >= bid.checks.length;
   return (
-    <div className="min-w-0 px-6 pt-6 pb-7">
-      <p className="type-label-lg text-muted-foreground">입찰공고</p>
-      <h3
-        id={`${bid.id}-title`}
-        className="mt-3 type-heading-lg text-foreground motion-safe:animate-in motion-safe:duration-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-1.5"
-      >
-        {bid.title}
-      </h3>
-      <dl className={cn("mt-4 grid grid-cols-3 gap-6", reveal(shown.facts))}>
-        <Fact term="기관명" value={bid.agency} />
-        <Fact term="사업 예산" value={formatWon(bid.budgetWon)} />
-        <Fact term="제안서 마감" value={formatDate(bid.proposalDue)} />
-      </dl>
-      <QualificationList bid={bid} shown={shown} />
-      {followUp !== undefined && (
-        <p
-          className={cn(
-            "mt-4 flex items-center gap-2.5 type-ui-lg text-foreground",
-            reveal(allChecks),
-          )}
+    <div className="contents min-w-0 xl:block xl:px-6 xl:pt-6 xl:pb-7">
+      <div className="min-w-0 px-4 pt-5 pb-5 xl:p-0">
+        <p className="type-label-lg text-muted-foreground">입찰공고</p>
+        <h3
+          id={`${bid.id}-title`}
+          className="mt-3 type-heading-lg text-foreground motion-safe:animate-in motion-safe:duration-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-1.5"
         >
-          <TriangleAlertIcon aria-hidden className="size-5 shrink-0 text-warning" />
-          추가 확인: {followUp}
-        </p>
-      )}
+          {bid.title}
+        </h3>
+        <dl
+          className={cn("mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 xl:gap-6", reveal(shown.facts))}
+        >
+          <Fact term="기관명" value={bid.agency} />
+          <Fact term="사업 예산" value={formatWon(bid.budgetWon)} />
+          <Fact term="제안서 마감" value={formatDate(bid.proposalDue)} />
+        </dl>
+      </div>
+      <div className="order-3 min-w-0 px-4 pb-6 xl:order-none xl:p-0">
+        <QualificationList bid={bid} shown={shown} />
+        {followUp !== undefined && (
+          <p
+            className={cn(
+              "mt-4 flex items-center gap-2.5 type-ui-lg text-foreground",
+              reveal(allChecks),
+            )}
+          >
+            <TriangleAlertIcon aria-hidden className="size-5 shrink-0 text-warning" />
+            추가 확인: {followUp}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -181,7 +187,7 @@ function QualificationList({ bid, shown }: { bid: DemoBid; shown: Shown }) {
   const { SATISFIED, NEEDS_REVIEW, NOT_SATISFIED } = bid.counts;
   return (
     <div className={cn("mt-6 border-t border-foreground", reveal(shown.checks >= 1))}>
-      <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
         <h4 className="type-ui-lg font-semibold text-foreground">참가 자격 검토</h4>
         <p
           className={cn(
@@ -197,7 +203,7 @@ function QualificationList({ bid, shown }: { bid: DemoBid; shown: Shown }) {
           <li
             key={check.requirement}
             className={cn(
-              "grid grid-cols-[104px_minmax(0,1fr)] items-start gap-3 border-t border-border py-3.5 last:border-b",
+              "grid grid-cols-1 sm:grid-cols-[104px_minmax(0,1fr)] items-start gap-3 border-t border-border py-3.5 last:border-b",
               reveal(index < shown.checks),
             )}
           >
@@ -224,7 +230,7 @@ function QualificationList({ bid, shown }: { bid: DemoBid; shown: Shown }) {
 function DecisionRail({ bid, shown }: { bid: DemoBid; shown: Shown }) {
   const noteId = `${bid.id}-score-note`;
   return (
-    <div className="flex min-w-0 flex-col gap-5.5 border-l border-border px-6 pt-6 pb-7">
+    <div className="order-2 flex min-w-0 flex-col gap-5.5 border-t border-border px-4 pt-5 pb-6 xl:order-none xl:border-t-0 xl:border-l xl:px-6 xl:pt-6 xl:pb-7">
       <div>
         <h4 className="type-label-lg font-medium text-muted-foreground">SOL Score</h4>
         <p className="mt-1 flex items-baseline gap-1.5">

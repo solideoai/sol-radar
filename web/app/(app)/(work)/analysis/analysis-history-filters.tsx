@@ -92,7 +92,7 @@ export function AnalysisHistoryFilters({
   return (
     <section aria-label="분석 이력 필터" className="space-y-3 rounded-lg border border-border p-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-70 min-w-0">
+        <div className="w-full min-w-0 md:w-70">
           <FilterSelect
             label="공고"
             value={query.bidId}

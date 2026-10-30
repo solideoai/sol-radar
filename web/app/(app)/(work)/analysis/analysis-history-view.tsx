@@ -199,7 +199,7 @@ export function AnalysisHistoryView({
             )}
           </div>
         ) : (
-          <Table className="table-fixed [&_td]:whitespace-normal [&_td]:wrap-anywhere">
+          <Table className="min-w-200 table-fixed [&_td]:whitespace-normal [&_td]:wrap-anywhere">
             <caption className="sr-only">
               조직 분석 이력. 생성 시각 최신순. DEMO는 데모용 가상 공고입니다.
             </caption>

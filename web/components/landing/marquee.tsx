@@ -23,7 +23,7 @@ export function Marquee({
 }) {
   return (
     <section aria-label={label} className="py-4">
-      <h2 className="mx-auto w-full max-w-300 px-10 text-center type-label-lg text-muted-foreground">
+      <h2 className="mx-auto w-full max-w-300 px-4 sm:px-6 xl:px-10 text-center type-label-lg text-muted-foreground">
         {label}
       </h2>
       {/* 초점을 받을 수 있어야 키보드로도 멈출 수 있다. 안에는 링크·버튼이 없다. */}
@@ -44,7 +44,7 @@ export function Marquee({
           className={cn(styles.track, reverse && styles.reverse, "flex w-max motion-reduce:w-full")}
           style={{ "--marquee-duration": `${seconds}s` } as React.CSSProperties}
         >
-          <ul className="flex shrink-0 gap-4 pr-4 motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-300 motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:px-10">
+          <ul className="flex shrink-0 gap-4 pr-4 motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-300 motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:px-4 motion-reduce:sm:px-6 motion-reduce:xl:px-10">
             {children}
           </ul>
           <ul aria-hidden className="flex shrink-0 gap-4 pr-4 motion-reduce:hidden">
@@ -53,7 +53,7 @@ export function Marquee({
         </div>
       </div>
       {note && (
-        <p className="mx-auto mt-3 w-full max-w-300 px-10 text-center type-label text-muted-foreground">
+        <p className="mx-auto mt-3 w-full max-w-300 px-4 sm:px-6 xl:px-10 text-center type-label text-muted-foreground">
           {note}
         </p>
       )}
