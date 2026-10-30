@@ -278,6 +278,22 @@ function syntheticCheck(context: QualificationContext, verdict: Verdict): Qualif
   );
 }
 
+/** 면허제한 여러 행이 모두 사전 코드이고 회사가 모두 보유(SATISFIED)하면 행마다 판정, 하나라도 아니면 null. */
+function judgeAllHeld(
+  rows: StructuredRequirement[],
+  context: QualificationContext,
+): { row: StructuredRequirement; code: QualificationCode; verdict: Verdict }[] | null {
+  const judged = rows.map((row) => {
+    const code = resolveQualificationCode(row.code, row.name);
+    return code === null
+      ? null
+      : { row, code, verdict: judgeLicense(code, context.profile, context.today) };
+  });
+  return judged.every((entry) => entry !== null && entry.verdict.outcome === "SATISFIED")
+    ? judged.filter((entry) => entry !== null)
+    : null;
+}
+
 type ResolvedItem = {
   index: number;
   item: QualificationRequirement;
@@ -322,7 +338,32 @@ function structuredChecks(
   });
 
   const licenseRows = byKind("LICENSE_LIMIT");
-  if (licenseRows.length > 1) {
+  const multiRowHeld = licenseRows.length > 1 ? judgeAllHeld(licenseRows, context) : null;
+  if (multiRowHeld !== null) {
+    // 행을 모두 보유하면 AND 로 읽든 OR 로 읽든 충족이다. AND/OR 해석은 넣지 않는다(sol-v0.2.1, 16 미결정 19).
+    const codes = new Set(multiRowHeld.map((entry) => entry.code));
+    const same = items.filter(
+      (entry) => isLicenseKind(entry.item) && entry.code !== null && codes.has(entry.code),
+    );
+    same.forEach((entry) => {
+      if (entry.code !== null) mergedCodes.add(entry.code);
+    });
+    multiRowHeld.forEach(({ row, code, verdict }, position) => {
+      const evidence = [
+        ...base(row, position, code).evidence,
+        ...same.filter((entry) => entry.code === code).flatMap((entry) => entry.evidence),
+      ];
+      checks.push(
+        finish(
+          { ...base(row, position, code), evidence },
+          {
+            ...verdict,
+            reason: `면허제한 ${licenseRows.length}행을 모두 보유해 AND/OR 와 상관없이 충족(${verdict.reason})`,
+          },
+        ),
+      );
+    });
+  } else if (licenseRows.length > 1) {
     // 면허제한 여러 행의 AND/OR 는 실제 응답으로 확인 전(15 §3 미검증 가정). 확인 전에는 사람이 본다.
     licenseRows.forEach((row, position) =>
       checks.push(
