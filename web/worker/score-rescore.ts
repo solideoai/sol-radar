@@ -1,5 +1,6 @@
 import {
   createRescoreStore,
+  isRescoreChanged,
   rescore,
   toRescorePayload,
   toRescoreRunRow,
@@ -21,6 +22,8 @@ import { errorCode } from "@/worker/main";
 // worker 컨테이너 안에서 돈다(service role 이 거기 있다). 운영 DB 에 쓴다.
 // --from-profile-revision <n>: 회사 프로필 revision 을 올린 뒤, revision n 프로필로 화면에 보이던 run 을
 // 최신 프로필로 바꿔 다시 계산한다(버전이 같아도 대상). 최신 프로필 run 이 이미 있는 공고는 건너뛴다.
+// --changed-only: 다시 계산한 점수·권고·자격 판정이 원본 run 과 같으면 새 run 을 만들지 않는다(unchanged 로 센다).
+// 결과가 같은 run 은 그대로 화면에 남아 거기 붙은 추천 분석도 보인다. 바뀐 run 은 id 를 한 줄씩 알린다.
 
 const LOAD_CHUNK = 25;
 const NO_ORG_LINE = "rescore: --org-slug 의 조직이 없다";
@@ -34,6 +37,7 @@ export type RescoreOptions = {
   dryRun: boolean;
   limit: number | null;
   fromProfileRevision: number | null;
+  changedOnly: boolean;
 };
 export type RescoreDeps = {
   store: RescoreStore;
@@ -77,7 +81,7 @@ export async function runRescore(
   const profileNote =
     target === null ? "" : `profile ${options.fromProfileRevision}->${target.revision} `;
   deps.log(
-    `rescore: ${ALGORITHM_VERSION} ${profileNote}${options.dryRun ? "dry-run " : ""}시작 ${counted}`,
+    `rescore: ${ALGORITHM_VERSION} ${profileNote}${options.changedOnly ? "changed-only " : ""}${options.dryRun ? "dry-run " : ""}시작 ${counted}`,
   );
 
   const before = emptyStats();
@@ -86,6 +90,7 @@ export async function runRescore(
     written: 0,
     existing: 0,
     busy: 0,
+    unchanged: 0,
     invalid: 0,
     failed: 0,
     recommendationChanged: 0,
@@ -94,7 +99,7 @@ export async function runRescore(
     const ids = targets.slice(index, index + LOAD_CHUNK).map((run) => run.id);
     const sources = await deps.store.loadSources(orgId, ids);
     for (const source of sources) {
-      const outcome = await rescoreOne(deps, orgId, source, options.dryRun, target);
+      const outcome = await rescoreOne(deps, orgId, source, options, target);
       if (outcome.kind === "INVALID") {
         tally.invalid += 1;
         deps.log(`rescore: ${source.id} INVALID — 스냅샷을 다시 계산하지 못해 건너뛴다`);
@@ -107,6 +112,9 @@ export async function runRescore(
       if (outcome.kind === "WRITTEN") tally.written += 1;
       if (outcome.kind === "EXISTING") tally.existing += 1;
       if (outcome.kind === "BUSY") tally.busy += 1;
+      if (outcome.kind === "UNCHANGED") tally.unchanged += 1;
+      // 바뀐 run 만 쓰는 모드에서는 어느 run 이 바뀌는지 id 만 남긴다(발표 장면 run 확인용).
+      else if (options.changedOnly) deps.log(`rescore: ${source.id} CHANGED`);
       if (outcome.kind === "FAILED") {
         tally.failed += 1;
         deps.log(`rescore: ${source.id} FAILED`);
@@ -115,7 +123,7 @@ export async function runRescore(
   }
   const summary =
     `rescore: ${counted} written=${tally.written} existing=${tally.existing} busy=${tally.busy} ` +
-    `invalid=${tally.invalid} failed=${tally.failed} recommendation_changed=${tally.recommendationChanged} ` +
+    `${options.changedOnly ? `unchanged=${tally.unchanged} ` : ""}invalid=${tally.invalid} failed=${tally.failed} recommendation_changed=${tally.recommendationChanged} ` +
     `before[${describe(before)}] after[${describe(after)}]`;
   return end(tally.failed === 0 && tally.invalid === 0 ? 0 : 1, summary);
 }
@@ -154,13 +162,17 @@ async function planTargets(
 type Scored = { score: number; recommendation: string };
 type OneOutcome =
   | { kind: "INVALID" }
-  | { kind: "DRY_RUN" | "WRITTEN" | "EXISTING" | "BUSY" | "FAILED"; before: Scored; after: Scored };
+  | {
+      kind: "DRY_RUN" | "UNCHANGED" | "WRITTEN" | "EXISTING" | "BUSY" | "FAILED";
+      before: Scored;
+      after: Scored;
+    };
 
 async function rescoreOne(
   deps: RescoreDeps,
   orgId: string,
   source: RescoreSource,
-  dryRun: boolean,
+  options: Pick<RescoreOptions, "dryRun" | "changedOnly">,
   target: RescoreTargetProfile | null,
 ): Promise<OneOutcome> {
   const computed = rescore(source, target);
@@ -170,7 +182,9 @@ async function rescoreOne(
     before: previous,
     after: { score: computed.result.score, recommendation: computed.result.recommendation },
   };
-  if (dryRun) return { kind: "DRY_RUN", ...scores };
+  if (options.changedOnly && !isRescoreChanged(source, computed.result))
+    return { kind: "UNCHANGED", ...scores };
+  if (options.dryRun) return { kind: "DRY_RUN", ...scores };
   const startedAt = deps.now().toISOString();
   const inserted = await deps.store.insertRun(toRescoreRunRow(orgId, source, startedAt, target));
   if (inserted.kind !== "CREATED") return { kind: inserted.kind, ...scores };
@@ -207,8 +221,9 @@ const ORG_SLUG_FLAG = "--org-slug";
 const LIMIT_FLAG = "--limit";
 const FROM_PROFILE_FLAG = "--from-profile-revision";
 const DRY_RUN_FLAG = "--dry-run";
+const CHANGED_ONLY_FLAG = "--changed-only";
 const VALUE_FLAGS = [ORG_SLUG_FLAG, LIMIT_FLAG, FROM_PROFILE_FLAG];
-const USAGE = `사용법: score-rescore.ts ${ORG_SLUG_FLAG} <slug> [${LIMIT_FLAG} <1 이상>] [${FROM_PROFILE_FLAG} <1 이상>] [${DRY_RUN_FLAG}]`;
+const USAGE = `사용법: score-rescore.ts ${ORG_SLUG_FLAG} <slug> [${LIMIT_FLAG} <1 이상>] [${FROM_PROFILE_FLAG} <1 이상>] [${CHANGED_ONLY_FLAG}] [${DRY_RUN_FLAG}]`;
 const POSITIVE_INT = /^[1-9]\d*$/;
 const SLUG_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -217,11 +232,17 @@ export function parseRescoreArgs(argv: readonly string[]): RescoreOptions {
   const args = argv.filter((arg) => arg !== "--");
   const values = new Map<string, string>();
   let dryRun = false;
+  let changedOnly = false;
   let index = 0;
   while (index < args.length) {
     const arg = args[index] ?? "";
     if (arg === DRY_RUN_FLAG && !dryRun) {
       dryRun = true;
+      index += 1;
+      continue;
+    }
+    if (arg === CHANGED_ONLY_FLAG && !changedOnly) {
+      changedOnly = true;
       index += 1;
       continue;
     }
@@ -243,6 +264,7 @@ export function parseRescoreArgs(argv: readonly string[]): RescoreOptions {
     dryRun,
     limit: limit === undefined ? null : Number(limit),
     fromProfileRevision: fromProfile === undefined ? null : Number(fromProfile),
+    changedOnly,
   };
 }
 

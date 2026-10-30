@@ -84,11 +84,12 @@ describe("classifyNotice · 공고 한 건의 판정 묶음", () => {
     ["면허제한 없음 + 보조 조회 OK", notice("b", []), "ELIGIBLE", []],
     ["면허제한 1행 회사 기록 없음", notice("c", [license(1, SW)]), "MISSING_RECORD", []],
     [
-      "면허제한 2행",
+      "면허제한 2행 가운데 기록 없는 행이 있음",
       notice("d", [license(1, SW), license(2, ICT)]),
       "NEEDS_REVIEW",
       ["LICENSE_MULTI_ROW"],
     ],
+    ["면허제한 2행 모두 보유", notice("i", [license(1, ICT), license(2, ICT)]), "ELIGIBLE", []],
     ["보조 조회 결과 없음", notice("e", [], { aux: null }), "NEEDS_REVIEW", ["AUX_LOOKUP_ABSENT"]],
     [
       "보조 조회 결과가 없으면 기록 없음 1행도 확인 필요",
@@ -224,12 +225,13 @@ describe("buildGapRadar · assumeGapRadar · 집계와 보유 가정", () => {
     ]);
   });
 
-  it("소프트웨어사업자 보유 가정 → 기록 없음 2건이 참가 가능으로 옮겨 가고, 2행 공고는 그대로 확인 필요다", () => {
+  it("소프트웨어사업자 보유 가정 → 기록 없음 2건과, 나머지 행을 보유한 2행 공고가 참가 가능으로 옮겨 간다", () => {
     const assumed = assumeGapRadar(notices, profile(), TODAY, ["SW_BUSINESS_REG"]);
-    expect(assumed.summary.buckets.ELIGIBLE).toEqual({ count: 3, budgetKrw: "1000000000" });
+    expect(assumed.summary.buckets.ELIGIBLE).toEqual({ count: 4, budgetKrw: "1900000000" });
     expect(assumed.summary.buckets.MISSING_RECORD).toEqual({ count: 0, budgetKrw: "0" });
-    expect(assumed.summary.buckets.NEEDS_REVIEW.count).toBe(3);
-    expect(assumed.opened.map((entry) => entry.bidId)).toEqual(["sw-1", "sw-2"]);
+    expect(assumed.summary.buckets.NEEDS_REVIEW.count).toBe(2);
+    // 2행(소프트웨어사업자·정보통신공사업)을 모두 보유하면 AND/OR 와 상관없이 충족이다(sol-v0.2.1).
+    expect(assumed.opened.map((entry) => entry.bidId)).toEqual(["bundle", "sw-1", "sw-2"]);
     // 원본 프로필로 다시 계산하면 그대로다(가정은 사본에만 반영).
     expect(buildGapRadar(notices, profile(), TODAY).summary.buckets.ELIGIBLE.count).toBe(1);
   });
@@ -249,9 +251,10 @@ describe("buildGapRadar · assumeGapRadar · 집계와 보유 가정", () => {
     expect(radar.summary.buckets.NOT_HELD.count).toBe(3);
     const [sw] = radar.blockers;
     expect(sw).toMatchObject({ code: "SW_BUSINESS_REG", kind: "NOT_HELD", count: 2 });
-    // 순위 표 건수 = 그 코드를 가정했을 때 실제로 열리는 건수
+    // 가정하면 순위 표 건수에 더해, 나머지 행(정보통신공사업)을 보유한 조건 묶음 공고도 열린다
+    expect(sw.bundledReviewCount).toBe(1);
     expect(assumeGapRadar(withRegion, notHeld, TODAY, ["SW_BUSINESS_REG"]).opened).toHaveLength(
-      sw.count,
+      sw.count + sw.bundledReviewCount,
     );
   });
 

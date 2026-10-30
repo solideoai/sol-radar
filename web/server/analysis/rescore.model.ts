@@ -47,6 +47,16 @@ export type RescoreSource = {
   recommendation: string | null;
   inputSnapshot: Json | null;
   kevOutput: Json | null;
+  /** 원본 run 에 저장된 자격 판정(qualification_checks). 바뀐 run 만 쓸 때(--changed-only) 비교한다. */
+  checks: RescoreCheck[];
+};
+
+/** 저장된 자격 판정 한 줄 가운데 비교에 쓰는 열. 사유 문장은 버전마다 달라질 수 있어 보지 않는다. */
+export type RescoreCheck = {
+  requirementName: string;
+  mandatory: boolean;
+  outcome: string;
+  reasonCode: string | null;
 };
 
 /** 화면에 보이는 run 하나의 id·공고·버전. 버전이 현재와 같으면 다시 계산하지 않는다. */
@@ -114,6 +124,29 @@ export function rescore(
   } catch {
     return null;
   }
+}
+
+const checkKey = (check: RescoreCheck): string =>
+  JSON.stringify([check.requirementName, check.mandatory, check.outcome, check.reasonCode]);
+
+/**
+ * 다시 계산한 결과가 원본 run 과 다른지. 점수·권고·자격 판정(이름·필수·결과·사유 코드) 가운데 하나라도 다르면 참.
+ * 같으면 새 run 을 만들지 않는다(그 run 에 붙은 추천 분석이 화면에 남는다).
+ */
+export function isRescoreChanged(source: RescoreSource, result: AnalysisResult): boolean {
+  if (source.score !== result.score || source.recommendation !== result.recommendation) return true;
+  const before = source.checks.map(checkKey).toSorted();
+  const after = result.qualificationChecks
+    .map((check) =>
+      checkKey({
+        requirementName: check.requirementName,
+        mandatory: check.mandatory,
+        outcome: check.outcome,
+        reasonCode: check.reasonCode,
+      }),
+    )
+    .toSorted();
+  return before.length !== after.length || before.some((key, index) => key !== after[index]);
 }
 
 /**

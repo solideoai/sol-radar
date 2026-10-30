@@ -351,7 +351,7 @@ const KIND_ICON: Record<BlockerKind, { icon: LucideIcon; className: string }> = 
 const BLOCKERS_HINT =
   "'보유 가정'을 켜면 저장하지 않고 서버에서 다시 계산합니다. 위 요약과 이 표의 숫자는 원래 값 그대로입니다.";
 const BUNDLED_FOOTNOTE =
-  "조건 묶음 포함: 이 업종이 다른 업종과 함께 걸린 면허제한 2행 이상 공고입니다. AND/OR 를 확인하지 못해 사람 확인 필요로 세며, 보유 가정으로 열리지 않습니다.";
+  "조건 묶음 포함: 이 업종이 다른 업종과 함께 걸린 면허제한 2행 이상 공고입니다. AND/OR 를 확인하지 못해 사람 확인 필요로 셉니다. 묶인 업종을 모두 보유하면(가정 포함) AND/OR 와 상관없이 참가 가능으로 셉니다.";
 
 /** 이 행에 "보유 가정" 스위치를 다는지. 사전 코드가 있고 회사 기록 없음·미보유인 행만이다(사전 밖은 가정할 수 없다). */
 const isAssumable = (row: BlockerRow): row is BlockerRow & { code: AssumeCode } =>

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -18,7 +18,7 @@ updated: 2026-10-29
 
 SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 결정 모델 출력은 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
 
-알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.0` 하나다(2026-10-29 `sol-v0.1.0`에서 올림, [[16-DECISIONS|ADR-071]]). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
+알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.1` 하나다(2026-10-29 `sol-v0.1.0` → `sol-v0.2.0`, 2026-10-30 자격 판정만 바꿔 `sol-v0.2.1`, [[16-DECISIONS|ADR-071]]). 저장된 `sol-v0.2.0` 스냅샷도 읽어 현재 규칙으로 계산한다(가정 재계산·추천 분석·인력 배치·재채점). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
 
 추출값을 그대로 쓰지 않고 규칙 쪽이 만드는 파생값 두 개:
 
@@ -47,7 +47,7 @@ solScore      = clamp(round(sum(points)), 0, 100)                          # 정
 ```
 
 > [!warning] 미검증 가정
-> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(지금 `sol-v0.2.0`, 가중치·임계값은 `sol-v0.1.0`과 같다)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
+> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(지금 `sol-v0.2.1`, 가중치·임계값은 `sol-v0.1.0`과 같다)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
 
 ## 3. 정규화 함수 (의사코드)
 
@@ -211,7 +211,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 | `NOTICE_INFO_MISSING` | 공고에서 요구를 꺼내지 못함(`UNKNOWN`, 첨부 미파싱 포함) | `FX-04` 자격 요건 미추출 |
 | `NOTICE_CONFLICTED` | 공고 안의 값이 상충함(`CONFLICTED`). API 구조화 필드와 추출이 다른 경우 포함(아래) | 본문 예산 ≠ 첨부 예산 |
 | `COMPANY_EVIDENCE_MISSING` | 회사 프로필에 해당 정보·증빙이 없음 | 면허 목록에 그 면허가 아예 없음(`NOT_HELD`도 `HELD`도 아님) |
-| `AMBIGUOUS_MATCH` | 의미 대응이 불확실함(규칙 사전 밖, 결정 모델 판단 필요) | 사전 코드가 없는 자격(`code=null`), "MSA 기반 클라우드 네이티브" 같은 사전 밖 기술 표현, 면허제한 여러 행의 AND/OR 미확인 |
+| `AMBIGUOUS_MATCH` | 의미 대응이 불확실함(규칙 사전 밖, 결정 모델 판단 필요) | 사전 코드가 없는 자격(`code=null`), "MSA 기반 클라우드 네이티브" 같은 사전 밖 기술 표현, 면허제한 여러 행의 AND/OR 미확인(행을 모두 보유하면 충족, 아래) |
 | `PARSE_UNSUPPORTED` | 첨부를 읽지 못함(다운로드 실패 포함) | 스캔 PDF, 배포용 HWP |
 | `STAGE_NOT_APPLICABLE` | 발주계획 단계라 자격 요건이 아직 없음 | `FX-17` |
 
@@ -237,6 +237,9 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 
 > [!warning] 미검증 가정
 > 2026-10-19 C1 ①에서 서비스키로 실제 응답을 받았다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md), 녹음 응답 `fixtures/recorded/`). 업종 코드는 업종 마스터 응답으로 확인했다: 소프트웨어사업자 `1468`(컴퓨터관련서비스사업)·`1426`(패키지소프트웨어개발.공급사업), 정보통신공사업 `0036`. 면허제한 `lcnsLmtNm`은 "이름/코드" 문자열이다. 남은 미검증은 면허제한이 여러 행일 때의 뜻이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있다. "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다. 확인 전에는 면허제한 여러 행을 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다([[16-DECISIONS|16 ADR]] 미결정 19번).
+> `sol-v0.2.1`부터 예외가 하나 있다. 모든 행이 사전 코드이고 회사가 모두 보유(`SATISFIED`)하면 AND로 읽든 OR로 읽든 충족이라 행마다 `SATISFIED`다. 같은 코드의 추출 자격은 그 행에 합친다(1행일 때와 같다). 한 행이라도 기록이 없거나 미보유면 지금처럼 `NEEDS_REVIEW`다. AND/OR 해석은 넣지 않는다.
+
+자격 코드 사전(`web/server/scoring/qualification-codes.ts`, gateway `services/ai/dictionaries/qualification-codes.yaml`)은 `sol-v0.2.1`에서 운영 공고 표기(2026-10-30 실측)로 별칭을 늘렸다. "중소기업·소상공인 확인서"와 그 표기 변형(가운뎃점·`/`·"또는"·"중·소기업")·"중소기업자"는 `SME_CONFIRMATION`, "직접생산증명서"는 `DIRECT_PRODUCTION`이다. "소기업·소상공인 확인서"는 중기업이 낼 수 없을 수 있어 넣지 않았다(사람이 본다).
 
 ### 5.2 결정 정책 v0.1
 
@@ -297,7 +300,7 @@ flowchart TD
 
 1. **평가**: 평가셋 test 분할에서 신뢰성 기준을 통과한다. 기준은 사용자가 정한다(제안값은 [[21-MODEL-TRAINING|21 모델 학습]] §4.4).
 2. **오류 분석**: 오답을 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠, 반영하려는 판단이 모델 쪽에서 믿을 만한지 확인한다(21 §4.4).
-3. **새 알고리즘 버전(`sol-v0.3.0` 이후. `sol-v0.2.0`은 ADR-071 빈 값 처리가 썼다)**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
+3. **새 알고리즘 버전(`sol-v0.3.0` 이후. `sol-v0.2.0`은 ADR-071 빈 값 처리, `sol-v0.2.1`은 자격 판정이 썼다)**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
 4. **ADR**: [[16-DECISIONS|16 ADR]]에 결정을 기록한다. 결정은 사람이 한다.
 
 ### 5.6 가정 재계산 (ADR-037)

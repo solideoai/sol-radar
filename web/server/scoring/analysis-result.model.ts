@@ -1,5 +1,10 @@
 import "server-only";
-import type { CompanyEvidenceRef, EvidenceRef, Recommendation } from "./analysis-input.model";
+import type {
+  ALGORITHM_VERSION,
+  CompanyEvidenceRef,
+  EvidenceRef,
+  Recommendation,
+} from "./analysis-input.model";
 
 // 규칙 엔진의 출력 계약. 모양은 docs/05 §4.5 AnalysisResult 를 따르되 저장·식별자·시각(id·queuedAt 등)은
 // 파이프라인이 붙인다. 여기에는 순수 계산 결과만 있다.
@@ -131,7 +136,7 @@ export type KevAssist = {
 
 export type AnalysisResult = {
   schemaVersion: "analysis-result/v0.1";
-  algorithmVersion: "sol-v0.2.0";
+  algorithmVersion: typeof ALGORITHM_VERSION;
   inputSnapshotHash: string;
   status: AnalysisStatus;
   errorCode: string | null;

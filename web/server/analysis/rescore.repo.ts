@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { toProfile } from "./analysis-store.model";
-import type { RescoreCandidate, RescoreSource, RescoreStore } from "./rescore.model";
+import type { RescoreCandidate, RescoreCheck, RescoreSource, RescoreStore } from "./rescore.model";
 
 // ── 점수 재채점 저장 port(`pnpm score:rescore`, ADR-071)의 Supabase 구현. 규칙은 rescore.model 에 둔다 ──
 // worker 컨테이너에서 service role 클라이언트로 돈다. service role 은 RLS 를 거치지 않으므로
@@ -34,6 +34,39 @@ function chunksOf<T>(items: readonly T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
     items.slice(index * size, (index + 1) * size),
   );
+}
+
+/** run 마다 저장된 자격 판정(비교 열만). */
+async function storedChecks(
+  client: Client,
+  orgId: string,
+  runIds: readonly string[],
+): Promise<Map<string, RescoreCheck[]>> {
+  const byRun = new Map<string, RescoreCheck[]>();
+  for (const chunk of chunksOf(runIds, ID_CHUNK)) {
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const rows = await client
+        .from("qualification_checks")
+        .select("id, score_run_id, requirement_name, mandatory, outcome, reason_code")
+        .in("score_run_id", chunk)
+        .eq("org_id", orgId)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (rows.error) throw storeError("qualification_checks", "select", rows.error);
+      for (const row of rows.data) {
+        const list = byRun.get(row.score_run_id) ?? [];
+        list.push({
+          requirementName: row.requirement_name,
+          mandatory: row.mandatory,
+          outcome: row.outcome,
+          reasonCode: row.reason_code,
+        });
+        byRun.set(row.score_run_id, list);
+      }
+      if (rows.data.length < PAGE_SIZE) break;
+    }
+  }
+  return byRun;
 }
 
 /** 공고마다 최신 revision id. bid_notices.latest_revision 과 같은 번호의 bid_revisions 행이다. */
@@ -160,6 +193,7 @@ export function createRescoreStore(client: Client): RescoreStore {
         .in("id", [...ids])
         .eq("org_id", orgId);
       if (rows.error) throw storeError("score_runs", "source", rows.error);
+      const checks = await storedChecks(client, orgId, ids);
       const byId = new Map(
         rows.data.map((row): [string, RescoreSource] => [
           row.id,
@@ -179,6 +213,7 @@ export function createRescoreStore(client: Client): RescoreStore {
             recommendation: row.recommendation,
             inputSnapshot: row.input_snapshot,
             kevOutput: row.kev_output,
+            checks: checks.get(row.id) ?? [],
           },
         ]),
       );

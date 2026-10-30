@@ -128,9 +128,10 @@ export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-stor
 export { isItBatchIdempotencyKey, itBatchIdempotencyKey } from "./it-batch.model";
 
 // 점수 재채점(`pnpm score:rescore`, ADR-071). 화면에 보이는 run 의 스냅샷을 현재 알고리즘으로 다시 계산한다.
-export { rescore, toRescorePayload, toRescoreRunRow } from "./rescore.model";
+export { isRescoreChanged, rescore, toRescorePayload, toRescoreRunRow } from "./rescore.model";
 export type {
   RescoreCandidate,
+  RescoreCheck,
   RescoreSource,
   RescoreStore,
   RescoreTargetProfile,
