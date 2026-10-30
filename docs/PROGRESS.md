@@ -15,8 +15,9 @@ updated: 2026-10-30
 ## 현재 상태 요약 (2026-10-29)
 
 - 공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 발표는 덱 20분 + 녹화 클립이다. D1 운영 사이트(`https://www.solideos-radar.com` + `?origin=demo`)는 녹화 촬영 경로이자 질의응답 라이브다. 발표 전 `pnpm demo:reset`은 하지 않는다.
-- 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 44 run, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
+- 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 공고 최신 run 49 보류, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
 - 운영에서 실공고를 수집·첨부 파싱·분석한다. 수집 출처는 나라장터·LH·KEPCO·K-water 입찰공고와 기업마당 부처 공고다. 실공고 분석과 추천 분석(ADR-066)이 운영에서 돈다(아래 운영 상태).
+- SOL Score `sol-v0.2.0`([[16-DECISIONS|ADR-071]])을 2026-10-30 운영에 반영하고 화면에 보이는 run 390건을 다시 계산했다(모두 보류). 발표 대본은 ADR-059 2026-10-30 개정을 따른다. 가정 재계산은 S3 FX-01(세 자격 → 추천 92), S4는 FX-02 재분석(예상 59 보류) → 사람 비추천이다.
 - 운영에 알림 Worker가 없어 인앱·카카오·마감 알림이 처리되지 않는다. 기동은 승인 뒤다(아래 "알림 처리" 행). 사용자가 운영 알림 Worker를 곧 구현할 예정이다(2026-10-29, 날짜는 [[12-ROADMAP|12 로드맵]] 남은 일정 제안 표).
 - X6 파인튜닝과 실험 E0~E3·X1·X2는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다.
 
@@ -26,17 +27,17 @@ updated: 2026-10-30
 
 | 항목 | 현재 값 | 마지막 확인 |
 |---|---|---|
-| web(Vercel) | main `a145cdc0`(가상 직원 등급·수행 이력 직급 정합) Vercel 커밋 상태 success, 로그인 운영 화면 확인. IT 공고만 보이기([[16-DECISIONS\|ADR-069]])는 `7f6909ec`부터. 함수 지역 `syd1`([지역 기록](evidence/deployment/20261028-region-latency.md)). [기록](evidence/people/20261030-grade-alignment/README.md) | 2026-10-30 10:13 KST |
-| `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:31 KST |
+| web(Vercel) | main `a145cdc0`(가상 직원 등급·수행 이력 직급 정합) Vercel 커밋 상태 success, 로그인 운영 화면 확인. SOL Score v0.2([[16-DECISIONS\|ADR-071]], [기록](evidence/sol-score-v02/20261030/rollout.md))는 `161686a9`부터. IT 공고만 보이기([[16-DECISIONS\|ADR-069]])는 `7f6909ec`부터. 함수 지역 `syd1`([지역 기록](evidence/deployment/20261028-region-latency.md)). [기록](evidence/people/20261030-grade-alignment/README.md) | 2026-10-30 10:13 KST |
+| `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다. [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 10:24 KST |
 | 운영 DB | migration 73개, 마지막 `20261030001100`(가상 직원 등급·수행 이력 직급 정합). db-push·`db-verify` 통과. [기록](evidence/people/20261030-grade-alignment/README.md) | 2026-10-30 09:45 KST |
-| 회사 반영 | AI gateway·Analysis Worker·redis-api는 `384e469857f0`(main + 회사 carry). gateway는 같은 호스트 Bosun `127.0.0.1:8009`를 부른다. `sol-radar-app` checkout은 22:15 보조 수집 예약 때문에 옮기지 않았다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:37 KST |
+| 회사 반영 | Analysis Worker·redis-api는 `7b5a79dc9054`(`deploy/sv02-20261030` = SOL Score v0.2 + 회사 carry, [[16-DECISIONS\|ADR-056]] 대안 A 포함). AI gateway는 `384e469857f0` 그대로이고 같은 호스트 Bosun `127.0.0.1:8009`를 부른다. `sol-radar-app` checkout은 `cbb3831e86da` 그대로다(redis-api 빌드 context만 배포 checkout). 되돌리기 태그 `sol-radar-gateway-redis-api:rollback-20261030`. [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 09:15 KST |
 | 나라장터 정기 수집 | KST 3시간 정각. ingest Worker `cbb3831e86da`. 보조 조회(면허·지역·첨부)는 기능별 한도 각 1,000회이고, 밀린 공고는 같은 revision에 하루 100~200건씩 다시 채운다. [기록](evidence/ingestion/20261029-g2b-aux-budget.md) | 2026-10-29 10:49 KST |
 | 외부 입찰공고(LH·KEPCO·K-water) | 같은 ingest Worker가 3시간 정각에 받는다. KEPCO는 공고 없는 날 HTTP 404를 빈 쪽으로 읽는다. 남은 외부 3종(K-water 발주계획·LH 사전규격·조달요청)은 꺼짐. [기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md) | 2026-10-29 09:40 KST |
 | 부처 공고(기업마당) | 전용 Worker가 3시간 정각에 받는다. 첫 정기 회차 `SUCCEEDED` 100/100, `program_notices` 100행. `/bids` "부처 지원사업" 탭 화면은 아직 보지 않았다. [기록](evidence/company-rollout/20261028/sources-rollout.md) | 2026-10-28 18:00 KST |
 | 첨부 처리(Documents Worker) | 운영 중. `PARSED` 393·`FAILED` 0·다운로드 실패 0, `PENDING` 6,127(그 시각 기준). 지금 수는 미확인. [기록](evidence/attachment-pipeline/20261028-documents-worker.md) | 2026-10-28 19:0x KST |
-| 분석 | 마감 전 IT 실공고 371건을 1회 일괄 분석했다([[16-DECISIONS\|ADR-069]] 5번, 회사 일회용 컨테이너, 14:20~16:28). 371건 모두 `COMPLETED`·보류, 점수 23~60, 실패 0, 알림 이벤트 0. 새 공고는 자동 분석하지 않는다([기록](evidence/it-scope/prod-20261029/README.md)). 그 전 실공고 3건은 모두 보류(38·44·45)이고, 부경대 38은 `RULES_ONLY`이고 사용자 결정으로 멈췄다. DEMO는 FX-02만 옛 분석(66 보류, 프로필 revision 2), 나머지 18건은 revision 5. [기록](evidence/company-rollout/20261029/ai-gateway-rollout.md) | 2026-10-29 |
-| 추천 분석 | 운영 반영. 실공고(재난 정신건강, 45 보류)·DEMO FX-01(58 보류) 모두 `DONE`·`MODEL`, 화면 금지어 0. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:37 KST |
-| DEMO 공고 | 19건 그대로, 16건 마감 +15일. 운영 DEMO 삭제는 발표 뒤다. FX-02는 촬영 때만 재분석한다([[16-DECISIONS\|ADR-059]]). [기록](evidence/demo-deadline/20261027/prod-run.md) | 2026-10-28 09:48 KST |
+| 분석 | 2026-10-30 SOL Score v0.2로 화면에 보이는 run 390건을 저장 입력으로 다시 계산했다([[16-DECISIONS\|ADR-071]], AI 재호출 없음, 회사 일회용 컨테이너). 실공고 372건 43~88(평균 66.1, 75 이상 60건), DEMO 18건 68~95, 모두 보류, 실패 0·권고 변화 0·알림 0. 그 전 기록: IT 실공고 371건 1회 일괄 분석(10-29, [[16-DECISIONS\|ADR-069]] 5번, [기록](evidence/it-scope/prod-20261029/README.md)), 실공고 3건(10-29, 부경대는 `RULES_ONLY`로 멈춤). 새 공고는 자동 분석하지 않는다. DEMO는 FX-02만 옛 분석(66 보류, 프로필 revision 2, 재채점 대상 아님). [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 09:40 KST |
+| 추천 분석 | 운영 반영. DEMO FX-01은 v0.2 재채점 run에 다시 만들었다(92 보류, `DONE`·`MODEL`). 재채점 전 run에 붙은 결과(실공고 2건 포함)는 run이 바뀌어 보이지 않는다. [기록](evidence/sol-score-v02/20261030/rollout.md) | 2026-10-30 09:41 KST |
+| DEMO 공고 | 19건 그대로, 16건 마감 +15일. 운영 DEMO 삭제는 발표 뒤다. FX-02는 촬영 때만 재분석한다([[16-DECISIONS\|ADR-059]], 예상 59 보류). v0.2 재채점 뒤 FX-01 92·FX-03 90 보류. [기록](evidence/demo-deadline/20261027/prod-run.md) | 2026-10-30 09:40 KST |
 | 알림 처리 | 처리되지 않는다. 회사에 알림 전용 Worker가 없고 outbox만 쌓인다. 기동 전 쌓인 수는 실행서 §9.1 SQL로 센다(`infra/company/README.md` §9). [기록](evidence/company-rollout/20261028/sources-rollout.md) | 2026-10-28 |
 | 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
 | CI | GitHub Actions job이 2026-10-24부터 계정 결제 문제로 시작되지 않는다. 검사는 로컬 pre-push 게이트와 직접 돌린 `pnpm verify`다 | 2026-10-27 |
@@ -48,9 +49,9 @@ updated: 2026-10-30
 
 ### 남은 일
 
-- [[16-DECISIONS|ADR-056]] 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다) 코드는 `269679e7`이다. main 병합 뒤 회사 Analysis Worker 재생성(`infra/company/README.md` §8.6, 승인 뒤)으로 운영에 들어간다.
+- [[16-DECISIONS|ADR-056]] 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다)는 2026-10-30 회사 Analysis Worker `7b5a79dc9054`에 들어갔다. 대기 동작을 운영 로그로 아직 보지 않았다.
 - 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표(사용자 확인 전)에 있다. 순서는 알림 전용 Worker 회사 기동(승인 뒤) → 카카오 연결·S0 수신 시험 → D1 리허설·촬영(S-LIVE·카카오 실수신, 로컬 Compose의 S5·S6) → 덱·녹화 클립 완성 → 제출 → 발표다.
-- 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 43(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]).
+- 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]).
 - 덱 pptx(`docs/submission/deck/sol-radar-deck.pptx`, git 밖)는 [[slides-spec|덱 제작 명세]]와 18장을 대조해 맞췄다. 그림·포스터는 옛 mock 화면이라 촬영 뒤 바꾼다. 명세가 정본이다.
 - 화면 동결 뒤 덱 클립을 찍는다([[16-DECISIONS|ADR-061]]). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인하고, 연결 안 된 곳의 로고를 뺄지 사용자가 정한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md)).
 - 열린 확인: 운영 로그인 화면(`/gaps`·`/market`·`/calendar` 실숫자, 부처 지원사업 탭), 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`, Compose 필요), 배포 뒤 사진 1장 올리기·지우기([릴리스 실행서](evidence/integration/20261025-release-runbook.md) §4), 나라장터 보조 정보 밤 일괄 채우기 결과.
@@ -136,7 +137,7 @@ updated: 2026-10-30
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
 - 2026-10-30 · 인물 수행 이력·조직도 검색 리뷰 후속(`fix/people-review-followups`): 가상 직원 등급·수행 이력을 직급에 맞춤(사용자 결정 "등급·이력 함께", `synthetic-people/v3`: 인턴 초급 1건·담당 초급·책임 중급/고급·수석·팀장 고급/특급에 최근 PL/PM·본부장 특급, 마이그레이션 `20261030001000`은 직급이 fixture 와 같은 데모 행의 `grade`·`past_projects`·`capability_version`만 바꿈, 운영에서 직급이 다른 SOL-P0065(그룹장)는 `20261030001100`이 운영 직급 기준으로 맞춤, 등급은 점수 계산이 읽지 않음), 조직도 이름 찾기에 한글 조합 중 Enter 시험 2건 추가, 이전 증거의 건수 정정(3건 42·4건 88·5건 70) · `node --test scripts/people/*.test.mjs` 12/12(변형 5건 실패 확인), 브라우저 시험 9/9(변형 2건 실패 확인), `pnpm verify:changed` exit 0(web 999시험·AI 264·결정 57). 운영 DB `20261030001000`·`20261030001100` 적용(73개, `db-verify` 통과, 데모 200행 v3), main `a145cdc0` Vercel 배포 성공, 로그인 운영 화면 1440·1280 확인 20/20·콘솔 오류 0([기록](evidence/people/20261030-grade-alignment/README.md))
-- 2026-10-30 · SOL Score `sol-v0.2.0`([[16-DECISIONS|ADR-071]]): 모르는 실적 금액·완료일은 빼고 계산, 금액 모르면 연 매출 대비 규모, 기술 아닌 요구 항목 거르기·목록에 없는 기술 0.5, 기관 선호 없으면 분야만. 저장 입력으로 다시 계산하는 `pnpm -C web score:rescore`(실행서 `infra/company/README.md` §11). 브랜치 `feat/sol-score-v02`, 운영 반영 전 · `pnpm verify:changed` exit 0(웹 119파일·1001시험, lodestar), 골든 94/72/68 그대로. 운영 DB 읽기 근사로 실공고 최고 60→88·DEMO 75→95
+- 2026-10-30 · SOL Score `sol-v0.2.0`([[16-DECISIONS|ADR-071]]): 모르는 실적 금액·완료일은 빼고 계산, 금액 모르면 연 매출 대비 규모, 기술 아닌 요구 항목 거르기·목록에 없는 기술 0.5, 기관 선호 없으면 분야만. 저장 입력으로 다시 계산하는 `pnpm -C web score:rescore`(실행서 `infra/company/README.md` §11). main `161686a9` · `pnpm verify:changed` exit 0(웹 119파일·1001시험, lodestar), 전체 `pnpm verify` exit 0, 골든 94/72/68 그대로. 운영 반영: 회사 Analysis Worker·redis-api `7b5a79dc9054`(09:15) → main push(Vercel, 09:20) → 재채점 390건(09:35·09:37, 실공고 최고 60→88·DEMO 75→95, 실패 0·권고 변화 0·알림 0) → FX-01 추천 분석 다시 만듦(09:41). 발표 대본 ADR-059 개정(사용자 "1"): 가정 재계산은 S3 FX-01(세 자격 → 추천 92, 운영 화면 확인), S4는 FX-02 재분석(예상 59) → 사람 비추천. 19·덱 명세·18·10·11·12·제출 문서 숫자 갱신([기록](evidence/sol-score-v02/20261030/rollout.md))
 - 2026-10-30 · 목록·대시보드 2차 가속([[16-DECISIONS|ADR-070]] 보강): 남은 대기(대시보드 약 1.6초·`/bids` 약 0.65초)의 원인인 IT 판정·정렬 함수 다섯 개를 planner가 풀어 넣도록 다시 만들고, summary 중복 후보·filter_options의 공고별 `it_scope(b)`를 조인으로(`20261030000100`). 운영 DB 반영, 대시보드 대기 약 1.6→0.75초·`/bids` 약 0.65→0.4초 · `database.test.mjs` 새 시험 마이그레이션 없이 실패·있으면 통과, IT 범위·집계 시험 11건 통과, 운영 읽기 측정 filter_options 1,729→197ms·중복 후보 265→38ms([기록](evidence/deployment/20261029-list-rpc-latency.md))
 - 2026-10-30 · 운영 `/bids` 에 잠깐 "Minified React error #441" 이 보인 원인 확인: 10-29 16:42:53~55 KST `procurement_filter_options` 4건이 8초 statement timeout(57014, Supabase edge·postgres 로그)으로 실패해 서버 컴포넌트가 던졌다. 23:53 필터 캐시 배포 뒤 이 RPC 호출 0건·Supabase 4xx·5xx 0건. 업무 화면 오류 상자(`work-error.tsx`)가 Next 16.4·React 19.3 운영 문구를 가린 메시지로 알아보지 못해 영어 원문을 보여 주던 것을 한국어 대체 문구로 고침 · `work-error.test.ts` 새 시험(고치기 전 실패 확인), `pnpm verify:changed` exit 0(web 999시험). 화면 확인·배포 전
 - 2026-10-29 · 조직도 이름 찾기 고침(`feat/org-search`): 재현해 보니 항목을 고르지 않은 Enter 는 목록만 닫았고, 목록이 닫히면 친 이름이 지워졌다(Base UI Combobox `value=null`). Autocomplete 로 바꾸고 [검색] 버튼·Enter 검색 추가 — 1명이면 그 팀으로 가고 여럿·없음은 목록·안내를 연다 · 새 브라우저 시험 7건(고치기 전 7건 실패 확인), `pnpm verify:changed` 통과(web 996시험), `test:browser` 105건 통과, 1440·1280 화면 확인([스크린샷](evidence/org-search/)). 로그인 E2E(`e2e-auth`)는 돌리지 않음

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 10. 배포·실행 프로필
@@ -69,11 +69,11 @@ updated: 2026-10-29
 
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
-3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 11-02까지 43 보류(`WATCH`), 11-03부터 37 보류다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 비추천(`NO_BID`)이다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
+3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류다(공개 자료 프로필 revision 5·SOL Score v0.2 기준, [[16-DECISIONS|ADR-059]]·[[16-DECISIONS|ADR-071]]). S4에는 가정 재계산이 없다. 가정 재계산은 S3 FX-01(자격 3건 보유 가정 → 추천 92)에서 한다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
 4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 운영에 분석된 실공고 run이 있다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 촬영 때 run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
 5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
-   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 43 보류가 저장되어 "미분석 → 재분석" 장면이 사라진다.
+   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 59 보류가 저장되어 "미분석 → 재분석" 장면이 사라진다.
    - 실행 모드를 바꾸지 않는다([[19-DEMO-SCENARIO|19]] §5).
 6. S5·S6 장애 장면은 녹화 영상으로 보인다. 운영에서 장애를 주입하지 않는다.
 

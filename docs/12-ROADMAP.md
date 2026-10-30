@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 12. 구현 순서와 해커톤 컷
@@ -25,7 +25,7 @@ updated: 2026-10-29
 |---|---|---|
 |10-30(금)~10-31(토)|알림 Worker 회사 기동|사용자 예정(2026-10-29 원문: "운영에 알림 Worker는 내일이나 모레 구현할 예정"). 준비만 했다(`infra/company/README.md` §9). 이 Worker가 없으면 인앱·카카오·마감 알림을 처리하지 않는다. 회사 기동은 승인 뒤 사람이 실행한다|
 |11-01(일) 전|카카오 사용자 연결·S0 수신 시험|운영 연결 0건. 알림 Worker 기동 뒤다(`infra/company/README.md` §9.6)|
-|11-02(월)까지|리허설 중 FX-02 재분석 금지|촬영 때 "이전 분석 66(가상 프로필) → 새 분석 43(공개 자료 프로필)"이 보여야 한다. 촬영의 S4 [재분석]만 한다(예상: 11-02까지 43 보류(`WATCH`), 11-03부터 37 보류. 두 자격 가정이면 비추천(`NO_BID`), [미리 계산](evidence/company-public-profile/20261028/fx-forecast.md), [[16-DECISIONS\|ADR-059]]). 회사 gateway가 `req-extract/v0.2`로 바뀌어 재분석 때 Qwen을 새로 부르므로 43은 촬영 화면 값으로 다시 확인한다([[16-DECISIONS\|ADR-064]])|
+|11-02(월)까지|리허설 중 FX-02 재분석 금지|촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필)"이 보여야 한다. 촬영의 S4 [재분석]만 한다(예상: 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류, SOL Score v0.2, [v0.2 미리 계산](evidence/sol-score-v02/20261030/fx02-forecast.md), [[16-DECISIONS\|ADR-059]]·[[16-DECISIONS\|ADR-071]]). 회사 gateway가 `req-extract/v0.2`로 바뀌어 재분석 때 Qwen을 새로 부르므로 59는 촬영 화면 값으로 다시 확인한다([[16-DECISIONS\|ADR-064]])|
 |11-01(일)|화면 동결, 리허설 1|D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함|
 |11-01(일)~11-02(월)|촬영(녹화 클립): D1 운영 사이트 장면·S-GAPS·S-LIVE·카카오 실수신, 로컬 Compose S5·S6|실공고 분석은 운영에 있다([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 카카오는 S0 수신 시험이 먼저다|
 |11-02(월)|발표 덱(20분)·녹화 클립 완성, 리허설 2|로컬 전체 `pnpm verify` 1회(GitHub Actions가 돌지 않는다). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md))|
@@ -82,7 +82,7 @@ updated: 2026-10-29
 
 |구분|포함|이유|
 |---|---|---|
-|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 근거·결정 모델 상충(D1 공개 자료 프로필은 58 보류, 로컬 `mock`은 94 추천(`BID`)과 FX-03 비추천), S4 FX-02 분석·가정 재계산·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·상단바 DEMO 배지·수집 신선도)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**(ADR-067로 발표 뒤 진행). 인력 200명 전원·고정 기간 95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|공식 제출 2026-11-03·발표 2026-11-04(ADR-054), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
+|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 근거·결정 모델 상충·가정 재계산(D1 공개 자료 프로필은 92 보류, 자격 3건 가정이면 추천. 로컬 `mock`은 94 추천(`BID`)과 FX-03 비추천), S4 FX-02 분석·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·상단바 DEMO 배지·수집 신선도)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**(ADR-067로 발표 뒤 진행). 인력 200명 전원·고정 기간 95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|공식 제출 2026-11-03·발표 2026-11-04(ADR-054), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
 |**파인튜닝 트랙 X6**([[16-DECISIONS\|ADR-034]]. 발표 뒤 진행, [[16-DECISIONS\|ADR-067]])|평가셋 v0.1(test 20·dev 10, P0-9), 학습셋 번들 내보내기·학습 요청서(P0-11), Bosun LoRA F1·F2·F3(회사 측 실행), E4 = Bosun+LoRA를 E1'(공개 Bosun zero-shot)과 같은 test 분할에서 짝 부트스트랩 95% CI로 비교. 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로|사용자 결정(2026-10-19). 발표 뒤 진행 예정이다(ADR-067, "해커톤 이후" 행). 회사 측 학습 결과를 못 받으면 "회사 측 미실행"으로 적는다. 핵심 컷 green 판정은 학습 결과를 기다리지 않는다|
 |**데모 강화 컷**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-037]])|BOOST-2 가정 재계산: 공고 상세의 미보유 필수 자격에 "보유 가정" 스위치 → 저장된 입력 스냅샷으로 점수·권고·자격 판정을 다시 계산해 원래 → 가정 띠로 보인다(저장 없음, 결정 모델 재호출 없음). 데모는 S4 `FX-02` 재분석 뒤 두 자격 스위치(보류 → 비추천, 43 그대로, ADR-059로 S3 `FX-03`에서 옮김)|main 병합, 데모 S4에 포함. 조건: 핵심 컷 코드 경로·계약을 바꾸지 않는 추가형, 확률·승률 표시 금지(ADR-007)|
 |**확장 컷**(예외: 카카오 ADR-038, 4건 ADR-039, 부처 지원사업 공고 ADR-040)|**카카오톡 추천 공고 알림**(나에게 보내기, [[16-DECISIONS\|ADR-038]]) → S5 변경 감지(FX-06·07·09·10 LIVE 배치, revision diff, `BID_CHANGED`) → `/people`·`/org-chart` 메뉴 → `/admin/ingestion` 화면 → 설정 조직 탭 → ADR-021 앱 셸 나머지·대시보드 카드 5개 → P0-8 사전규격·발주계획 단계 연결 → 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) → E0·E2·E3 전체 평가셋(test 20) 리포트(발표 뒤, ADR-067) → `/admin/ai/eval-runs`(코드 없음)|평가 리포트·`/admin/ai/eval-runs` 밖의 항목은 main에 들어갔다([통합 기록](evidence/committed-integrations/integration.md)). 카카오는 운영 연결 0건이다. 실수신 녹화는 알림 Worker 기동·S0 수신 시험 뒤 촬영 때 한다(위 남은 일정 제안 표). 메일 알림([[16-DECISIONS\|ADR-041]])은 해커톤에서 뺐다(코드 없음)|
