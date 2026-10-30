@@ -1,8 +1,10 @@
 import { cn } from "cn";
 import {
   CalendarDaysIcon,
+  CalendarPlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  DownloadIcon,
   LayersIcon,
   StarIcon,
   TriangleAlertIcon,
@@ -11,7 +13,7 @@ import Link from "next/link";
 import { AppPage } from "@/components/app-page";
 import { dDay, formatKst } from "@/components/bids/format";
 import { DemoBadge } from "@/components/bids/status-badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,10 @@ import {
   CALENDAR_CAPTION,
   CALENDAR_DESCRIPTION,
   CALENDAR_TITLE,
+  GOOGLE_ADD,
+  ICS_DOWNLOAD,
+  ICS_HINT,
+  ICS_UNAVAILABLE,
   KIND_FILTER_ALL,
   KIND_FILTER_EMPTY,
   KIND_LABELS,
@@ -54,6 +60,7 @@ import {
   VIEW_ORDER,
   WEEKDAYS,
 } from "./calendar-copy";
+import { googleCalendarUrl } from "./calendar-export";
 import { CalendarKindFilter } from "./calendar-kind-filter";
 import { KIND_ICON } from "./calendar-kinds";
 
@@ -77,6 +84,8 @@ export type CalendarLinks = {
   // 종류마다 그 칩을 켜고 끈 주소, 거르는 중일 때만 전부 켠 주소(전부 보이면 null)
   kinds: Record<CalendarEventKind, string>;
   allKinds: string | null;
+  // 지금 보는 달·보기·종류 그대로의 .ics 내려받기 주소(GET /api/v1/calendar/ics)
+  ics: string;
 };
 
 const timeOf = (at: string) => formatKst(at).slice(11);
@@ -274,7 +283,15 @@ function DayCell({
   );
 }
 
-function UpcomingItem({ event, now }: { event: CalendarEvent; now: Date }) {
+function UpcomingItem({
+  event,
+  now,
+  siteOrigin,
+}: {
+  event: CalendarEvent;
+  now: Date;
+  siteOrigin: string | null;
+}) {
   const due = dDay(event.at, now);
   return (
     <li className="flex gap-3 py-3">
@@ -305,6 +322,17 @@ function UpcomingItem({ event, now }: { event: CalendarEvent; now: Date }) {
           ) : null}
           {event.bid.cancelled ? <span className="text-destructive">공고 취소</span> : null}
           {event.bid.isDemo ? <DemoBadge dense /> : null}
+          {/* 구글 캘린더 일정 만들기 화면을 새 창으로 연다(OAuth 없음, 사용자가 직접 저장한다). */}
+          <a
+            href={googleCalendarUrl(event, siteOrigin)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${event.bid.title} ${KIND_LABELS[event.kind]} ${GOOGLE_ADD}(새 창)`}
+            className="inline-flex items-center gap-0.5 rounded-sm text-foreground underline underline-offset-4 outline-hidden hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <CalendarPlusIcon aria-hidden className="size-3" />
+            {GOOGLE_ADD}
+          </a>
         </p>
       </div>
     </li>
@@ -348,6 +376,7 @@ export function BidCalendar({
   kindsFiltered,
   hasAnyEvents,
   relevantFailed,
+  siteOrigin,
 }: {
   monthLabel: string;
   weeks: CalendarDay[][];
@@ -367,6 +396,8 @@ export function BidCalendar({
   hasAnyEvents: boolean;
   // IT 공고를 읽지 못해 관심·프로젝트 일정만 실었는지(조직 전체 보기만 읽는다)
   relevantFailed: boolean;
+  // 이 사이트 주소(구글 일정 설명에 SOL RADAR 링크를 싣는다). 모르면 null 이고 링크 줄을 뺀다.
+  siteOrigin: string | null;
 }) {
   const monthHasEvents = weeks.some((week) =>
     week.some((day) => day.inMonth && (eventsByDate[day.date]?.length ?? 0) > 0),
@@ -400,24 +431,44 @@ export function BidCalendar({
             </Link>
           </nav>
         </div>
-        {/* 같은 일정을 다른 범위로 보는 하나 고르기 전환이라 테두리 상자 안의 알약이다(2026-10-28 화면 개편). */}
-        <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
-          {VIEW_ORDER.map((option) => (
-            <Link
-              key={option}
-              href={links.views[option]}
-              aria-current={option === view ? "page" : undefined}
-              className={cn(
-                "rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-                option === view
-                  ? "bg-selected font-semibold text-selected-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 같은 일정을 다른 범위로 보는 하나 고르기 전환이라 테두리 상자 안의 알약이다(2026-10-28 화면 개편). */}
+          <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
+            {VIEW_ORDER.map((option) => (
+              <Link
+                key={option}
+                href={links.views[option]}
+                aria-current={option === view ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  option === view
+                    ? "bg-selected font-semibold text-selected-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {VIEW_LABELS[option]}
+              </Link>
+            ))}
+          </nav>
+          {/* 파일 내려받기라 Link(화면 이동·미리 읽기)가 아니라 a 다. IT 공고를 못 읽었으면 내려받기도 503 이라
+              누르면 브라우저가 이유 없이 실패만 보이므로 끄고, 이유는 아래 실패 안내에 싣는다. */}
+          {relevantFailed ? (
+            <Button variant="outline" size="sm" disabled>
+              <DownloadIcon aria-hidden />
+              {ICS_DOWNLOAD}
+            </Button>
+          ) : (
+            <a
+              href={links.ics}
+              download
+              title={ICS_HINT}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              {VIEW_LABELS[option]}
-            </Link>
-          ))}
-        </nav>
+              <DownloadIcon aria-hidden />
+              {ICS_DOWNLOAD}
+            </a>
+          )}
+        </div>
       </div>
       <div className="flex flex-col gap-3">
         <div>
@@ -429,7 +480,7 @@ export function BidCalendar({
               className="mt-1 flex items-start gap-1.5 type-caption wrap-anywhere text-muted-foreground"
             >
               <TriangleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
-              {RELEVANT_LOAD_FAILED}
+              {RELEVANT_LOAD_FAILED} {ICS_UNAVAILABLE}
             </p>
           ) : null}
         </div>
@@ -512,7 +563,12 @@ export function BidCalendar({
             ) : (
               <ol className="mt-2 divide-y divide-border border-y border-border">
                 {upcomingShown.map((event) => (
-                  <UpcomingItem key={event.key} event={event} now={nowDate} />
+                  <UpcomingItem
+                    key={event.key}
+                    event={event}
+                    now={nowDate}
+                    siteOrigin={siteOrigin}
+                  />
                 ))}
               </ol>
             )}
@@ -526,7 +582,12 @@ export function BidCalendar({
                   className="divide-y divide-border border-b border-border"
                 >
                   {upcomingRest.map((event) => (
-                    <UpcomingItem key={event.key} event={event} now={nowDate} />
+                    <UpcomingItem
+                      key={event.key}
+                      event={event}
+                      now={nowDate}
+                      siteOrigin={siteOrigin}
+                    />
                   ))}
                 </ol>
               </details>

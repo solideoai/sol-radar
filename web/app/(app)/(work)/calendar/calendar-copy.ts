@@ -76,6 +76,13 @@ export const upcomingOverflow = (count: number) =>
 export const MORE_MENU_MAX = 15;
 export const moreMenuOverflow = (count: number) =>
   `그 밖에 ${count}건 · 일정 종류를 거르면 줄어듭니다`;
+// 내보내기(OAuth 없음). .ics 는 지금 보는 달·보기·종류 그대로 내려받고, 구글 링크는 일정 하나를 사용자의 구글 캘린더에 채워 연다.
+export const ICS_DOWNLOAD = "이 달 일정 내려받기(.ics)";
+export const ICS_HINT = "구글 캘린더·아웃룩에서 가져오기로 추가합니다. 자동으로 갱신되지 않습니다.";
+export const GOOGLE_ADD = "구글 캘린더에 추가";
+// IT 공고를 못 읽으면 내려받기는 일부만 담지 않고 503 이라 버튼을 끄고 이유를 실패 안내 뒤에 붙인다.
+export const ICS_UNAVAILABLE =
+  "IT 공고 일정이 빠진 파일은 내려주지 않습니다. 새로 고친 뒤 내려받으세요.";
 export const MONTH_EMPTY = "이 달에는 일정이 없습니다.";
 export const NO_EVENTS_HINT =
   "입찰 공고에서 별을 눌러 관심 표시하거나 입찰 프로젝트를 열면 일정이 여기에 모입니다.";

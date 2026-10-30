@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { CalendarDay, CalendarEvent, CalendarEventKind } from "@/server/calendar";
 import {
+  ICS_DOWNLOAD,
+  ICS_UNAVAILABLE,
   KIND_ORDER,
   MORE_MENU_MAX,
   moreMenuOverflow,
@@ -99,6 +101,7 @@ const LINKS: CalendarLinks = {
     KIND_ORDER.map((kind) => [kind, `/calendar?month=2026-10&kinds=${kind}`]),
   ) as Record<CalendarEventKind, string>,
   allKinds: null,
+  ics: "/api/v1/calendar/ics?month=2026-10",
 };
 
 const mounted: Root[] = [];
@@ -132,6 +135,7 @@ function show(overrides: Partial<Props> = {}) {
             kindsFiltered={false}
             hasAnyEvents
             relevantFailed={false}
+            siteOrigin="https://sol.example"
             {...overrides}
           />
         </div>
@@ -327,7 +331,9 @@ describe("입찰 일정 화면", () => {
       String(UPCOMING_VISIBLE + 1),
     );
     await expect
-      .element(upcoming.getByRole("link", { name: /^up-23 / }))
+      .element(
+        upcoming.getByRole("link", { name: "up-23 차세대 정보시스템 구축 사업", exact: true }),
+      )
       .toHaveAttribute("href", "/bids/up-23?origin=live");
     // 상한 안이면 넘친 건수 줄이 없다.
     expect(upcoming.element().textContent).not.toContain("그 밖에");
@@ -377,6 +383,43 @@ describe("입찰 일정 화면", () => {
     await userEvent.keyboard("{Escape}");
   });
 
+  it("툴바에 이 달 .ics 내려받기 링크가 있다", async () => {
+    await page.viewport(1280, 1000);
+    show();
+
+    const download = page.getByRole("link", { name: "이 달 일정 내려받기(.ics)" });
+    await expect.element(download).toHaveAttribute("href", "/api/v1/calendar/ics?month=2026-10");
+    await expect.element(download).toHaveAttribute("download");
+    // 1280px 에서 툴바가 줄을 바꿔도 가로로 넘치지 않는다.
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+  });
+
+  it("다가오는 일정마다 구글 캘린더에 추가 링크가 새 창으로 열린다", async () => {
+    await page.viewport(1440, 1000);
+    const site = event("site", "2026-10-29T01:00:00.000Z", "2026-10-29", {
+      kind: "SITE_BRIEFING",
+      watched: false,
+      place: "조달청 본관 3층 회의실",
+    });
+    show({ eventsByDate: { "2026-10-29": [site] }, upcoming: [site] });
+
+    const upcoming = page.getByRole("region", { name: "다가오는 14일" });
+    const google = upcoming.getByRole("link", {
+      name: "site 차세대 정보시스템 구축 사업 현장설명회 구글 캘린더에 추가(새 창)",
+    });
+    await expect.element(google).toHaveAttribute("target", "_blank");
+    expect(google.element().getAttribute("rel")).toContain("noopener");
+    const href = new URL(google.element().getAttribute("href") ?? "");
+    expect(href.origin + href.pathname).toBe("https://calendar.google.com/calendar/render");
+    expect(href.searchParams.get("action")).toBe("TEMPLATE");
+    // 달력 칸 칩에는 넣지 않는다(칸 높이).
+    const calendar = page.getByRole("table", { name: "월간 입찰 일정 2026년 10월" });
+    expect(calendar.element().querySelector('a[href^="https://calendar.google.com"]')).toBeNull();
+    await page.screenshot({
+      path: "../../../../test-results/vitest-screenshots/calendar-1440-google-link.png",
+    });
+  });
+
   it("IT 공고를 읽지 못하면 출처 줄 아래에 아이콘과 글자로 알린다", async () => {
     await page.viewport(1440, 1000);
     show({ relevantFailed: true });
@@ -386,6 +429,10 @@ describe("입찰 일정 화면", () => {
       .element(notice)
       .toHaveTextContent("IT 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.");
     expect(notice.element().querySelector("svg")).not.toBeNull();
+    // 이때 내려받기는 503 이라 누를 수 없게 하고, 이유를 같은 안내에 싣는다.
+    await expect.element(notice).toHaveTextContent(ICS_UNAVAILABLE);
+    await expect.element(page.getByRole("button", { name: ICS_DOWNLOAD })).toBeDisabled();
+    await expect.element(page.getByRole("link", { name: ICS_DOWNLOAD })).not.toBeInTheDocument();
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/calendar-1440-relevant-failed.png",
     });
