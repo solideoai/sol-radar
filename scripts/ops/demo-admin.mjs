@@ -11,6 +11,8 @@ import { resolveOpsEnv } from "./close-stale-ingest-runs.mjs";
 
 const admin = DEMO_ACCOUNTS.find(({ key }) => key === "admin");
 const orgId = orgUuid(admin.org);
+// 예전에 쓰던 ADMIN 이메일. 운영 계정은 admin@soltech.invalid → admin@admin.com → admin@solideos.com 순으로 바뀌었다.
+const LEGACY_ADMIN_EMAILS = ["admin@admin.com", "admin@soltech.invalid"];
 
 export const upsertDemoAdminCatalog = async (client) => {
   await client.upsert(
@@ -59,7 +61,7 @@ export const provisionDemoAdmin = async ({ client, apply = false, password } = {
   const users = await client.auth.listUsers();
   const target = users.find(({ email }) => email?.toLowerCase() === admin.email);
   // 이메일 변경 시에도 기존 계정의 멤버십·검토 기록을 같은 사용자 ID에 남긴다.
-  const legacy = users.find(({ email }) => email?.toLowerCase() === "admin@soltech.invalid");
+  const legacy = users.find(({ email }) => LEGACY_ADMIN_EMAILS.includes(email?.toLowerCase()));
   if (target && legacy && target.id !== legacy.id)
     throw new Error("새 이메일이 이미 다른 계정에 있습니다");
   const existing = target ?? legacy;

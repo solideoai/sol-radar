@@ -5,7 +5,7 @@ export const signInSchema = z.object({
     .string()
     .trim()
     .pipe(z.union([z.literal("admin"), z.email()], { error: "아이디 또는 이메일을 확인하세요" }))
-    .transform((value) => (value === "admin" ? "admin@admin.com" : value)),
+    .transform((value) => (value === "admin" ? "admin@solideos.com" : value)),
   password: z.string().min(6, "비밀번호는 6자 이상입니다"),
 });
 

@@ -5,7 +5,7 @@ import { createRestClient } from "../demo/rest-client.mjs";
 
 const clientFor = () => {
   const writes = [];
-  const users = [{ id: "existing-user", email: "admin@soltech.invalid" }];
+  const users = [{ id: "existing-user", email: "admin@admin.com" }];
   const client = {
     select: async (table) =>
       table === "organizations"
@@ -45,7 +45,7 @@ test("기존 계정 ID를 유지하고 명부·공고·분석을 건드리지 �
   assert.ok(
     writes
       .filter(({ table }) => table === "auth.users")
-      .every(({ email }) => email === "admin@admin.com"),
+      .every(({ email }) => email === "admin@solideos.com"),
   );
   assert.deepEqual([...new Set(writes.map(({ table }) => table))].sort(), [
     "auth.users",
@@ -64,8 +64,8 @@ test("기존 계정 ID를 유지하고 명부·공고·분석을 건드리지 �
 test("새 이메일이 다른 계정에 있으면 기존 계정을 덮어쓰지 않는다", async () => {
   const { client, writes } = clientFor();
   client.auth.listUsers = async () => [
-    { id: "existing-user", email: "admin@soltech.invalid" },
-    { id: "another-user", email: "admin@admin.com" },
+    { id: "existing-user", email: "admin@admin.com" },
+    { id: "another-user", email: "admin@solideos.com" },
   ];
   await assert.rejects(
     provisionDemoAdmin({ client, apply: true, password: "entered-password" }),
@@ -84,7 +84,7 @@ test("Auth 이메일 변경 요청에 새 이메일과 확인 상태를 전달�
       return Response.json({ id: "existing-user", email: sentBody.email });
     },
   });
-  await client.auth.updateUser("existing-user", { email: "admin@admin.com" });
-  assert.equal(sentBody.email, "admin@admin.com");
+  await client.auth.updateUser("existing-user", { email: "admin@solideos.com" });
+  assert.equal(sentBody.email, "admin@solideos.com");
   assert.equal(sentBody.email_confirm, true);
 });

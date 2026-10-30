@@ -45,8 +45,8 @@ export const demoOrgIds = () => DEMO_ORGS.map((org) => orgUuid(org.code));
 export const DEMO_ACCOUNTS = [
   {
     key: "admin",
-    email: "admin@admin.com",
-    displayName: "이광희",
+    email: "admin@solideos.com",
+    displayName: "관리자",
     org: "org-01",
     orgRole: "owner",
     solRole: "ADMIN",

@@ -8,7 +8,7 @@ describe("로그인 식별자", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data).toEqual({
-      email: "admin@admin.com",
+      email: "admin@solideos.com",
       password: input.password,
     });
   });
