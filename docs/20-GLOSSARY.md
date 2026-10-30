@@ -86,7 +86,7 @@ updated: 2026-10-30
 | 알고리즘 버전 (`algorithm_version`) | 점수 규칙 버전 식별자 (예: `sol-v0.1.0`) | [[08-SCORING]] |
 | outbox 패턴 | 도메인 변경과 알림 이벤트를 같은 트랜잭션에 기록하고 worker(`web/worker`)가 전달 | [[13-NOTIFICATIONS]] |
 | 나에게 보내기 | 카카오톡 메시지 API 가운데 사용자 본인의 "나와의 채팅"으로 보내는 기능(`talk_message` 동의 필요). 사업자·템플릿 검수 없이 쓸 수 있어 해커톤 카카오톡 실발송에 쓴다(`NOTIFY_KAKAO_PROVIDER=memo`, 기본 `mock`). 시연용이고 운영 경로는 알림톡이다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
-| 카카오톡 알림 연결 | 개인 설정에서 본인 카카오 계정에 "카카오톡 메시지 전송" 동의를 받아 토큰을 저장하는 것. Supabase 간편 로그인의 카카오 연결과 따로다. 화면 상태는 연결 전·연결됨(꺼짐)·켜짐·연결 만료 4가지이고, 토큰은 웹 서버가 암호화해 본인 행(`kakao_notify_links`)에 저장한다. 운영 연결은 0건이다([[PROGRESS]]) | [[06-UI-UX]], [[13-NOTIFICATIONS]] |
+| 카카오톡 알림 연결 | 개인 설정에서 본인 카카오 계정에 "카카오톡 메시지 전송" 동의를 받아 토큰을 저장하는 것. Supabase 간편 로그인의 카카오 연결과 따로다. 화면 상태는 연결 전·연결됨(꺼짐)·켜짐·연결 만료 4가지이고, 토큰은 웹 서버가 암호화해 본인 행(`kakao_notify_links`)에 저장한다. 마지막 측정 증거(2026-10-30 12:47)는 운영 연결 0건이고, 연결·실발송 완료라는 사용자 보고(2026-10-30)는 증거 기록 경로 미확인이다([[PROGRESS]], [[16-DECISIONS|ADR-073]]) | [[06-UI-UX]], [[13-NOTIFICATIONS]] |
 | 멱등키 (idempotency key) | 같은 요청·이벤트를 두 번 처리하지 않게 하는 고유 키 | [[05-API-SPEC]], [[13-NOTIFICATIONS]] |
 | 커서 페이지네이션 | `{items, pageInfo:{cursor,nextCursor,hasNext}}` 형식의 목록 응답 | [[05-API-SPEC]] |
 | fixture | 외부 API 없이 쓰는 가상 공고 데이터 `FX-01`~`FX-20` | [[07-DATA-PIPELINE]] |

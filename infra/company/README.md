@@ -30,7 +30,7 @@ chmod 600 infra/.env.company.local infra/.env.redis-api.local infra/.env.worker.
 | `.env.company.local` | 기존 Redis network 이름, 웹과 동일한 `SOL_RUN_MODE=mock` |
 | `.env.redis-api.local` | Supabase URL/anon, 웹과 같은 cursor secret·서비스 token, 기존 Redis TCP URL, private 버킷 이름 |
 | `.env.worker.local` | 같은 Supabase URL·Redis TCP URL·버킷 이름, Worker 전용 service role, 필요 시 수집 키 |
-| `.env.ai-gateway.local` | 현재 `AI_PROVIDER=mock` 및 mock 설정. 실제 모델 자격은 검증한 fixture/live 전환 때만 추가 |
+| `.env.ai-gateway.local` | 이 저장소 Compose 묶음의 기본값은 `AI_PROVIDER=mock`이다. 운영 AI gateway는 회사 전용 프로젝트 `sol-radar-ai-worker`의 `infra/.env.ai-local`(`AI_PROVIDER=local`, 회사 vLLM Qwen + 같은 호스트 Bosun `127.0.0.1:8009`)로 돌고 `/health/ready`가 `ai: local`을 보고한다(`docs/10-DEPLOYMENT.md` "회사 Compose 프로젝트", `docs/PROGRESS.md` 운영 상태 표) |
 
 Redis URL은 API와 Worker가 동일해야 한다. Supabase/버킷/실행 모드도 동일해야 Worker 보고를 공유한다. `SOL_RUN_MODE`와 내부 `AI_GATEWAY_URL=http://ai-gateway:8000`은 Compose가 일관되게 주입한다. 서비스 token은 기존 Vercel `REDIS_API_TOKEN`과 같아야 하며 별도 임의 생성/교체하지 않는다. API와 AI gateway에는 Storage service role·수집 키를 주지 않는다.
 

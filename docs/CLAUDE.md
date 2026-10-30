@@ -14,7 +14,7 @@ updated: 2026-10-30
 
 반드시 `docs/00-README.md`부터 읽고 `docs/17-CLAUDE-IMPLEMENTATION.md`에 따른다. 해커톤 범위와 데모 흐름은 `docs/18-HACKATHON.md`, `docs/19-DEMO-SCENARIO.md`, `docs/12-ROADMAP.md`의 해커톤 컷을 따른다.
 
-- 일정: 화면 동결 2026-11-01·공식 제출 2026-11-03·발표 2026-11-04(ADR-054·061). 발표는 덱 20분 + 녹화 클립이고, D1 운영 사이트(`?origin=demo`, `demo:reset` 안 함)는 촬영 경로이자 질의응답 라이브다. 남은 일은 `docs/12-ROADMAP.md` 남은 일정 제안 표와 `docs/PROGRESS.md`를 본다.
+- 일정: 화면 동결 2026-11-03(2026-10-30 사용자 결정으로 11-01에서 연기, ADR-073)·공식 제출 2026-11-03·발표 2026-11-04(ADR-054·061). 발표는 덱 20분 + 녹화 클립이고, D1 운영 사이트(`?origin=demo`, `demo:reset` 안 함)는 촬영 경로이자 질의응답 라이브다. 남은 일은 `docs/12-ROADMAP.md` 남은 일정 제안 표와 `docs/PROGRESS.md`를 본다.
 - 기술 스택: Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python(Qwen3.8-Flash-Next + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
   - 배포 기준(ADR-049): Vercel은 web만 실행하고(함수 지역 `syd1`) AI binding을 두지 않는다. 회사 Compose는 기존 Redis를 재사용하는 redis-api·AI gateway와 ingest·analysis·documents·기업마당·알림 전용 Worker를 맡는다. 알림 전용 Worker는 2026-10-30부터 돈다(인앱·마감 알림 처리, 카카오 발송 꺼짐). 관리자 AI 상태도 서비스 token+업무 JWT로 회사 API에 전달한다. 회사 기동·실모델 연결 확인과 코드 준비를 구분한다. 운영 상태는 `docs/PROGRESS.md` 운영 상태 표, 실행서는 `infra/company/README.md`다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
@@ -23,10 +23,10 @@ updated: 2026-10-30
   - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed 스크립트와 사람이 로컬에서 직접 돌리는 운영자 CLI(`scripts/ops/`)만 쓴다. 웹 서버(Route Handler·서버 컴포넌트)와 클라이언트 번들에서는 쓰지 않는다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 순서: Phase 0 저장소 정리/인프라 구현 → 검증 → 보고 → 다음 Phase. 핵심 컷(`docs/12-ROADMAP.md` Critical Path)을 먼저 끝낸다. 지금은 제출 준비 단계다.
 - `docs/09-SECURITY.md` 우선 준수. 미확인 외부 명세는 mock + ADR(`docs/16-DECISIONS.md`). 최종 결정은 사람이 한다.
-- 범위 외: 결제·구독, 모바일, 자동 투찰, 승률 예측. 관련 코드를 쓰지 않는다. 화면은 데스크톱 1280px 이상.
-  - 모바일과 결제는 해커톤 이후에도 구현하지 않는다(`docs/16-DECISIONS.md` ADR-007, `docs/17-CLAUDE-IMPLEMENTATION.md` 절대 규칙).
-  - 모바일은 1280px 미만 반응형 레이아웃과 네이티브 앱 둘 다다. 템플릿의 `mobile/`(Expo 앱)과 모바일 전용 에이전트는 지웠다. 다시 만들지 않는다.
-  - 화면 확인은 1440px·1280px 두 폭으로 한다. 모바일 폭은 확인하지 않는다.
+- 범위 외: 결제·구독, 네이티브 모바일 앱, 자동 투찰, 승률 예측. 관련 코드를 쓰지 않는다.
+  - 모바일 웹 기본 대응은 2026-10-30 사용자 승인으로 포함한다(ADR-072, ADR-007의 웹 폭 제한 개정). 1280px 이상 기존 배치를 유지하고 768~1279px는 열 수를 줄이며 767px 이하는 한 열 중심으로 재배치한다.
+  - 템플릿의 `mobile/`(Expo 앱)과 모바일 전용 에이전트는 다시 만들지 않는다. 결제 제외도 유지한다.
+  - 화면 확인은 360·390·768·1280·1440px에서 한다. 페이지 전체 가로 넘침을 막고 비교 표·조직도만 영역 안에서 스크롤한다.
   - 결제는 결제·구독·요금제 화면, 결제 게이트웨이 연동, 관련 패키지 설치를 모두 포함한다.
 - `AI_PROVIDER=mock`이 기본. 유료 hosted 모델 API는 사용자 승인 전 호출하지 않는다.
 - X6 파인튜닝·실험 E0~E3·X2는 발표 뒤 진행 예정이다(ADR-067). 해커톤 안에서 회사 GPU 학습을 시작하지 않는다.

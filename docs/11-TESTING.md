@@ -66,7 +66,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 남긴 범위는 §1 매트릭스의 핵심 케이스다: 골든 94/72/68, 정보 부족·모델 장애·모델 승격 금지, 재현성·가정 재계산, 조직 격리·요청 계약, 수집 멱등·revision, 첨부 보안·키 가림, 알림 멱등·사람 결정, 기동·비용 승인 게이트.
 
 - 축소 직후 수는 웹 23파일·286개, DB 정책 21개, AI 101개, 결정 57개, 브라우저 3파일, E2E 공개 45·인증 13·업무 16개다(정본 목록).
-- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 지금 14파일(`git ls-files 'web/**/*.browser.test.tsx'`)이다.
+- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 지금 14파일(`git ls-files 'web/**/*.browser.test.tsx'`)이다. 2026-10-30 작업 트리(구글 캘린더 연동·모바일 웹 포함, 커밋 전) 전체 `pnpm verify`는 루트 311·web 131파일 1,085개·`next build`·AI 264개·결정 57개, exit 0이었다.
 - 새 시험은 핵심 사용자 동작·권한·계산·저장이나 실제 결함을 직접 검증할 때만 더한다. 같은 계약을 여러 계층에서 반복하거나 상수·문구·목업 값·모든 입력 조합을 고정하는 시험은 만들지 않는다.
 
 ### 첨부 처리·파서·live 가드 시험
@@ -340,6 +340,12 @@ docs/evidence/
 | NAV-CAL | 입찰 일정([[16-DECISIONS\|ADR-060]]): KST 날짜 경계(UTC 15:00 → 다음 날), 관심 + 프로젝트 한 건, 제출 마감 변경 두 건·같은 시각 한 건, 조직 전체·내 일정 거르기, 월 칸 5·6주, 다가오는 14일 경계. 2026-10-28 원본 일정 후속: 원본 시각 KST 해석(오프셋 없음, 초 없음)·빈 값·날짜만 있는 값은 일정 없음, `?kinds=` 해석(없으면 전부, 모르는 값 무시, 빈 값은 0건), 같은 공고·종류·시각 겹침 제거(관심·프로젝트 표시가 붙은 쪽을 남김), 일정 종류 거르기 칩(켜짐·꺼짐 글자, 전체 보기), 다가오는 목록 8건 + 접기, 다가오는 목록 총 40건 상한·넘침 줄, 날 메뉴 15건 상한·넘침 줄. 저장 질의: 관련 공고 대상 조건(live 대표 입찰공고·`OPEN`·`AMENDED`·최신 판정 `RELEVANT`·`CANDIDATE`), id keyset 이어 읽기, 원본 키 6개만 경로로 읽음(`bidClseDt` 안 읽음), 내 일정은 관련 공고를 읽지 않음, 마감 하한 14일 경계, 관련 공고 읽기 실패 시 관심·프로젝트 일정 유지와 안내 | `web/server/calendar/calendar.model.test.ts`, `web/server/calendar/calendar.repo.test.ts`, `web/app/(app)/(work)/calendar/calendar-view.browser.test.tsx`(mock, 1440·1280) |
 | REC-INSIGHT | 추천 분석([[16-DECISIONS\|ADR-066]]): ADMIN·SALES·ANALYST만 요청, 사용자당 분당 3회 넘으면 429, 같은 run의 `DONE`·`MODEL`은 다시 쓰고 큐에 넣지 않음, `PENDING` 중복 요청은 하나로 묶음, 모델·`TEMPLATE`·`FAILED` 상태, 인젝션 의심이면 모델을 부르지 않고 `TEMPLATE`(`INJECTION_SUSPECTED`)·[다시 요청] 없음, 금지어·근거 없는 숫자·다른 라벨이면 `TEMPLATE`로 대체, 프롬프트·출력 로그 없음, 10분 넘은 `PENDING`은 `FAILED`(`STALE`), DB 제약 `recommendation_insights_pending_or_model_once` | `services/ai/tests/test_insight.py`, `web/server/insight/insight.service.test.ts`·`insight.model.test.ts`·`insight.repo.test.ts`, `web/worker/insight-job.test.ts`, `web/app/_lib/insight-queue.test.ts`, `web/app/api/v1/redis-gateway-contract.test.ts`, `scripts/database.test.mjs` "추천 분석 요청 (20261029000100)", `web/components/bids/recommendation-insight.browser.test.tsx`, `web/app/(app)/(work)/bids/[id]/recommendation-insight-detail.browser.test.tsx` |
 | — | P1 흐름 묶음: 관심 → 분석 비교 → 프로젝트 저장 → 인력 조회 | `web/e2e-auth/p1-navigation.write.spec.ts` |
+
+## 모바일 웹 검증 (ADR-072)
+
+2026-10-30 사용자 승인으로 1280px 미만 반응형 웹을 검증 범위에 포함한다. 360·390·768·1280·1440px에서 페이지 전체 가로 넘침을 확인하고 비교 표·조직도는 영역 안에서 스크롤한다. 네이티브 앱은 범위 밖이다.
+
+핵심 회귀는 기존 브라우저 시험에 통합한다: 랜딩 메뉴·예시 공고 전환, 업무 메뉴 서랍, 필터의 임시 선택→취소/적용과 적용 조건 해제, 모바일 공고의 0점·상충·초기 단계·관심 동작, 상세 보조 패널 흐름, 선택 월 전체 일정(월말 포함). 단순 배치마다 중복 시험이나 전수 입력 행렬을 만들지 않는다(ADR-046).
 
 ## 관련 문서
 

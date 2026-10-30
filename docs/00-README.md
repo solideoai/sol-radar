@@ -26,7 +26,7 @@ updated: 2026-10-30
 7. 시스템은 **권고**만 하고, 최종 결정은 사람이 사유와 함께 `bid_reviews`에 기록한다.
 8. 모델이 꺼져도 규칙만으로 `PARTIAL` 결과를 낸다. 공공 API·모델 서버에 장애가 나도 `fixture`·`mock` 모드로 전 기능이 돈다. 실패 유형(API·첨부 다운로드·파싱·모델 서버)은 따로 표시하고, mock으로 바꾼 결과는 반드시 mock이라고 표시한다. DEMO 데이터는 DEMO로 표시한다.
 9. 테넌트 격리(`org_id` + Supabase RLS), Supabase Auth 세션, 외부 문서 불신 처리, 감사 로그를 기본으로 한다.
-10. 해커톤 범위: 결제·모바일·자동 투찰·승률 예측은 **범위 외**. 데스크톱 전용.
+10. 해커톤 범위: 결제·네이티브 앱·자동 투찰·승률 예측은 **범위 외**. 모바일 웹 기본 대응은 포함(ADR-072).
 
 ## 읽는 순서
 
@@ -38,7 +38,7 @@ updated: 2026-10-30
 
 ## 구현 규칙
 
-절대 규칙(스택·코드 위치·RLS·결제·모바일 금지·hosted 모델과 클라우드 GPU 승인·실행 모드와 mock 표시·DEMO 표시)과 해커톤 우선순위, 단계마다 계획 → 코드 → 테스트 → 증거 → 보고 순서는 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]이 정본이다. 실행 지침은 [[CLAUDE]], 폴더 구조는 [[02-ARCHITECTURE|02 아키텍처]] monorepo 절이다. 아래는 17에 없는 원칙만 둔다.
+절대 규칙(스택·코드 위치·RLS·결제·네이티브 앱 금지·hosted 모델과 클라우드 GPU 승인·실행 모드와 mock 표시·DEMO 표시)과 해커톤 우선순위, 단계마다 계획 → 코드 → 테스트 → 증거 → 보고 순서는 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]이 정본이다. 실행 지침은 [[CLAUDE]], 폴더 구조는 [[02-ARCHITECTURE|02 아키텍처]] monorepo 절이다. 아래는 17에 없는 원칙만 둔다.
 
 1. 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
 2. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → 결정 모델 참고 지표 → SOL Score → 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 권고 → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
@@ -53,14 +53,14 @@ updated: 2026-10-30
 | 03 | [[03-AI-PIPELINE]] | 실행 모드·env 플래그 / 파이프라인 v0.2(`/parse`·`/extract`·`/kev`·`/explain`, 버튼으로 부르는 추천 분석 `/insight`) / Qwen `RequirementExtraction` 스키마·프롬프트 / 결정 모델(Bosun) 질문 세트 `kev-qs/v0.1`·`v0.2`·state 추적·mock adapter / 모델 레지스트리 / 장애·수용 기준 |
 | 04 | [[04-DATABASE]] | Supabase Postgres 스키마·RLS 정책·ERD·ENUM·seed 범위·식별자 규칙 |
 | 05 | [[05-API-SPEC]] | Route Handler(`/api/v1`) 계약·Supabase Auth·DTO(zod)·오류 코드·예시 |
-| 06 | [[06-UI-UX]] | 데스크톱 전용 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
+| 06 | [[06-UI-UX]] | 반응형 웹 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
 | 07 | [[07-DATA-PIPELINE]] | 나라장터 Open API 수집·첨부 다운로드·문서 파서 / Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
 | 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·솔리데오 프로필(단일 원천)·worked example 3건 |
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
 | 10 | [[10-DEPLOYMENT]] | 운영 현황·발표 경로 D1 / Vercel web 단독 + 회사 Compose(redis-api·AI gateway·Worker, ADR-049) / 로컬 Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local)·대체 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path 상태·남은 일정 제안(제출 11-03·발표 11-04, ADR-054) |
-| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 기본 `mock`, 운영 연결 0건)·알림톡 P1 / 메일(ADR-041, 해커톤 제외) |
+| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 기본 `mock`. 실발송 완료는 사용자 보고(2026-10-30)뿐, 마지막 측정 증거는 운영 연결 0건, ADR-073)·알림톡 P1 / 메일(ADR-041, 해커톤 제외) |
 | 14 | [[14-OBSERVABILITY]] | 모니터링·운영·데모 지표 |
 | 15 | [[15-DATA-CONTRACTS]] | `EvidenceRef`·`FieldState`·`NormalizedBid` 정식 정의 / 인용 검증 알고리즘 / 격리 규칙 / registry 키 |
 | 16 | [[16-DECISIONS]] | ADR / 검증 상태 / 미결정 사항 |
@@ -109,7 +109,7 @@ updated: 2026-10-30
 결정 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 Kev에서 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)로 바뀌었다. Kev는 퇴역했다. 검증 기록은 [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1이다.
 
 - 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 2026-10-19 C1 ①(공공 API A1~A9)·②(첨부 B1~B4)에서 확인했다. 마스킹한 응답 14건은 `fixtures/recorded/`, 호출 기록과 설계 가정과 다른 점 8건은 `docs/evidence/phase-0/external-deps-api-20261019.md`에 있다([[16-DECISIONS]] 미결정 1번).
-- 결정 모델 학습·채점 도구는 `sol_decision.train`(`services/decision/src/sol_decision/train.py`)·`sol_eval.bosun_score`(`services/ai/eval/sol_eval/bosun_score.py`)다. 회사 서버에서 학습·채점을 돌린 기록은 없다(X6는 발표 뒤 진행 예정, [[16-DECISIONS|ADR-067]]). 추출 모델은 회사 운영 vLLM API의 Qwen3.8-Flash-Next(served id `Qwen3.8-Flash-Next-AWQ-INT4`)다. 결정 모델은 회사 AI gateway가 같은 호스트 `127.0.0.1:8009`의 `sol_decision`(Bosun v3.1 0.6B)으로 부른다. 운영 실추론은 DEMO 재분석과 2026-10-29 실공고 분석에서 돌았다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md), 건수는 [[PROGRESS]]).
+- 결정 모델 학습·채점 도구는 `sol_decision.train`(`services/decision/src/sol_decision/train.py`)·`sol_eval.bosun_score`(`services/ai/eval/sol_eval/bosun_score.py`)다. 회사 서버에서 학습·채점을 돌린 기록은 없다(X6는 발표 뒤 진행 예정, [[16-DECISIONS|ADR-067]]). 추출 모델은 회사 운영 vLLM API의 Qwen3.8-Flash-Next(served id `Qwen3.8-Flash-Next-AWQ-INT4`)다. 결정 모델은 회사 AI gateway가 같은 호스트 `127.0.0.1:8009`의 `sol_decision`(Bosun v3.1 0.6B)으로 부른다. 운영 실추론은 DEMO 재분석, 2026-10-29 실공고 개별 3건, IT 실공고 371건 일괄 분석에서 돌았다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md), [일괄 기록](evidence/it-scope/prod-20261029/README.md), 건수는 [[PROGRESS]]).
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
 
 ## 솔리데오 가상 인력·가입 결정
