@@ -15,7 +15,7 @@ updated: 2026-10-30
 ## 현재 상태 요약 (2026-10-30)
 
 - 화면 동결은 2026-11-03이다(2026-10-30 사용자 결정으로 11-01에서 연기. 제출 11-03·발표 11-04는 그대로, [[16-DECISIONS|ADR-073]]).
-- 입찰 일정(`/calendar`)의 `.ics` 내려받기를 빼고 구글 캘린더 연동에 착수했다([[16-DECISIONS|ADR-073]], 스펙 `polaris/specs/planned/2026-10-30-google-calendar-sync.md`). 2026-10-30 15시 기준 작업 트리(커밋 전)에 마이그레이션·정책 시험·도메인(`web/server/google-calendar`·`token-seal`)·API 3개·연결 콜백·설정 개인 탭 칸이 있고, `/calendar` 툴바 버튼·결과 띠, `.ics` 라우트·버튼·시험 제거, `check:env` 거부, `audit_logs`, 구글 왕복 증거는 남았다. 같은 작업 트리에 모바일 웹(ADR-072, `polaris/specs/in-progress/2026-10-30-mobile-web.md`) 코드도 있다(증거 [기록](evidence/mobile-web/20261030/README.md)). 두 묶음을 합친 전체 `pnpm verify`는 exit 0(루트 311·web 1,085·AI 264·결정 57·`next build`)이다.
+- 입찰 일정(`/calendar`)의 `.ics` 내려받기를 빼고 구글 캘린더 연동에 착수했다([[16-DECISIONS|ADR-073]], 스펙 `polaris/specs/planned/2026-10-30-google-calendar-sync.md`). 2026-10-30 15시 기준 작업 트리(커밋 전)에 마이그레이션·정책 시험·도메인(`web/server/google-calendar`·`token-seal`)·API 3개·연결 콜백·설정 개인 탭 칸이 있고, `/calendar` 툴바 버튼·결과 띠, `.ics` 라우트·버튼·시험 제거, `check:env` 거부, `audit_logs`, 구글 왕복 증거는 남았다. 같은 작업 트리에 모바일 웹(ADR-072, `polaris/specs/done/2026-10-30-mobile-web.md`) 코드도 있다(증거 [기록](evidence/mobile-web/20261030/README.md)). 두 묶음을 합친 전체 `pnpm verify`는 exit 0(루트 311·web 1,085·AI 264·결정 57·`next build`)이다.
 - 공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 발표는 덱 20분 + 녹화 클립이다. D1 운영 사이트(`https://www.solideos-radar.com` + `?origin=demo`)는 녹화 촬영 경로이자 질의응답 라이브다. 발표 전 `pnpm demo:reset`은 하지 않는다.
 - 핵심 컷 C0~C9에서 남은 것은 C8 S-LIVE 녹화(동국대 공고 최신 run 49 보류, [[16-DECISIONS|ADR-068]] 5번), C9 D1 리허설·촬영이다. C1 ④ 파서 "지원" 판정은 해커톤 뒤 벤치마크 뒤로 미뤘다(ADR-068 1번). 제출물(X4)은 초안이다.
 - 운영에서 실공고를 수집·첨부 파싱·분석한다. 수집 출처는 나라장터·LH·KEPCO·K-water 입찰공고와 기업마당 부처 공고다. 실공고 분석과 추천 분석(ADR-066)이 운영에서 돈다(아래 운영 상태).
