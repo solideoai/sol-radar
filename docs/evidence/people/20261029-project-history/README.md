@@ -12,7 +12,7 @@ updated: 2026-10-29
 
 - 화면: 인물 서랍(`web/components/people/person-drawer.tsx`)의 기본 정보 아래에 "수행 이력"(최근 순, 발주기관·분야·기간·역할·스킬)과 "자격증"(취득·만료 연월) 구역을 더했다. 직무 코드는 한글 이름으로 보인다(`DEVELOPER` → 개발자). 조직·인력 목록과 조직도가 같은 서랍을 쓴다.
 - 서버 모델: 수행 이력 항목에 `client`(발주기관, 선택)를 더했다. v1 행에는 없어서 선택값이다.
-- 데이터: 생성기 `scripts/people/capabilities.mjs`를 `synthetic-people/v2`로 올렸다. 1인당 3~5건(초급 3~4·중급 3~5·고급 4~5·특급 4~5, 3건 41명·4건 66명·5건 93명), 발주기관 14곳은 모두 가상 이름이다. 기간은 겹치지 않고 모두 2026-09-01 이전에 끝난다. 고급·특급은 최근 프로젝트에서 PL·PM을 맡는다.
+- 데이터: 생성기 `scripts/people/capabilities.mjs`를 `synthetic-people/v2`로 올렸다. 1인당 3~5건(초급 3~4·중급 3~5·고급 4~5·특급 4~5, 3건 42명·4건 88명·5건 70명. 2026-10-30 fixture·마이그레이션 `20261029001000`에서 다시 셈), 발주기관 14곳은 모두 가상 이름이다. 기간은 겹치지 않고 모두 2026-09-01 이전에 끝난다. 고급·특급은 최근 프로젝트에서 PL·PM을 맡는다.
 - 마이그레이션 `20261029001000_enrich_demo_project_history.sql`: 고정 데모 조직(`org-01`)의 기존 데모 직원(`is_demo`, `capability_source = 'SYNTHETIC'`)의 `past_projects`·`capability_version` 두 열만 바꾼다. 행을 만들지 않고, 다시 돌려도 결과가 같다.
 - 점수 영향 없음: 분석은 `team_member_scoring`에서 `member_id, role, grade, skills, availability`만 읽는다(`web/server/analysis/analysis.repo.ts` `TEAM_SCORING_COLUMNS`). v2 생성기의 이 값과 자격은 200명 모두 v1(`20261021000600`)과 같다는 시험을 더했다.
 

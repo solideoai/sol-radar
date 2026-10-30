@@ -1,5 +1,5 @@
 // These profiles describe synthetic people only; approved identity and portrait data never enter generation.
-export const CAPABILITY_VERSION = "synthetic-people/v2";
+export const CAPABILITY_VERSION = "synthetic-people/v3";
 const PROFILES = [
   {
     role: "DEVELOPER",
@@ -141,21 +141,46 @@ const ROLE_PROJECTS = {
 };
 // 등급이 높을수록 첫 프로젝트가 더 과거다. 등급별 첫 시작 범위(from 부터 spread 개월)는 서로 겹치지 않는다.
 const CAREERS = {
-  초급: { from: 2022, spread: 12, minCount: 3, maxCount: 4, minMonths: 6, maxMonths: 10 },
-  중급: { from: 2018, spread: 18, minCount: 3, maxCount: 5, minMonths: 8, maxMonths: 16 },
-  고급: { from: 2013, spread: 24, minCount: 4, maxCount: 5, minMonths: 12, maxMonths: 24 },
-  특급: { from: 2007, spread: 36, minCount: 4, maxCount: 5, minMonths: 14, maxMonths: 30 },
+  초급: { from: 2022, spread: 12, minMonths: 6, maxMonths: 10 },
+  중급: { from: 2018, spread: 18, minMonths: 8, maxMonths: 16 },
+  고급: { from: 2013, spread: 24, minMonths: 12, maxMonths: 24 },
+  특급: { from: 2007, spread: 36, minMonths: 14, maxMonths: 30 },
+};
+// 직급(fixtures/people/solideo.job-titles.json)이 기술 등급 후보·이력 건수·최근 PL/PM 건수를 정한다(v3).
+// v2 까지는 등급이 사번 나머지로 정해져 인턴 특급·팀장 초급이 나왔다. 등급은 점수 계산이 읽지 않는다(표시·스냅샷만).
+// leads 는 등급별 최근 PL/PM 건수다. PM·PL 직무는 늘 본인 직무라 leads 를 쓰지 않는다.
+const EXECUTIVE = { grades: ["특급"], counts: [5, 5], leads: { 특급: 2 }, manager: true };
+const LEADER = {
+  grades: ["고급", "특급"],
+  counts: [4, 5],
+  leads: { 고급: 2, 특급: 2 },
+  manager: true,
+};
+const TITLE_CAREERS = {
+  "SOL-J001": EXECUTIVE, // CFO
+  "SOL-J002": EXECUTIVE, // 사장
+  "SOL-J003": EXECUTIVE, // 부사장
+  "SOL-J004": EXECUTIVE, // 이사
+  "SOL-J005": EXECUTIVE, // 본부장
+  "SOL-J006": EXECUTIVE, // 그룹장
+  "SOL-J007": LEADER, // 팀장
+  "SOL-J008": LEADER, // 소장
+  "SOL-J009": { grades: ["고급", "특급"], counts: [4, 5], leads: { 고급: 1, 특급: 2 } }, // 수석
+  "SOL-J010": { grades: ["중급", "고급"], counts: [3, 4], leads: { 중급: 0, 고급: 1 } }, // 책임
+  "SOL-J011": { grades: ["초급"], counts: [2, 3], leads: { 초급: 0 } }, // 담당
+  "SOL-J012": { grades: ["초급"], counts: [1, 1], leads: { 초급: 0 } }, // 인턴
 };
 // 2026-09-01. 가용 창(2026-10-01 부터)보다 앞에서 끝난다. 달은 year * 12 + (month - 1) 로 센다.
 const LAST_PROJECT_END = 2026 * 12 + 8;
 const monthDate = (month) =>
   `${Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, "0")}-01`;
 
-const projectHistory = ({ personId, number, role, grade, skills }) => {
+const projectHistory = ({ personId, number, role, grade, skills, title }) => {
   const career = CAREERS[grade];
-  // 등급이 number % 4 로 정해지므로 건수·시작 달·PL 여부는 number / 4 로 갈라야 등급 안에서도 섞인다.
+  // 등급 후보가 number % 2 로 갈리므로 건수·시작 달은 number / 4 로 갈라야 등급 안에서도 섞인다.
   const cohort = Math.floor(number / 4);
-  const count = career.minCount + (cohort % (career.maxCount - career.minCount + 1));
+  const [minCount, maxCount] = title.counts;
+  const count = minCount + (cohort % (maxCount - minCount + 1));
   const first = career.from * 12 + ((cohort * 5) % career.spread);
   const last = LAST_PROJECT_END - (number % 3);
   const durations = Array.from(
@@ -177,15 +202,9 @@ const projectHistory = ({ personId, number, role, grade, skills }) => {
       [first],
     );
   const templates = ROLE_PROJECTS[role];
-  // 고급은 절반이 최근 1건을, 특급은 최근 2건을 PL·PM 으로 맡는다. PM·PL 직무는 늘 본인 직무다.
-  const leads =
-    role === "PM" || role === "PL"
-      ? 0
-      : grade === "특급"
-        ? 2
-        : grade === "고급"
-          ? 1 - (cohort % 2)
-          : 0;
+  const leads = role === "PM" || role === "PL" ? 0 : title.leads[grade];
+  // 최근 리드 1건은 팀장 이상 특급이면 PM, 아니면 PL 이다. 그 앞의 리드는 PL 이다.
+  const recentLead = title.manager && grade === "특급" ? "PM" : "PL";
   return durations.map((months, index) => {
     const recent = index === count - 1;
     const startsAt = recent ? last - months : starts[index];
@@ -200,8 +219,7 @@ const projectHistory = ({ personId, number, role, grade, skills }) => {
       name: `${client.prefix ?? client.client} ${project.title}`,
       client: client.client,
       domain: project.domain,
-      role:
-        index < count - leads ? role : recent && grade === "특급" && number % 3 === 0 ? "PM" : "PL",
+      role: index < count - leads ? role : recent ? recentLead : "PL",
       startsAt: monthDate(startsAt),
       endsAt: monthDate(endsAt),
       skills: skills.filter(
@@ -213,9 +231,11 @@ const projectHistory = ({ personId, number, role, grade, skills }) => {
   });
 };
 
-export function generateCapabilities(personId) {
+export function generateCapabilities(personId, jobTitleId) {
   if (!/^SOL-P(0[0-1]\d\d|0200)$/.test(personId) || personId === "SOL-P0000")
     throw new Error("Unknown synthetic person ID");
+  const title = Object.hasOwn(TITLE_CAREERS, jobTitleId) ? TITLE_CAREERS[jobTitleId] : null;
+  if (!title) throw new Error("Unknown synthetic job title");
   const number = Number(personId.slice(5));
   const legacyRole = legacy.get(number);
   const profile = legacyRole
@@ -235,11 +255,7 @@ export function generateCapabilities(personId) {
         { startsAt: "2026-10-01", endsAt: "2027-04-01", fte: ((number % 4) + 1) / 4 },
         { startsAt: "2027-04-01", endsAt: "2028-01-01", fte: (((number + 1) % 4) + 1) / 4 },
       ];
-  const grade = legacyRole
-    ? legacyRole === "DEVELOPER"
-      ? "중급"
-      : "고급"
-    : ["초급", "중급", "고급", "특급"][number % 4];
+  const grade = title.grades[number % title.grades.length];
   return {
     scoringEligible: true,
     role: profile.role,
@@ -256,7 +272,7 @@ export function generateCapabilities(personId) {
         evidenceRef: `synthetic:${personId}:certificate:1`,
       },
     ],
-    pastProjects: projectHistory({ personId, number, role: profile.role, grade, skills }),
+    pastProjects: projectHistory({ personId, number, role: profile.role, grade, skills, title }),
     capabilitySource: "SYNTHETIC",
     capabilityVersion: CAPABILITY_VERSION,
   };
@@ -265,5 +281,5 @@ export function generateCapabilities(personId) {
 export const enrichPeople = (people) =>
   people.map((person) => {
     if (person.isDemo !== true) throw new Error("Synthetic capabilities require demo people");
-    return { ...person, ...generateCapabilities(person.personId) };
+    return { ...person, ...generateCapabilities(person.personId, person.jobTitleId) };
   });

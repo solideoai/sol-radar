@@ -50,7 +50,7 @@ const scoringSchema = z.strictObject({
   certifications: z.array(certificationSchema).min(1),
   pastProjects: z.array(pastProjectSchema).min(1),
   capabilitySource: z.literal("SYNTHETIC"),
-  capabilityVersion: z.literal("synthetic-people/v2"),
+  capabilityVersion: z.literal("synthetic-people/v3"),
   availability: z.array(
     z.strictObject({
       startsAt: z.iso.date(),
@@ -290,7 +290,7 @@ export function registerPeopleReadTests() {
               certifications: z.array(certificationSchema).min(1),
               pastProjects: z.array(pastProjectSchema).min(1),
               capabilitySource: z.literal("SYNTHETIC"),
-              capabilityVersion: z.literal("synthetic-people/v2"),
+              capabilityVersion: z.literal("synthetic-people/v3"),
               availability: z.array(windowSchema),
             }),
           ),

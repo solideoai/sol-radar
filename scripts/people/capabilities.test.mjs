@@ -35,6 +35,16 @@ const ROLES = new Set([
 // 가상 지역·기관 이름으로만 시작한다. 실존 부처·지자체(행정안전부·서울특별시 등)는 여기에 걸린다.
 const FICTIONAL_CLIENT = /^(한빛|새솔|가람|다온|하늬|라온|누리|윤슬)/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// 직급별 기대(fixtures/people/solideo.job-titles.json). 생성기 표를 그대로 옮기지 않고 사람이 읽는 규칙으로 적는다.
+const SENIOR = { grades: ["고급", "특급"], counts: [4, 5], mustLead: true };
+const TITLE_RULES = {
+  "SOL-J005": { grades: ["특급"], counts: [5, 5], mustLead: true }, // 본부장
+  "SOL-J007": SENIOR, // 팀장
+  "SOL-J009": SENIOR, // 수석
+  "SOL-J010": { grades: ["중급", "고급"], counts: [3, 4] }, // 책임
+  "SOL-J011": { grades: ["초급"], counts: [2, 3], neverLead: true }, // 담당
+  "SOL-J012": { grades: ["초급"], counts: [1, 1], neverLead: true }, // 인턴
+};
 
 test("all 200 synthetic employees have reproducible skills, certificates, projects and capacity", () => {
   const people = enrichPeople(roster.people);
@@ -45,7 +55,7 @@ test("all 200 synthetic employees have reproducible skills, certificates, projec
     assert.ok(person.certifications.length >= 1);
     assert.ok(person.pastProjects.length >= 1);
     assert.equal(person.capabilitySource, "SYNTHETIC");
-    assert.equal(person.capabilityVersion, "synthetic-people/v2");
+    assert.equal(person.capabilityVersion, "synthetic-people/v3");
     assert.ok(
       person.availability.every(
         (window) => window.startsAt < window.endsAt && window.fte >= 0 && window.fte <= 1,
@@ -67,27 +77,30 @@ test("all 200 synthetic employees have reproducible skills, certificates, projec
   }
   assert.deepEqual(enrichPeople(people), people);
   const first = people[0];
-  const changedIdentity = {
-    ...first,
-    name: "다른이름",
-    gender: "OTHER",
-    jobTitleId: "CHANGED",
-    departmentId: "CHANGED",
-  };
+  // 이름·성별·부서는 계산 속성에 들어가지 않는다. 직급은 등급·이력을 정하고(v3), 모르는 직급은 거절한다.
   assert.deepEqual(
-    generateCapabilities(first.personId),
-    generateCapabilities(changedIdentity.personId),
+    enrichPeople([{ ...first, name: "다른이름", gender: "OTHER", departmentId: "CHANGED" }])[0],
+    { ...first, name: "다른이름", gender: "OTHER", departmentId: "CHANGED" },
+  );
+  assert.throws(
+    () => generateCapabilities(first.personId, "CHANGED"),
+    /Unknown synthetic job title/,
+  );
+  assert.throws(
+    () => generateCapabilities(first.personId, "toString"),
+    /Unknown synthetic job title/,
   );
 });
 
-test("each employee has 3-5 chronological projects with fictional clients, own skills and senior-only lead roles", () => {
+test("each employee has chronological projects sized by job title, with fictional clients, own skills and senior-only lead roles", () => {
   const people = enrichPeople(roster.people);
   const firstStarts = Object.fromEntries(
     ["초급", "중급", "고급", "특급"].map((grade) => [grade, []]),
   );
   for (const person of people) {
     const projects = person.pastProjects;
-    assert.ok(projects.length >= 3 && projects.length <= 5, person.personId);
+    const [minCount, maxCount] = TITLE_RULES[person.jobTitleId].counts;
+    assert.ok(projects.length >= minCount && projects.length <= maxCount, person.personId);
     assert.equal(new Set(projects.map((project) => project.name)).size, projects.length);
     firstStarts[person.grade].push(projects[0].startsAt);
     for (const [index, project] of projects.entries()) {
@@ -132,7 +145,21 @@ test("each employee has 3-5 chronological projects with fictional clients, own s
     assert.ok(firstStarts[senior].toSorted().at(-1) < firstStarts[junior].toSorted()[0]);
 });
 
-test("v2 rewrites only project history: scoring inputs and certificates equal the cloud v1 rows", () => {
+test("grade and lead roles follow the job title: no senior intern, no junior team lead, leads have led", () => {
+  const people = enrichPeople(roster.people);
+  for (const person of people) {
+    const rule = TITLE_RULES[person.jobTitleId];
+    assert.ok(rule.grades.includes(person.grade), `${person.personId} ${person.grade}`);
+    const led = person.pastProjects.some((project) => ["PL", "PM"].includes(project.role));
+    if (rule.mustLead) assert.ok(led, person.personId);
+    if (rule.neverLead && !["PL", "PM"].includes(person.role)) assert.ok(!led, person.personId);
+  }
+  const titles = new Set(people.map((person) => person.jobTitleId));
+  for (const id of ["SOL-J005", "SOL-J007", "SOL-J009", "SOL-J010", "SOL-J011", "SOL-J012"])
+    assert.ok(titles.has(id), id);
+});
+
+test("v3 keeps every scoring computation input and certificate equal to the cloud v1 rows", () => {
   const people = enrichPeople(roster.people);
   assert.equal(v1Rows.length, people.length);
   for (const [index, row] of v1Rows.entries()) {
@@ -142,7 +169,6 @@ test("v2 rewrites only project history: scoring inputs and certificates equal th
     assert.deepEqual(
       {
         role: row.role,
-        grade: row.grade,
         skills: row.skills,
         availability: row.availability,
         certifications: row.certifications,
@@ -150,7 +176,6 @@ test("v2 rewrites only project history: scoring inputs and certificates equal th
       },
       {
         role: person.role,
-        grade: person.grade,
         skills: person.skills,
         availability: foldAssignmentsIntoAvailability(
           person.availability,
