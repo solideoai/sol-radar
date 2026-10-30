@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { cdp, userEvent } from "vitest/browser";
 import type { PeopleDirectory, TeamMemberListItem } from "@/server/people";
 import { OrgNameFinder } from "./org-name-finder";
 
@@ -124,6 +124,61 @@ describe("OrgNameFinder", () => {
     await typeName(input, "김민");
     await userEvent.click(document.body);
     await vi.waitFor(() => expect(options()).toHaveLength(0));
+    expect(input.value).toBe("김민");
+  });
+});
+
+// 한글 입력기는 마지막 글자를 조합하는 중에 Enter 를 받는다. macOS Chrome 은 그때 keydown 을 두 번 보낸다:
+// 조합 중(keyCode 229, isComposing) 한 번, 조합을 끝낸 뒤 Enter(13) 한 번. userEvent.keyboard 는 조합을 흉내 내지 않아
+// CDP 로 같은 순서를 만든다(2026-10-30, 리뷰 후속).
+const composeThenEnter = async (input: HTMLInputElement, committed: string, composing: string) => {
+  await typeName(input, committed);
+  const session = cdp();
+  await session.send("Input.imeSetComposition", {
+    text: composing,
+    selectionStart: composing.length,
+    selectionEnd: composing.length,
+  });
+  await session.send("Input.dispatchKeyEvent", {
+    type: "rawKeyDown",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 229,
+    nativeVirtualKeyCode: 229,
+  });
+  await session.send("Input.insertText", { text: composing });
+  await session.send("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Enter",
+    code: "Enter",
+    text: "\r",
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13,
+  });
+  await session.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13,
+  });
+};
+
+describe("OrgNameFinder 한글 조합 입력", () => {
+  it("마지막 글자를 조합하는 중에 Enter 를 눌러도 그 사람을 한 번 고른다", async () => {
+    const { onPick, input } = render();
+    await composeThenEnter(input, "김민", "준");
+    await vi.waitFor(() => expect(onPick).toHaveBeenCalled());
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(pickedName(onPick)).toBe("김민준");
+    expect(input.value).toBe("김민준");
+  });
+
+  it("조합 중 Enter 로 여러 명이 맞으면 고르지 않고 목록을 연다", async () => {
+    const { onPick, input } = render();
+    await composeThenEnter(input, "김", "민");
+    await vi.waitFor(() => expect(options()).toHaveLength(2));
+    expect(onPick).not.toHaveBeenCalled();
     expect(input.value).toBe("김민");
   });
 });

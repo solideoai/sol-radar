@@ -200,7 +200,7 @@ function checkRoster(fixtures, add) {
   }
   for (const person of people) {
     try {
-      const expected = generateCapabilities(person.personId);
+      const expected = generateCapabilities(person.personId, person.jobTitleId);
       if (Object.entries(expected).some(([key, value]) => !isDeepStrictEqual(person[key], value)))
         add("SCORING_INVALID", person.personId);
     } catch {
