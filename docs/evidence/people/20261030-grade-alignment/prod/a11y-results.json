@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "name": "1440 목록 열린 동안 [검색] 이 역할로 보임",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "name": "1440 [검색] 에 aria-live=off·aria-hidden 조상 없음",
+      "ok": true
+    },
+    {
+      "name": "1440 역할로 누른 [검색] 으로 김민준 찾기",
+      "ok": true,
+      "detail": "김민준"
+    },
+    {
+      "name": "1440 가로 넘침 없음",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "1280 목록 열린 동안 [검색] 이 역할로 보임",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "name": "1280 [검색] 에 aria-live=off·aria-hidden 조상 없음",
+      "ok": true
+    },
+    {
+      "name": "1280 역할로 누른 [검색] 으로 김민준 찾기",
+      "ok": true,
+      "detail": "김민준"
+    },
+    {
+      "name": "1280 가로 넘침 없음",
+      "ok": true,
+      "detail": 0
+    }
+  ],
+  "consoleErrors": []
+}
