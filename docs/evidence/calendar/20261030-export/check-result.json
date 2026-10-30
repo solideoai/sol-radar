@@ -1,0 +1,154 @@
+{
+  "watched": 19,
+  "deadlines": 16,
+  "results": [
+    {
+      "month": "2026-10",
+      "width": 1440,
+      "href": "/api/v1/calendar/ics?month=2026-10",
+      "filename": "sol-radar-calendar-2026-10.ics",
+      "shownOnScreen": 0,
+      "vevents": 0,
+      "lineCount": 8,
+      "maxOctets": 38,
+      "bareLf": false,
+      "overflowPx": 0,
+      "toolbarOverlap": false,
+      "toolbar": {
+        "nav": {
+          "x": 393.015625,
+          "y": 195.96875,
+          "right": 513.5,
+          "bottom": 227.96875
+        },
+        "views": {
+          "x": 1084.203125,
+          "y": 194.984375,
+          "right": 1223.21875,
+          "bottom": 228.96875
+        },
+        "download": {
+          "x": 1231.21875,
+          "y": 195.96875,
+          "right": 1408,
+          "bottom": 227.96875
+        }
+      },
+      "googleSample": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%5B%EA%B3%B5%EA%B3%A0+%EB%A7%88%EA%B0%90%5D+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C+AI+%ED%96%89%EC%A0%95+%EB%B9%84%EC%84%9C+%EC%8B%9C%EB%B2%94%EC%82%AC%EC%97%85+%28%EA%B0%80%EC%83%81%29&dates=20261101T090000Z%2F20261101T093000Z&details=%EA%B8%B0%EA%B4%80%3A+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C%0ASOL+RADAR%3A+http%3A%2F%2Flocalhost%3A3187%2Fbids%2F29dc6ded-e564-5d29-82ec-ea9806ad48b1%3Forigin%3Ddemo"
+    },
+    {
+      "month": "2026-10",
+      "width": 1280,
+      "href": "/api/v1/calendar/ics?month=2026-10",
+      "filename": "sol-radar-calendar-2026-10.ics",
+      "shownOnScreen": 0,
+      "vevents": 0,
+      "lineCount": 8,
+      "maxOctets": 38,
+      "bareLf": false,
+      "overflowPx": 0,
+      "toolbarOverlap": false,
+      "toolbar": {
+        "nav": {
+          "x": 393.015625,
+          "y": 195.96875,
+          "right": 513.5,
+          "bottom": 227.96875
+        },
+        "views": {
+          "x": 924.203125,
+          "y": 194.984375,
+          "right": 1063.21875,
+          "bottom": 228.96875
+        },
+        "download": {
+          "x": 1071.21875,
+          "y": 195.96875,
+          "right": 1248,
+          "bottom": 227.96875
+        }
+      },
+      "googleSample": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%5B%EA%B3%B5%EA%B3%A0+%EB%A7%88%EA%B0%90%5D+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C+AI+%ED%96%89%EC%A0%95+%EB%B9%84%EC%84%9C+%EC%8B%9C%EB%B2%94%EC%82%AC%EC%97%85+%28%EA%B0%80%EC%83%81%29&dates=20261101T090000Z%2F20261101T093000Z&details=%EA%B8%B0%EA%B4%80%3A+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C%0ASOL+RADAR%3A+http%3A%2F%2Flocalhost%3A3187%2Fbids%2F29dc6ded-e564-5d29-82ec-ea9806ad48b1%3Forigin%3Ddemo"
+    },
+    {
+      "month": "2026-11",
+      "width": 1440,
+      "href": "/api/v1/calendar/ics?month=2026-11",
+      "filename": "sol-radar-calendar-2026-11.ics",
+      "shownOnScreen": 16,
+      "vevents": 16,
+      "lineCount": 199,
+      "maxOctets": 75,
+      "bareLf": false,
+      "overflowPx": 0,
+      "toolbarOverlap": false,
+      "toolbar": {
+        "nav": {
+          "x": 393.015625,
+          "y": 195.96875,
+          "right": 513.5,
+          "bottom": 227.96875
+        },
+        "views": {
+          "x": 1084.203125,
+          "y": 194.984375,
+          "right": 1223.21875,
+          "bottom": 228.96875
+        },
+        "download": {
+          "x": 1231.21875,
+          "y": 195.96875,
+          "right": 1408,
+          "bottom": 227.96875
+        }
+      },
+      "googleSample": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%5B%EA%B3%B5%EA%B3%A0+%EB%A7%88%EA%B0%90%5D+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C+AI+%ED%96%89%EC%A0%95+%EB%B9%84%EC%84%9C+%EC%8B%9C%EB%B2%94%EC%82%AC%EC%97%85+%28%EA%B0%80%EC%83%81%29&dates=20261101T090000Z%2F20261101T093000Z&details=%EA%B8%B0%EA%B4%80%3A+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C%0ASOL+RADAR%3A+http%3A%2F%2Flocalhost%3A3187%2Fbids%2F29dc6ded-e564-5d29-82ec-ea9806ad48b1%3Forigin%3Ddemo"
+    },
+    {
+      "month": "2026-11",
+      "width": 1280,
+      "href": "/api/v1/calendar/ics?month=2026-11",
+      "filename": "sol-radar-calendar-2026-11.ics",
+      "shownOnScreen": 16,
+      "vevents": 16,
+      "lineCount": 199,
+      "maxOctets": 75,
+      "bareLf": false,
+      "overflowPx": 0,
+      "toolbarOverlap": false,
+      "toolbar": {
+        "nav": {
+          "x": 393.015625,
+          "y": 195.96875,
+          "right": 513.5,
+          "bottom": 227.96875
+        },
+        "views": {
+          "x": 924.203125,
+          "y": 194.984375,
+          "right": 1063.21875,
+          "bottom": 228.96875
+        },
+        "download": {
+          "x": 1071.21875,
+          "y": 195.96875,
+          "right": 1248,
+          "bottom": 227.96875
+        }
+      },
+      "googleSample": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%5B%EA%B3%B5%EA%B3%A0+%EB%A7%88%EA%B0%90%5D+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C+AI+%ED%96%89%EC%A0%95+%EB%B9%84%EC%84%9C+%EC%8B%9C%EB%B2%94%EC%82%AC%EC%97%85+%28%EA%B0%80%EC%83%81%29&dates=20261101T090000Z%2F20261101T093000Z&details=%EA%B8%B0%EA%B4%80%3A+%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C%0ASOL+RADAR%3A+http%3A%2F%2Flocalhost%3A3187%2Fbids%2F29dc6ded-e564-5d29-82ec-ea9806ad48b1%3Forigin%3Ddemo"
+    },
+    {
+      "month": "2026-11",
+      "view": "mine",
+      "kinds": "BID_DEADLINE",
+      "filename": "sol-radar-calendar-2026-11-mine.ics",
+      "shownOnScreen": 16,
+      "vevents": 16
+    }
+  ],
+  "unauthorized": 401,
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ]
+}

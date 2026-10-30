@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -78,6 +78,7 @@ updated: 2026-10-29
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|`200 {bidId, watched, watcherCount}`. 조직·사용자는 세션에서 결정한다|
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor&limit` → `Page<AnalysisHistoryItem>`|
 |GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=<UUID,...>` → `WorkforceResult` (중복 없는 1~3건)|
+|GET|`/calendar/ics`|auth|입찰 일정(`/calendar`)의 한 달을 `.ics`(RFC 5545)로 내려받는다. 쿼리 해석은 화면과 같다(틀린 `month`는 이번 달, 틀린 `view`는 `org`, `kinds`가 없으면 전부). 그 달(KST) 일정 가운데 고른 종류만 싣고, 일정 길이는 30분, 시각은 UTC다. 조직은 세션이 정한다. 조직 전체 보기에서 IT 공고를 읽지 못하면 일부만 담지 않고 `503 SERVICE_UNAVAILABLE`(`component:"calendar-relevant"`). 구독 주소·OAuth·Google API 없음(기능 백로그 D3 1안)|`?month=YYYY-MM&view=org\|mine&kinds=<쉼표 목록>` → `text/calendar; charset=utf-8`, `Content-Disposition: attachment; filename="sol-radar-calendar-YYYY-MM[-mine].ics"`, `Cache-Control: no-store`|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사, N4b). 점수 속성은 받지 않는다(ADR-021). 계약은 §4.7.1|POST `{name,departmentId,jobTitleId,email?}` → `201 EditedTeamMember`, PATCH `{departmentId?,jobTitleId?,employmentStatus?}` → `200 EditedTeamMember`|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 추천(`BID`) 결정(`reviewId`) 필수(P1, ADR-021)|추천 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 추천(`BID`)이 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
@@ -106,7 +107,7 @@ updated: 2026-10-29
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`.
 
-API가 없는 화면(의도한 예외): [[16-DECISIONS|ADR-060]]의 새 메뉴 자격 갭 레이더(`/gaps`)·발주 현황(`/market`)·입찰 일정(`/calendar`)은 서버 컴포넌트가 사용자 세션(RLS)으로 도메인 함수(`@/server/gaps` `getGapRadar`·`@/server/market` `getMarketOverview`·`@/server/calendar` `getCalendarEvents`)를 직접 부른다. `/api/v1` 경로는 없다. 화면 계약은 [[06-UI-UX|06 UI]]다.
+API가 없는 화면(의도한 예외): [[16-DECISIONS|ADR-060]]의 새 메뉴 자격 갭 레이더(`/gaps`)·발주 현황(`/market`)·입찰 일정(`/calendar`)은 서버 컴포넌트가 사용자 세션(RLS)으로 도메인 함수(`@/server/gaps` `getGapRadar`·`@/server/market` `getMarketOverview`·`@/server/calendar` `getCalendarEvents`)를 직접 부른다. `/api/v1` 경로는 없다. 다만 `/calendar`는 일정 내려받기 `GET /calendar/ics` 하나만 있다(같은 `getCalendarEvents`를 사용자 세션으로 부른다). 화면 계약은 [[06-UI-UX|06 UI]]다.
 
 ### P1 조회·저장 계약
 

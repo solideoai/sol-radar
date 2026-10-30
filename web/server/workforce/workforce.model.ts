@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import type { AvailabilityWindow, CapacityPeriod } from "@/server/scoring";
+import type { AvailabilityWindow, CapacityPeriod, RequirementExtraction } from "@/server/scoring";
+import type { WorkRoleCode } from "@/server/shared";
 
 export const workforceSelectionSchema = z
   .array(z.uuid())
@@ -43,6 +44,7 @@ export type WorkforceRepo = {
 };
 export type WorkforceCandidate = Omit<CurrentPerson, "availability"> & {
   role: string;
+  grade: string | null;
   skills: string[];
   availableFte: number;
   matchReason: string;
@@ -64,6 +66,8 @@ export type WorkforceBidResult = WorkforceBid & {
   note: string | null;
   candidateBasisMissing: boolean;
   candidates: WorkforceCandidate[];
+  roleNeeds: WorkforceRoleNeed[];
+  teams: WorkforceTeamSupply[];
 };
 export type WorkforceOverload = CapacityPeriod & {
   personId: string;
@@ -84,4 +88,48 @@ export type WorkforceResult = {
   overloads: WorkforceOverload[];
   sharedCandidates: WorkforceSharedCandidate[];
   currentMissingPersonIds: string[];
+  teamPlan: WorkforceTeamPlanRow[];
+};
+// 공고 추출의 역할 요구 한 줄(scoring staffing 과 같은 모양).
+export type StaffingRequirement = NonNullable<RequirementExtraction["staffing"]["value"]>[number];
+export const UNASSIGNED_DEPARTMENT = "부서 미지정";
+export type WorkforceTeamPerson = {
+  personId: string;
+  name: string;
+  jobTitle: string | null;
+  role: string;
+  grade: string | null;
+  isDemo: boolean;
+  /** 분석 당시 그 공고 기간의 가용 FTE */
+  availableFte: number;
+};
+export type WorkforceTeamSupply = {
+  /** 부서가 없으면 UNASSIGNED_DEPARTMENT */
+  department: string;
+  people: WorkforceTeamPerson[];
+  /** people 합, 소수 둘째 자리 반올림 */
+  availableFte: number;
+};
+export type WorkforceRoleNeed = {
+  /** 공고 원문 역할 */
+  role: string;
+  roleCode: WorkRoleCode | null;
+  minCount: number;
+  grade: string | null;
+  mandatory: boolean;
+  /** 같은 직무 후보 가운데 가용 FTE 가 0 보다 큰 사람 수 */
+  supplyCount: number;
+  /** 후보 수와 비교한 값이며 인력 부족 확정이 아니다 */
+  shortfall: number;
+  teams: WorkforceTeamSupply[];
+};
+export type WorkforceTeamPlanCell = {
+  bidId: string;
+  people: WorkforceTeamPerson[];
+  roles: string[];
+};
+export type WorkforceTeamPlanRow = {
+  department: string;
+  personCount: number;
+  cells: WorkforceTeamPlanCell[];
 };

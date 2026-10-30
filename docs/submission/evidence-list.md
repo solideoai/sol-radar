@@ -6,12 +6,12 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 실제 AI 검증 증거 목록
 
-"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 1·2·11번은 있다. 3·4·7·9·10번은 일부만 있다. 나머지는 없음·예정이다. 운영 실모델 분석은 DEMO 가상 공고 19건과 실공고 3건이고 대체는 없다. DEMO 는 2026-10-24 FX-02 1건(가상 프로필 66 보류(`WATCH`)), 2026-10-27 공개 자료 프로필 재분석 17건(43~75, 모두 보류), 2026-10-28 FX-03 1건(53 보류)이다([기록](../evidence/company-public-profile/20261027/prod-rollout.md), [FX-03](../evidence/company-public-profile/20261028/fx-forecast.md)). 실공고는 2026-10-29 회사 AI gateway 교체 뒤 3건을 분석했다(38·44·45, 모두 보류, [기록](../evidence/company-rollout/20261029/ai-gateway-rollout.md)). 첨부 처리는 2026-10-28부터 회사 Documents Worker가 운영한다([기록](../evidence/company-rollout/20261028/sources-rollout.md)). 운영 카카오 연결은 0건이다. 실공고 S-LIVE 녹화(8번)는 남았다([[16-DECISIONS|ADR-054]]). 결과가 나오기 전에는 "있음"으로 바꾸지 않는다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID(C1·C5·C8·C9)는 [[12-ROADMAP|12 로드맵]] Critical Path 표의 ID다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다. 이 목록이 가리키는 증거 파일은 링크 없는 증거를 정리할 때도 지우지 않는다.
+"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 1·2·11번은 있다. 3·4·7·9·10번은 일부만 있다. 나머지는 없음·예정이다. 운영 실모델 분석은 DEMO 가상 공고 19건과 실공고 3건이고 대체는 없다. DEMO 는 2026-10-24 FX-02 1건(가상 프로필 66 보류(`WATCH`)), 2026-10-27 공개 자료 프로필 재분석 17건(43~75, 모두 보류), 2026-10-28 FX-03 1건(53 보류)이다([기록](../evidence/company-public-profile/20261027/prod-rollout.md), [FX-03](../evidence/company-public-profile/20261028/fx-forecast.md)). 실공고는 2026-10-29 회사 AI gateway 교체 뒤 3건을 분석했다(38·44·45, 모두 보류, [기록](../evidence/company-rollout/20261029/ai-gateway-rollout.md)). 2026-10-30 SOL Score v0.2로 저장된 입력을 다시 계산했다. 새 run 390건(DEMO 18건 68~95, 실공고 372건 43~88)이 모두 보류다([기록](../evidence/sol-score-v02/20261030/rollout.md), [[16-DECISIONS|ADR-071]]). 첨부 처리는 2026-10-28부터 회사 Documents Worker가 운영한다([기록](../evidence/company-rollout/20261028/sources-rollout.md)). 운영 카카오 연결은 0건이다. 실공고 S-LIVE 녹화(8번)는 남았다([[16-DECISIONS|ADR-054]]). 결과가 나오기 전에는 "있음"으로 바꾸지 않는다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID(C1·C5·C8·C9)는 [[12-ROADMAP|12 로드맵]] Critical Path 표의 ID다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다. 이 목록이 가리키는 증거 파일은 링크 없는 증거를 정리할 때도 지우지 않는다.
 
 | # | 증거 항목 | 무엇을 증명하나 | 예정 파일 경로 | 상태 | 담당 |
 |---|---|---|---|---|---|

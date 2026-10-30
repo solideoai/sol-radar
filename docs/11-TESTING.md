@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 11. 검증·테스트 전략
@@ -223,7 +223,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | D7 | S4 | 사람 결정 | `FX-02` 결정 패널에서 결정 + 사유 + 담당자(발표자) → [결정 기록] | "마지막 결정: … · 담당자 · 시각", `bid_reviews` +1, 감사로그 1건, 알림 벨에 `REVIEW_ASSIGNED`. `analyst@soltech.invalid`로 보면 읽기 전용 | — |
 | D8 | S-LIVE | 실공고 | `/bids?origin=live` → 분석된 실공고 1건 | `DEMO` 칩 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL, 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"·"공개 자료 회사 프로필로 분석"([[16-DECISIONS\|ADR-052]]) | 분석된 실공고 run이 없으면 찍지 않고 발표에서 그렇게 말한다([[19-DEMO-SCENARIO\|19]] §3) |
 | D9 | S7 | 격리 | `viewer@other.invalid` token으로 `GET /api/v1/bids/{FX-01}/qualification-checks`·`GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404. 화면에서는 `FX-01` 본문만 보이고 점수·자격·검토 없음 | 운영에 `org-02` 계정이 없으면 5.2의 16번으로 찍는다 |
-| D10 | — | 하지 않는 것 | — | 운영 DB `pnpm demo:reset` 없음, 실행 모드 전환 없음, 리허설 중 `FX-02` 재분석 없음(하면 43 보류가 최신으로 저장되어 "미분석 → 재분석" 장면이 사라진다, [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 5번), 운영 장애 주입 없음 | — |
+| D10 | — | 하지 않는 것 | — | 운영 DB `pnpm demo:reset` 없음, 실행 모드 전환 없음, 리허설 중 `FX-02` 재분석 없음(하면 59 보류가 최신으로 저장되어 "미분석 → 재분석" 장면이 사라진다, [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 5번), 운영 장애 주입 없음 | — |
 | D11 | 마감 | 증거 | 각 단계 스크린샷 | `demo-day/<일시>/screenshots/` | — |
 
 ### 5.2 대체 경로(로컬 Compose, S5·S6 녹화)

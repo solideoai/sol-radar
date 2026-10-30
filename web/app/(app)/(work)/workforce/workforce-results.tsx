@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { useState } from "react";
 import { formatKst } from "@/components/bids/format";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -9,7 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { WorkforceBidResult, WorkforceCandidate, WorkforceResult } from "@/server/workforce";
+import { workRoleLabel } from "@/server/shared";
+import type {
+  WorkforceBidResult,
+  WorkforceCandidate,
+  WorkforceResult,
+  WorkforceTeamPerson,
+  WorkforceTeamSupply,
+} from "@/server/workforce";
 const date = (value: string) => (value.length === 10 ? value : `${formatKst(value)} KST`);
 const fte = (value: number | null) => (value === null ? "—" : String(value));
 const reason = (value: string | null) =>
@@ -20,6 +29,111 @@ const reason = (value: string | null) =>
       : value === "VALID_SNAPSHOT_REQUIRED"
         ? "유효한 완료 분석 스냅샷이 필요합니다."
         : value;
+// 이름(직무·등급). 팀 표와 역할별 목록에서 한 줄로 보인다. 분석 당시 가용이 없으면 그렇게 적는다.
+const personLabel = (person: WorkforceTeamPerson) =>
+  `${person.name}(${[workRoleLabel(person.role), person.grade, person.availableFte > 0 ? null : "가용 0"].filter(Boolean).join("·")})`;
+const teamSummary = (department: string, count: number, availableFte: number) =>
+  `${department} ${count}명 · 가용 ${fte(availableFte)} FTE`;
+// 역할마다 팀은 앞의 몇 개만 펼친다. 후보가 많은 공고에서 카드가 끝없이 길어지지 않게 한다.
+const VISIBLE_TEAMS = 3;
+function TeamSupplyItems({ teams }: { teams: WorkforceTeamSupply[] }) {
+  return (
+    <ul className="space-y-1">
+      {teams.map((team) => (
+        <li key={team.department} className="type-caption wrap-anywhere">
+          <p className="tabular-nums text-muted-foreground">
+            {teamSummary(team.department, team.people.length, team.availableFte)}
+          </p>
+          <p>{team.people.map(personLabel).join(", ")}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+function TeamSupplyList({ teams }: { teams: WorkforceTeamSupply[] }) {
+  return (
+    <>
+      <TeamSupplyItems teams={teams.slice(0, VISIBLE_TEAMS)} />
+      {teams.length > VISIBLE_TEAMS && (
+        <details>
+          <summary className="cursor-pointer type-caption">
+            나머지 {teams.length - VISIBLE_TEAMS}개 팀 보기
+          </summary>
+          <TeamSupplyItems teams={teams.slice(VISIBLE_TEAMS)} />
+        </details>
+      )}
+    </>
+  );
+}
+// 팀 순서대로 사람을 이어 붙여 [from, to) 만 남긴다. 팀 머리글은 원래 인원과 FTE 를 유지한다.
+const sliceTeams = (teams: WorkforceTeamSupply[], from: number, to: number) => {
+  let offset = 0;
+  return teams.flatMap((team) => {
+    const start = offset;
+    offset += team.people.length;
+    const people = team.people.slice(Math.max(0, from - start), Math.max(0, to - start));
+    return people.length ? [{ team, people }] : [];
+  });
+};
+function TeamCandidates({
+  teams,
+  candidates,
+}: {
+  teams: ReturnType<typeof sliceTeams>;
+  candidates: Map<string, WorkforceCandidate>;
+}) {
+  return teams.map(({ team, people }) => (
+    <div key={team.department} className="mt-3">
+      <p className="type-label font-medium tabular-nums">
+        {teamSummary(team.department, team.people.length, team.availableFte)}
+      </p>
+      <ul>
+        {people.map((p) => {
+          const candidate = candidates.get(p.personId);
+          return candidate ? <Candidate key={p.personId} person={candidate} /> : null;
+        })}
+      </ul>
+    </div>
+  ));
+}
+function RoleNeeds({ item }: { item: WorkforceBidResult }) {
+  return (
+    <>
+      <h4 className="mt-5 mb-2 type-label font-medium">역할별 필요 인력</h4>
+      {item.roleNeeds.length === 0 ? (
+        <p className="type-caption text-muted-foreground">역할 정보 없음</p>
+      ) : (
+        <>
+          <p className="mb-2 type-caption text-muted-foreground">
+            부족은 분석 당시 가용 후보 수와 비교한 값이며 인력 부족 확정을 뜻하지 않습니다.
+          </p>
+          <ul className="space-y-3">
+            {item.roleNeeds.map((need, index) => (
+              <li
+                key={`${need.role}:${index}`}
+                className="space-y-1 border-t border-border pt-2 wrap-anywhere"
+              >
+                <p className="type-label tabular-nums">
+                  {`${need.role} · ${need.minCount}명 필요 · 가용 후보 ${need.supplyCount}명${need.shortfall ? ` · 부족 ${need.shortfall}명` : ""}`}
+                </p>
+                {need.grade && (
+                  <p className="type-caption text-muted-foreground">요구 등급 {need.grade}</p>
+                )}
+                {need.roleCode === null ? (
+                  <p className="type-caption text-warning">직무 대응 없음 · 사람이 확인</p>
+                ) : need.teams.length === 0 ? (
+                  <p className="type-caption text-muted-foreground">같은 직무 후보가 없습니다.</p>
+                ) : (
+                  <TeamSupplyList teams={need.teams} />
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </>
+  );
+}
 function Candidate({ person }: { person: WorkforceCandidate }) {
   return (
     <li className="min-w-0 space-y-1 border-t border-border py-3 wrap-anywhere">
@@ -28,7 +142,7 @@ function Candidate({ person }: { person: WorkforceCandidate }) {
         {person.isDemo && <DemoBadge dense />}
       </p>
       <p className="type-caption text-muted-foreground">
-        {[person.department, person.jobTitle, person.role].filter(Boolean).join(" · ")}
+        {[person.jobTitle, workRoleLabel(person.role), person.grade].filter(Boolean).join(" · ")}
       </p>
       <p className="type-caption">기술: {person.skills.join(", ") || "정보 없음"}</p>
       <p className="type-caption tabular-nums">분석 당시 가용 {fte(person.availableFte)} FTE</p>
@@ -37,6 +151,7 @@ function Candidate({ person }: { person: WorkforceCandidate }) {
   );
 }
 function BidCard({ item }: { item: WorkforceBidResult }) {
+  const candidates = new Map(item.candidates.map((p) => [p.personId, p]));
   return (
     <article className="min-w-0 rounded-lg border border-border p-4 wrap-anywhere">
       <div className="mb-4 space-y-2">
@@ -110,7 +225,8 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
             <p className="mt-2 type-caption text-warning">{reason(item.missingReason)}</p>
           )}
           {item.note && <p className="mt-2 type-caption text-muted-foreground">{item.note}</p>}
-          <h4 className="mt-5 mb-2 type-label font-medium">후보 {item.candidates.length}명</h4>
+          <RoleNeeds item={item} />
+          <h4 className="mt-5 mb-2 type-label font-medium">팀별 후보 {item.candidates.length}명</h4>
           {item.candidateBasisMissing && (
             <p className="mb-2 type-caption text-warning">
               후보 적합성 확인 필요 · 역할·기술 요구조건이 없습니다.
@@ -122,21 +238,16 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
             </p>
           ) : (
             <>
-              <ul>
-                {item.candidates.slice(0, 6).map((p) => (
-                  <Candidate key={p.personId} person={p} />
-                ))}
-              </ul>
+              <TeamCandidates teams={sliceTeams(item.teams, 0, 6)} candidates={candidates} />
               {item.candidates.length > 6 && (
-                <details>
+                <details className="mt-3">
                   <summary className="cursor-pointer type-label">
                     나머지 {item.candidates.length - 6}명 보기
                   </summary>
-                  <ul>
-                    {item.candidates.slice(6).map((p) => (
-                      <Candidate key={p.personId} person={p} />
-                    ))}
-                  </ul>
+                  <TeamCandidates
+                    teams={sliceTeams(item.teams, 6, Infinity)}
+                    candidates={candidates}
+                  />
                 </details>
               )}
             </>
@@ -144,6 +255,74 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
         </>
       )}
     </article>
+  );
+}
+// 팀별 지원 요청 표는 앞의 몇 팀만 그리고, 나머지는 같은 표 안에 펼친다(열 폭을 유지하려고 표를 나누지 않는다).
+const VISIBLE_TEAM_ROWS = 10;
+function TeamPlanTable({ result }: { result: WorkforceResult }) {
+  const [expanded, setExpanded] = useState(false);
+  const hidden = result.teamPlan.length - VISIBLE_TEAM_ROWS;
+  const rows = expanded ? result.teamPlan : result.teamPlan.slice(0, VISIBLE_TEAM_ROWS);
+  return (
+    <>
+      <Table id="team-plan-table" className="w-full table-fixed">
+        <caption className="sr-only">팀별 지원 요청: 팀마다 공고별 후보와 맡을 역할</caption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-40">팀</TableHead>
+            {result.bids.map((item) => (
+              <TableHead key={item.bidId} className="whitespace-normal wrap-anywhere">
+                <Link className="underline underline-offset-4" href={`/bids/${item.bidId}`}>
+                  {item.title}
+                </Link>
+                {item.candidateBasisMissing && (
+                  <p className="type-caption text-warning">요구조건 없음 · 사람이 확인</p>
+                )}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.department}>
+              <TableCell className="align-top whitespace-normal wrap-anywhere">
+                <p className="font-medium">{row.department}</p>
+                <p className="type-caption text-muted-foreground tabular-nums">
+                  {row.personCount}명
+                </p>
+              </TableCell>
+              {row.cells.map((cell) => (
+                <TableCell key={cell.bidId} className="align-top whitespace-normal wrap-anywhere">
+                  {cell.people.length === 0 ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    <>
+                      <p>{cell.people.map(personLabel).join(", ")}</p>
+                      {cell.roles.length > 0 && (
+                        <p className="type-caption text-muted-foreground">
+                          {cell.roles.join(" · ")}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {hidden > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          aria-expanded={expanded}
+          aria-controls="team-plan-table"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "접기" : `나머지 ${hidden}개 팀 보기`}
+        </Button>
+      )}
+    </>
   );
 }
 export function WorkforceResults({ result }: { result: WorkforceResult }) {
@@ -162,6 +341,23 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
             <BidCard key={item.bidId} item={item} />
           ))}
         </div>
+      </section>
+      <section
+        aria-labelledby="team-plan-heading"
+        className="min-w-0 space-y-4 border-t border-border pt-6"
+      >
+        <h2 id="team-plan-heading" className="type-heading">
+          팀별 지원 요청
+        </h2>
+        <p className="type-caption text-muted-foreground">
+          팀마다 어느 공고에 누구를 낼지 분석 당시 후보로 보여 줍니다. 저장되거나 실제 배정에
+          반영되지 않습니다.
+        </p>
+        {result.teamPlan.length === 0 ? (
+          <p className="type-body text-muted-foreground">팀별로 묶을 후보가 없습니다.</p>
+        ) : (
+          <TeamPlanTable result={result} />
+        )}
       </section>
       <section
         aria-labelledby="current-heading"
