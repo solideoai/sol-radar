@@ -28,7 +28,7 @@ updated: 2026-10-30
 
 | 역할 | 계정 | 데모에서 하는 일 |
 |---|---|---|
-| ADMIN | `admin` 또는 admin@admin.com (`org-01`) | 이광희 · 정보기술연구소 · 관리자. 수동 수집 실행(live 배치) |
+| ADMIN | `admin` 또는 admin@solideos.com (`org-01`) | 관리자 · 정보기술연구소 · 관리자. 수동 수집 실행(live 배치) |
 | SALES | sales@soltech.invalid (`org-01`) | 공고 탐색, 최종 결정 기록. **주 발표 계정** |
 | ANALYST | analyst@soltech.invalid (`org-01`) | 분석 요청 (S4에서 SALES 계정이 대신해도 됨) |
 | VIEWER | viewer@soltech.invalid (`org-01`) | 읽기 전용 확인(데모 미사용, RBAC 테스트용) |
@@ -36,7 +36,7 @@ updated: 2026-10-30
 
 위 5계정은 가상 직원 명부 200명과 별개이며 명부에서 Auth 계정을 자동 생성하지 않는다. `.invalid`의 `soltech`는 기존 데모 계정 별칭으로 실제 회사 이메일이 아니다. 사용 회사 선택 UI는 솔리데오 하나만 표시하고 비교 조직은 격리 시험에서만 쓴다.
 
-계정은 Supabase Auth 사용자이고, 역할 열은 조직 구성원 표의 업무 역할 `memberships.sol_role` 값이다. admin@admin.com는 조직 관리 권한도 가진다(`org_role=owner` + `sol_role=ADMIN`). 계정·조직·구성원은 `pnpm demo:reset`이 service role 키로 Supabase 프로젝트에 만든다([[16-DECISIONS|16 ADR]] ADR-017). 운영(D1)에 어느 계정이 있는지는 §3.1에서 확인한다.
+계정은 Supabase Auth 사용자이고, 역할 열은 조직 구성원 표의 업무 역할 `memberships.sol_role` 값이다. admin@solideos.com는 조직 관리 권한도 가진다(`org_role=owner` + `sol_role=ADMIN`). 계정·조직·구성원은 `pnpm demo:reset`이 service role 키로 Supabase 프로젝트에 만든다([[16-DECISIONS|16 ADR]] ADR-017). 운영(D1)에 어느 계정이 있는지는 §3.1에서 확인한다.
 
 관리자 한 계정만 준비할 때는 `node scripts/ops/demo-admin.mjs --env-file .env.local`로 대상을 먼저 확인하고 `--apply`를 붙인다. 비밀번호는 실행 환경의 `DEMO_ADMIN_PASSWORD` 또는 해당 파일의 `DEMO_ADMIN_PASSWORD`·`DEMO_SEED_PASSWORD`로 전달하며 명부·공고·분석은 초기화하지 않는다. 이 작업의 부서·직급 카탈로그는 가상 직원 200명의 생성 원본과 분리한다. `관리자` 직급 표시는 권한을 부여하지 않으며 실제 권한은 `memberships`에 별도로 적용한다.
 
@@ -253,7 +253,7 @@ D1 값은 §2.2다. 로컬 `mock` 경로에서는 옛 대본(FX-01 94 추천 →
 
 ### S5 변경 감지와 멱등 (로컬 Compose 녹화, 클립 6)
 
-1. 로컬에서 admin@admin.com로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`. 이 배치는 fixture의 두 번째 배치이며 실행 모드 `live`가 아니다(§2.1).
+1. 로컬에서 admin@solideos.com로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`. 이 배치는 fixture의 두 번째 배치이며 실행 모드 `live`가 아니다(§2.1).
 2. 보여야 하는 것: 수집 결과 `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` = 변경 3(FX-06, FX-07, FX-10), 취소 1(FX-08), 중복 skip 1(FX-09).
 3. **FX-07** → `/bids/[id]/revisions`(상세는 revision이 2 이상일 때 이 화면 링크를 보인다): 예산 18억 → 21.6억, 요구기술에 Kubernetes 추가가 diff로 하이라이트. 수집은 분석을 자동으로 넣지 않으므로([[16-DECISIONS|ADR-030]] B18) 상세에서 [재분석]을 누른다. 결과 68 → 77, 권고 보류 → 추천([[16-DECISIONS|ADR-031]] C9·C15). 재분석과 점수 변화는 30초 클립 6에 넣지 않고 Q&A 예비로 둔다. 클립 6은 수집 결과 → FX-07 diff → FX-09 revision 1까지다.
 4. `BID_CHANGED`는 outbox 이벤트로만 남고 벨 알림은 생기지 않는다(`web/server/notifications/outbox.model.ts:6`, [[07-DATA-PIPELINE|07]] §6.2). 말할 것: "같은 공고를 다시 받아도 revision이 늘지 않는다(FX-09)."

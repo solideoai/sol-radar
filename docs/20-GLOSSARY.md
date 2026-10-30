@@ -124,7 +124,7 @@ updated: 2026-10-30
 |---|---|---|
 | ADMIN / SALES / ANALYST / VIEWER | SOL RADAR 업무 역할. `memberships.sol_role` 값이다. 리소스별 정책으로 적용되며 단순 상하 관계가 아니다 | [[09-SECURITY]] |
 | `sol_role` | `memberships`의 업무 역할 열. text + check(`ADMIN`·`SALES`·`ANALYST`·`VIEWER`), 기본 `VIEWER`. API 권한 열(허용 역할 나열)이 이 값을 본다 | [[04-DATABASE]], [[05-API-SPEC]], [[09-SECURITY]] |
-| `org_role` | `memberships`의 조직 역할(`owner`·`member`, 템플릿에서 가져옴). 템플릿 호환용으로 남고, 구성원 관리를 포함한 업무 권한은 `sol_role`이 정한다([[16-DECISIONS\|ADR-021]]). 데모 `admin@admin.com`는 `owner` + `ADMIN` | [[04-DATABASE]], [[09-SECURITY]] |
+| `org_role` | `memberships`의 조직 역할(`owner`·`member`, 템플릿에서 가져옴). 템플릿 호환용으로 남고, 구성원 관리를 포함한 업무 권한은 `sol_role`이 정한다([[16-DECISIONS\|ADR-021]]). 데모 `admin@solideos.com`는 `owner` + `ADMIN` | [[04-DATABASE]], [[09-SECURITY]] |
 | 서비스 운영자 (`profiles.is_admin`) | 서비스 전체 운영자 플래그. 조직 역할과 별개이며, 운영자도 남의 조직 데이터는 읽지 못한다 | [[09-SECURITY]] |
 | `org_id` | 조직 소유 데이터 표의 조직 열 이름. JSON 필드는 `orgId`. 요청 본문·쿼리의 조직 ID는 믿지 않고 세션 사용자의 멤버십으로 정한다 | [[04-DATABASE]] |
 | `my_org_ids()` | `public.my_org_ids()`. 로그인한 사용자가 멤버인 조직 id 목록을 돌려주는 DB 함수(`security definer`). RLS 정책은 `org_id in (select public.my_org_ids())`로 쓴다 | [[04-DATABASE]], [[09-SECURITY]] |

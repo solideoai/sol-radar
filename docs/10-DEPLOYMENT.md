@@ -178,7 +178,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 
 seed는 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). 루트 `.env.local`의 service role 키로 넣고 다시 돌려도 같은 상태가 된다(멱등). 마이그레이션은 적용하지 않는다. 스키마는 `pnpm db:push`(사용자 확인 뒤)이고, seed 전에 `pnpm db:verify`로 미적용 마이그레이션이 없는지 본다. **운영 DB에는 돌리지 않는다**(D1, [[16-DECISIONS|ADR-054]]).
 
-- 적재: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01`에 ADMIN/SALES/ANALYST/VIEWER 각 1, `admin@admin.com`이 `org_role=owner`, `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 + FX-12 1건 격리(`ingest_errors`), 사전 리뷰 2건(FX-01 추천(`BID`)·FX-03 비추천), 부서·직급 카탈로그, 가상 인력 200명(아래 "솔리데오 인력·사진 준비").
+- 적재: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01`에 ADMIN/SALES/ANALYST/VIEWER 각 1, `admin@solideos.com`이 `org_role=owner`, `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 + FX-12 1건 격리(`ingest_errors`), 사전 리뷰 2건(FX-01 추천(`BID`)·FX-03 비추천), 부서·직급 카탈로그, 가상 인력 200명(아래 "솔리데오 인력·사진 준비").
 - 추출은 넣지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다([[16-DECISIONS|ADR-031]] C16).
 - 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿 `pnpm db:seed`는 로컬 Supabase 시험 계정용이다.
 - `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 `SOL_DEFAULT_ORIGIN`(없으면 실행 모드)을 따른다.

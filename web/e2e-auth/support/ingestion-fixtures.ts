@@ -24,7 +24,7 @@ export const INGESTION_ROLES = ["admin", "sales", "analyst", "viewer"] as const;
 export type IngestionRole = (typeof INGESTION_ROLES)[number];
 export const OPERATOR_ROLE = "analyst" satisfies IngestionRole;
 export const ROLE_EMAIL: Record<IngestionRole, string> = {
-  admin: "admin@admin.com",
+  admin: "admin@solideos.com",
   sales: "sales@soltech.invalid",
   analyst: "analyst@soltech.invalid",
   viewer: "viewer@soltech.invalid",

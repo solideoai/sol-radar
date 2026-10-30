@@ -205,7 +205,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 
 발표 본편은 덱과 녹화 클립이다([[16-DECISIONS|ADR-054]], [[19-DEMO-SCENARIO|19 데모 시나리오]]). 녹화 촬영과 질의응답 라이브는 운영 사이트(D1)이고, S5·S6은 로컬 Compose에서 녹화한다. 체크리스트는 촬영 전과 리허설 때 통과시키고 `docs/evidence/demo-day/YYYYMMDD-HHMM/checklist.md`에 ✅/❌와 스크린샷 이름으로 기록한다. ❌ 항목은 발표에서 "미구현"으로 말한다. 통과한 척하지 않는다.
 
-데모 계정은 `admin@admin.com`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`)다. 비밀번호는 `DEMO_SEED_PASSWORD`에만 두고 문서에 쓰지 않는다.
+데모 계정은 `admin@solideos.com`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`)다. 비밀번호는 `DEMO_SEED_PASSWORD`에만 두고 문서에 쓰지 않는다.
 
 ### 5.1 D1 본선(촬영·라이브)
 
@@ -214,7 +214,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | # | 장면 | 단계 | 행동 | 기대 화면·응답 | 실패 시 대체 |
 |---|---|---|---|---|---|
 | D0 | S0 | 운영 상태 | `curl -sS https://www.solideos-radar.com/health/ready` | 200, `db`·`redis`·`storage` ok, `ai: local`. 응답을 `health-ready.json`으로 저장 | AI만 불가면 `degraded`이고 S4는 규칙만 결과로 설명한다. 503이면 녹화 클립으로 진행하고 사실대로 말한다 |
-| D1 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login` | `/dashboard`. `?origin=demo`를 붙이면 Topbar `DEMO` 배지. Topbar에 실행 모드·AI 표시는 없다 | `admin@admin.com`로 대체 |
+| D1 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login` | `/dashboard`. `?origin=demo`를 붙이면 Topbar `DEMO` 배지. Topbar에 실행 모드·AI 표시는 없다 | `admin@solideos.com`로 대체 |
 | D2 | S2 | 대시보드 | `/dashboard?origin=demo` | "공공조달 요약" 숫자 띠(신규 발견·마감 임박 (7일)·분석 대기·추천 권고·진행 중 입찰 프로젝트)와 목록([[06-UI-UX\|06]] §5.3) | 숫자가 리허설 기록과 다르면 기록만 하고 진행 |
 | D3 | S2 | 목록 | `/bids?origin=demo`, 권고 추천 필터, 점수 내림차순 | 모든 행 `DEMO` 칩, `FX-12` 미노출. 11열이고 1440·1280에서 표 안에서만 가로 스크롤(페이지 가로 스크롤 없음) | — |
 | D4 | S3 | 상세·규칙 우선 | `FX-01` → `FX-03` | `FX-01` 자격 충족·점수 분해 5행·근거 드로어 원문 하이라이트. `FX-03` 권고 비추천, 자격 미충족 근거, 결정 모델 섹션 `규칙 우선` 배지 | 드로어 실패 시 원문 링크 새 탭 |
@@ -239,7 +239,7 @@ S5·S6 녹화, 운영에 `org-02` 계정이 없을 때의 S7, 운영 사이트�
 | 4 | S0 | 세 모드(리허설) | `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway 재시작, 모드마다 `GET /api/v1/admin/ai/status`(ADMIN). 마지막은 `mock` | 기동 거부 없음, `runMode` 일치, `live`·`fixture`는 `qwen.healthy: true`·`kev.registryMatch: true`(gateway `/health` 기준이라 기동 뒤 죽은 모델 서버는 못 잡는다, [[16-DECISIONS\|ADR-035]] F6). `live` 오늘 호출량은 Redis 예산 카운터(`redis-cli GET quota:<serviceId>:<YYYYMMDD>`, KST)와 `/admin/ingestion` 실행 상세 `quotaUsed`로 본다. `run-modes.md`에 기록 | 기동 거부면 모순 키를 고친다. 실패한 모드는 빼고 기록 |
 | 4a | S0 | 사전 분석 | `mock`에서 `pnpm demo:preanalyze`(사용자 확인 뒤). 그 뒤 reset을 돌렸으면 다시 한다 | 18건(`FX-02`·격리 `FX-12` 제외) `COMPLETED`. `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만, `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`([[16-DECISIONS\|ADR-031]] C11) | 실패 건 기록 |
 | 5~11 | S2~S4 | 전체 대체일 때만 | 5.1의 D1~D7과 같은 경로(`localhost:3000`, `?origin=demo`). S4는 미분석 `FX-02`에 [분석 실행] | `FX-01` 94·분해 24.0/25.0/20.0/15.0/10.0·결정 모델 71/24/5, `FX-03` 비추천 68, `FX-02` 72 보류·15.0/18.3/14.0/15.0/10.0·36/52/12(10초 이내 `완료`), 대시보드 추천 권고 `FX-01` 94·`FX-18` 82·`FX-06` 78 | 숫자 불일치는 기록 |
-| 12 | S5 | 변경 수집 | `/admin/ingestion`(`admin@admin.com`) → 수동 수집 `LIVE`(fixture의 live 배치, `SOL_RUN_MODE=live`면 `409 RUN_MODE_MISMATCH`) → `FX-07` [재분석](수집은 분석을 넣지 않는다, [[16-DECISIONS\|ADR-031]] C15) | 🔔 +1(`FX-07` 재분석의 `ANALYSIS_COMPLETE`). `FX-07` revision 2 → 68 → 77(엔진 77.3), 보류 → 추천. `FX-06` diff 마감 +14 → +28, `BID_CHANGED` outbox 1건(벨 알림 없음). `FX-09` revision 늘지 않음. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보이고 다음 장면 |
+| 12 | S5 | 변경 수집 | `/admin/ingestion`(`admin@solideos.com`) → 수동 수집 `LIVE`(fixture의 live 배치, `SOL_RUN_MODE=live`면 `409 RUN_MODE_MISMATCH`) → `FX-07` [재분석](수집은 분석을 넣지 않는다, [[16-DECISIONS\|ADR-031]] C15) | 🔔 +1(`FX-07` 재분석의 `ANALYSIS_COMPLETE`). `FX-07` revision 2 → 68 → 77(엔진 77.3), 보류 → 추천. `FX-06` diff 마감 +14 → +28, `BID_CHANGED` outbox 1건(벨 알림 없음). `FX-09` revision 늘지 않음. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보이고 다음 장면 |
 | 13 | S6 | 장애 주입 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [재분석] `force=true` | 수 초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `RULES_ONLY`, 요약 띠 "· 응답 없음(규칙만)", `/health/ready` `degraded`. 점수 94·자격 3건 그대로 | 다시 찍는다 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `healthy` → `FX-01` [재분석] | `완료`, 요약 띠 `AI: mock`, 결정 모델 분포 다시 표시 | — |
 | 15 | S6(리허설) | 엔드포인트 재접속 | `fixture`로 바꾸고 엔드포인트를 노트북에서 차단([[10-DEPLOYMENT\|10]] 기동 절차 10번) → 재분석 → 해제 → `GET /v1/models` → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset` → `pnpm demo:preanalyze` | 끊긴 동안 `PARTIAL`·`RULES_ONLY`, `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(`AI_UNAVAILABLE` 아님), mock 결과 0건. 재접속 뒤 `완료`. 소요 시간을 `rehearsal-log.md`에 기록 | 재접속이 안 되면 `mock`만 |

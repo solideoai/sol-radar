@@ -14,7 +14,7 @@ const WEB_ROOT = path.resolve(__dirname, "..");
 const SHOT_DIR = path.join(WEB_ROOT, "..", "docs", "evidence", "profile-photo", "e2e");
 // 올릴 사진. 관리자가 바꾸는 가상 직원(명부 첫 사람, SOL-P0001)과 다른 정장 사진을 써야 바뀐 것이 화면에 보인다.
 const portrait = (code: string) => path.join(WEB_ROOT, "public", "demo", "people", `${code}.png`);
-const ADMIN_EMAIL = "admin@admin.com";
+const ADMIN_EMAIL = "admin@solideos.com";
 const USER_PHOTO = "/storage/v1/object/sign/profile-photos/users/";
 const MEMBER_PHOTO = "/storage/v1/object/sign/profile-photos/members/";
 
