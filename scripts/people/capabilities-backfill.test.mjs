@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import { freshDb, migrations } from "../database-test-support.mjs";
 import { applyMigrations } from "../supabase-pglite.mjs";
 import { assignmentsOf, foldAssignmentsIntoAvailability } from "./availability.mjs";
+import { generateCapabilities } from "./capabilities.mjs";
 import { catalogUuid, loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./seed.mjs";
 
 const version = "20261021000600";
@@ -447,6 +448,83 @@ test("grade alignment rewrites only synthetic demo rows whose job title matches,
   );
   await applyMigrations(db, [align]);
   assert.deepEqual(await scoring(), once);
+});
+
+test("retitled follow-up aligns only the production retitled person to the production title", async (t) => {
+  const retitledVersion = "20261030001100";
+  const retitledMigration = migrations.find((migration) => migration.version === retitledVersion);
+  const db = await freshDb(t);
+  await applyMigrations(
+    db,
+    migrations.filter((migration) => migration.version < alignVersion),
+  );
+  const solideo = orgUuid("org-01");
+  await db.query(
+    "insert into public.organizations(id,slug,name,is_demo) values ($1,'org-01','솔리데오',true)",
+    [solideo],
+  );
+  await seedSolideoPeople({
+    orgId: solideo,
+    fixtures: fixture,
+    client: {
+      async upsert(table, rows, key) {
+        for (const row of rows) {
+          const columns = Object.keys(row);
+          await db.query(
+            `insert into public.${table} (${columns.join(",")}) values (${columns.map((_, index) => "$" + (index + 1)).join(",")}) on conflict (${key}) do nothing`,
+            columns.map((column) =>
+              typeof row[column] === "object" && row[column] !== null
+                ? JSON.stringify(row[column])
+                : row[column],
+            ),
+          );
+        }
+      },
+    },
+  });
+  const scoring = async () =>
+    (
+      await db.query(
+        "select m.person_code,s.* from public.team_member_scoring s join public.team_members m on m.id=s.member_id order by m.person_code",
+      )
+    ).rows;
+  // 시드(fixture 직급)에서는 후속 마이그레이션이 아무 행도 바꾸지 않는다.
+  await applyMigrations(db, [align]);
+  const seeded = await scoring();
+  await applyMigrations(db, [retitledMigration]);
+  assert.deepEqual(await scoring(), seeded);
+
+  // 운영처럼 SOL-P0065 가 그룹장이고 v2 상태면, 001000 은 건너뛰고 001100 이 그룹장 기준 값으로 맞춘다.
+  const target = personUuidFor("SOL-P0065");
+  await db.query("update public.team_members set job_title_id=$1 where id=$2", [
+    catalogUuid("SOL-J006"),
+    target,
+  ]);
+  const v1Index = fixture.people.people.findIndex((person) => person.personId === "SOL-P0065");
+  await db.query(
+    "update public.team_member_scoring set grade=$1, past_projects=$2::jsonb, capability_version='synthetic-people/v2' where member_id=$3",
+    [v1Rows[v1Index].grade, JSON.stringify(v2Rows.get("SOL-P0065").past_projects), target],
+  );
+  const before = await scoring();
+  await applyMigrations(db, [align, retitledMigration]);
+  const after = await scoring();
+  const expected = generateCapabilities("SOL-P0065", "SOL-J006");
+  assert.deepEqual(
+    after,
+    before.map((row) =>
+      row.member_id === target
+        ? {
+            ...row,
+            grade: expected.grade,
+            past_projects: expected.pastProjects,
+            capability_version: "synthetic-people/v3",
+          }
+        : row,
+    ),
+  );
+  assert.equal(expected.grade, "특급");
+  await applyMigrations(db, [retitledMigration]);
+  assert.deepEqual(await scoring(), after);
 });
 
 // Use the production deterministic identifier, rather than a second UUID implementation.
