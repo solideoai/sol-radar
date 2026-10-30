@@ -148,6 +148,9 @@ Items 2 and 8 describe the same feature, so they are planned as one.
 
 The first option of each decision is the recommended one.
 
+> [!done] Decided on 2026-10-30: option 1 for every decision
+> The user chose option 1 for D1, D2, D3, D5 and D6. D6 still needs the user to name the screen they meant. Implementation plans: [[2026-10-30-team-staffing|team staffing]] (items 2 + 8) and [[2026-10-30-calendar-export|calendar export]] (item 7).
+
 | ID | Decision | Option 1 (recommended) | Option 2 |
 |---|---|---|---|
 | D1 | Item 5 bid price | Drop from the hackathon; state "out of scope" | Change ADR-007/18 and build it (needs award data first, not feasible before the freeze) |
