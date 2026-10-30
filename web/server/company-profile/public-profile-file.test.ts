@@ -8,7 +8,7 @@ import { z } from "zod";
 // 저장소 루트 기준 경로. 이 파일은 web/server/company-profile/ 에 있으므로 import.meta.dirname 에서 세 단계 위가 루트다.
 const FILE = path.resolve(
   import.meta.dirname,
-  "../../../docs/evidence/company-public-profile/20261027/profile.json",
+  "../../../docs/evidence/company-public-profile/20261030/profile.json",
 );
 
 const documentSchema = z.object({
