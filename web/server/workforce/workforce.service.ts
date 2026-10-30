@@ -11,6 +11,8 @@ import {
   type AnalysisInput,
   type CapacityPeriod,
 } from "@/server/scoring";
+import { workRoleOf } from "@/server/shared";
+import { roleNeedsOf, teamPlanOf, teamsOf } from "./team-plan";
 import type {
   CurrentWorkforce,
   WorkforceBidResult,
@@ -40,9 +42,13 @@ function candidatesOf(input: AnalysisInput, period: CapacityPeriod, current: Cur
     const matchedSkills = requiredSkills.filter(
       (skill) => matchSkill(skill, companySkillSet(member.skills)) !== null,
     );
-    const matchedRoles = roles.filter(
-      (role) => role.trim().toLowerCase() === member.role.trim().toLowerCase(),
-    );
+    // 공고 원문 역할을 직무 코드로 바꿔 비교하고, 대응이 없으면 원문끼리 비교한다.
+    const matchedRoles = roles.filter((role) => {
+      const code = workRoleOf(role);
+      return code
+        ? code === member.role
+        : role.trim().toLowerCase() === member.role.trim().toLowerCase();
+    });
     if (!missing && matchedSkills.length === 0 && matchedRoles.length === 0) return [];
     const person = current.people.find((p) => p.personId === member.personId);
     return [
@@ -53,6 +59,7 @@ function candidatesOf(input: AnalysisInput, period: CapacityPeriod, current: Cur
         jobTitle: person?.jobTitle ?? null,
         isDemo: person?.isDemo ?? false,
         role: member.role,
+        grade: member.grade,
         skills: member.skills,
         availableFte: availableFte({ ...input.team, members: [member] }, period),
         matchReason: missing
@@ -169,6 +176,7 @@ export async function simulateWorkforce(
             );
             const available = input.team.members.length ? availableFte(input.team, period) : null;
             const { candidates, missing } = candidatesOf(input, period, current);
+            const staffing = input.extraction?.staffing;
             return {
               ...notice,
               analysisId: row.id,
@@ -194,6 +202,11 @@ export async function simulateWorkforce(
               note: factor.note,
               candidateBasisMissing: missing,
               candidates,
+              roleNeeds: roleNeedsOf(
+                staffing?.state === "KNOWN" ? staffing.value : null,
+                candidates,
+              ),
+              teams: teamsOf(candidates),
             };
           } catch (error) {
             if (!(error instanceof RangeError)) throw error;
@@ -219,12 +232,19 @@ export async function simulateWorkforce(
         note: null,
         candidateBasisMissing: true,
         candidates: [],
+        roleNeeds: [],
+        teams: [],
       };
     }),
   );
   return {
     ok: true,
     status: 200,
-    data: { bids, currentAssignmentsAsOf, ...currentConflicts(bids, current) },
+    data: {
+      bids,
+      currentAssignmentsAsOf,
+      ...currentConflicts(bids, current),
+      teamPlan: teamPlanOf(bids),
+    },
   };
 }

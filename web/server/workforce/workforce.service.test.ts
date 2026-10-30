@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   analysisInputSchema,
   availableFte,
+  requirementExtractionSchema,
   staffAvailability,
   SCORING_CONFIG,
 } from "@/server/scoring";
@@ -171,4 +172,26 @@ it("유효한 완료 스냅샷이 없으면 분석 필요와 빈 FTE를 반환�
     missingReason: "VALID_SNAPSHOT_REQUIRED",
     candidates: [],
   });
+});
+
+it("FX-01 추출의 '개발 10명'이 DEVELOPER 직원을 후보로 잡는다", async () => {
+  const { repo, input } = setup();
+  input.extraction = requirementExtractionSchema.parse(
+    JSON.parse(
+      readFileSync(new URL("../../../fixtures/extractions/FX-01.json", import.meta.url), "utf8"),
+    ),
+  );
+  // 요구 기술과 겹치지 않는 기술만 두어 역할 일치로만 후보가 되게 한다
+  input.team.members[0] = { ...input.team.members[0], role: "DEVELOPER", skills: ["Figma"] };
+  const result = await simulateWorkforce("org", ["bid"], { repo }, NOW);
+  if (!result.ok) throw new Error("시뮬레이션 실패");
+  const item = result.data.bids[0];
+  expect(item.roleNeeds.map((n) => [n.role, n.roleCode, n.minCount])).toEqual([
+    ["PM", "PM", 1],
+    ["PL", "PL", 1],
+    ["개발", "DEVELOPER", 10],
+  ]);
+  expect(item.candidates.map((p) => p.personId)).toEqual(["eligible"]);
+  expect(item.candidates[0].matchReason).toBe("요구 역할 일치: 개발");
+  expect(item.teams[0].department).toBe("개발부");
 });
