@@ -303,7 +303,7 @@ docs/evidence/
 | PPL-02 | 팀별 목표 합 200·최대 나머지 배분·직급/부서 참조 유효·재실행 결정론 | 같은 명령 |
 | PPL-03 | portrait manifest READY 200·고유 경로/해시 200·PNG·정사각형·남녀 100/100 | `pnpm people:check:release` + 정장·서로 다른 얼굴·품질 사람 검수표 |
 | PPL-04 | 인력 200명 seed 2회 멱등·기존 5계정 ID 유지·명부 seed가 Auth를 만들지 않음·카탈로그/인력 RLS 격리·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs` "솔리데오 카탈로그·명부·점수 정책", `scripts/people/*.test.mjs` |
-| PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장. 약관 필수 셋이 없으면 계정 없음 | `scripts/database.test.mjs` "가입 약관 동의 기록 (20261027000600)". 가입 화면 스키마 시험은 자동 시험 없음 |
+| PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장. 약관 필수 셋이 없으면 계정 없음 | `scripts/database.test.mjs` "가입 약관 동의 기록 (20261027000600)". 가입 화면 스키마는 이메일 도메인 고정만 `web/app/auth/sign-up/sign-up-schema.test.ts` |
 | PPL-06 | 간편 가입·필수 정보 보완·업무 화면/API 우회 차단·가입이 자동 조직 합류를 만들지 않음 | 자동 시험 없음. 1440·1280·키보드는 손으로 확인 |
 | PPL-07 | 200명 전원 계산 대상·고정 기간 가용 95.5 FTE([[16-DECISIONS\|ADR-043]]), 기간 경계·동시 배정, 골든 94/72/68과 FX-15 68, 운영 편집 뒤 기존 `score_runs` 불변 | `web/server/scoring/*.test.ts`(`vitest server/scoring`), `scripts/database.test.mjs` "N4b 직원 추가·이동·퇴사 (20261024000400)" |
 
