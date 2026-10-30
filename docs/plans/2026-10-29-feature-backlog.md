@@ -35,11 +35,11 @@ The user's list, translated from Korean:
 
 | # | Feature | Current state | Proposed work | Size | When |
 |---|---|---|---|---|---|
-| 1 | Field filter | **Already exists** on `/bids` | Confirm what is missing | — | — |
+| 1 | Field filter | **Done** (already on `/bids`; user confirmed 2026-10-30) | — | — | — |
 | 6 | Org chart name search | **Done** (2026-10-29, `6883b73f`) | — | — | — |
 | 3 | Person project history | **Done** (2026-10-29, `6622f487`, production DB `20261029001000`) | — | — | — |
-| 2 + 8 | Team staffing for recommended bids | `/workforce` takes 1–3 manually chosen bids and lists candidates flat | Merge into one feature: load recommended bids, group need by role and team | 1 – 1.5 days | Before freeze |
-| 7 | Google Calendar | `/calendar` already aggregates schedules | "Add to Google Calendar" link + `.ics` download per event | 0.5 day | Before freeze |
+| 2 + 8 | Team staffing for recommended bids | **Done** (2026-10-30, `006f9836`, production deploy `5961f552`) | — | — | — |
+| 7 | Google Calendar | **Done** (2026-10-30, `a73fa25c`, production deploy `5961f552`) | — | — | — |
 | 4 | Procurement plan collection | Registry entry approved, never called | Normalizer, mapping, Worker schedule, IT scope, company Worker rollout | 1 day code + rollout | After filming (recommended) |
 | 5 | Bid price analysis / prediction | Conflicts with the product positioning; no award data collected | Drop from the hackathon | — | Not in hackathon (recommended) |
 
@@ -48,7 +48,7 @@ The user's list, translated from Korean:
 ### 1. Field filter (AI, AX, ...)
 
 - **Current state:** `/bids` already has eight fixed field keyword chips: `AI_AX`, `SI_SW`, `CLOUD`, `DATA`, `SECURITY`, `DIGITAL_TWIN`, `MAINTENANCE`, `ISP_ISMP` (`web/server/opportunities/keywords.ts:5`, [[16-DECISIONS|ADR-069]]). Several chips are OR-combined against the list view's `categories` and `tags`.
-- **Proposed work:** None until the user says which screen they meant (for example the program notices list, the dashboard, the calendar or the staffing screen).
+- **Done:** On 2026-10-30 the user confirmed that the existing `/bids` filter is enough. No further work.
 
 ### 6. Org chart name search
 
@@ -149,7 +149,7 @@ Items 2 and 8 describe the same feature, so they are planned as one.
 The first option of each decision is the recommended one.
 
 > [!done] Decided on 2026-10-30: option 1 for every decision
-> The user chose option 1 for D1, D2, D3, D5 and D6. D6 still needs the user to name the screen they meant. Implementation plans: [[2026-10-30-team-staffing|team staffing]] (items 2 + 8) and [[2026-10-30-calendar-export|calendar export]] (item 7).
+> The user chose option 1 for D1, D2, D3, D5 and D6. For D6 the user confirmed on 2026-10-30 that the existing `/bids` filter is enough. Items 2 + 8 and 7 shipped to production on 2026-10-30 (`5961f552`). Implementation plans: [[2026-10-30-team-staffing|team staffing]] (items 2 + 8) and [[2026-10-30-calendar-export|calendar export]] (item 7).
 
 | ID | Decision | Option 1 (recommended) | Option 2 |
 |---|---|---|---|
