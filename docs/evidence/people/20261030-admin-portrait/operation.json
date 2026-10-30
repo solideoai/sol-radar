@@ -1,0 +1,17 @@
+{
+  "phase": "verified",
+  "at": "2026-10-30T04:26:17.177Z",
+  "host": "brtysdocxemrqhdezzqg.supabase.co",
+  "email": "admin@solideos.com",
+  "userId": "25caa3c1-8b70-477f-a359-32905674f94a",
+  "previousPhotoPath": null,
+  "newPhotoPath": "users/25caa3c1-8b70-477f-a359-32905674f94a/b3a822a4-59b6-4734-af36-2f6d5ba6e891.png",
+  "sha256": "bdbaf4f2f3546d17cdbb0b25c880ff861a075758a9790481f4bf68d99512263b",
+  "bytes": 2080679,
+  "dimensions": [1254, 1254],
+  "bucketPublic": false,
+  "updatedProfiles": 1,
+  "linkedMembersUpdated": 0,
+  "signedDownloadStatus": 200,
+  "storedHashMatches": true
+}
