@@ -96,7 +96,9 @@ export function OrgNameFinder({
           </Autocomplete.Positioner>
         </Autocomplete.Portal>
       </Autocomplete.Root>
-      <Button type="submit" variant="outline" className="h-10">
+      {/* 목록이 열리면 Base UI 가 입력칸·목록 밖을 aria-hidden 으로 숨긴다(공개 옵션 없음). aria-live 가 있는 요소는 숨기지 않으므로,
+          알림이 없는 기본값 "off" 로 [검색] 을 화면 읽기에 남긴다. */}
+      <Button type="submit" variant="outline" className="h-10" aria-live="off">
         <SearchIcon aria-hidden className="size-4" />
         검색
       </Button>

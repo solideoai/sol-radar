@@ -119,6 +119,16 @@ describe("OrgNameFinder", () => {
     expect(pickedName(onPick)).toBe("김민서");
   });
 
+  // Base UI 는 목록이 열린 동안 입력칸·목록 밖을 aria-hidden 으로 숨긴다. [검색] 은 그때도 화면 읽기에 남아야 한다
+  // (2026-10-30 운영 확인에서 발견).
+  it("목록이 열린 동안에도 [검색] 이 접근성 트리에 남는다", async () => {
+    const { input, button } = render();
+    await typeName(input, "김민");
+    await vi.waitFor(() => expect(options()).toHaveLength(2));
+    expect(button.closest('[aria-hidden="true"]')).toBeNull();
+    expect(button.closest("[inert]")).toBeNull();
+  });
+
   it("목록이 닫혀도 친 이름이 남는다", async () => {
     const { input } = render();
     await typeName(input, "김민");
