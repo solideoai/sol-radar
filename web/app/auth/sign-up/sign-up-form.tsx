@@ -28,6 +28,7 @@ import {
   formatPhone,
   MIN_BIRTH_DATE,
   SIGN_UP_DEFAULTS,
+  SIGN_UP_EMAIL_DOMAIN,
   createSignUpSchema,
   type SignUpValues,
   toSignUpRequest,
@@ -91,7 +92,7 @@ export function SignUpForm({
                 : "가입하지 못했습니다. 입력한 내용을 확인하고 다시 시도해 주세요.";
         const field =
           error.code === "user_already_exists"
-            ? "email"
+            ? "emailLocal"
             : error.code === "weak_password"
               ? "password"
               : "root";
@@ -156,17 +157,26 @@ export function SignUpForm({
                 loading={catalog.isLoading}
               />
               <EmploymentOptionsNotice catalog={catalog} />
-              <Field data-invalid={Boolean(errors.email)}>
+              <Field data-invalid={Boolean(errors.emailLocal)}>
                 <FieldLabel htmlFor="email">이메일</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="이메일을 입력해 주세요"
-                  aria-invalid={Boolean(errors.email)}
-                  {...form.register("email")}
-                />
-                <FieldError errors={[errors.email]} />
+                {/* @ 뒤는 회사 도메인으로 고정한다. 화면 읽기에도 도메인이 함께 읽히게 설명으로 잇는다. */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="email"
+                    type="text"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="아이디"
+                    aria-describedby="email-domain"
+                    aria-invalid={Boolean(errors.emailLocal)}
+                    {...form.register("emailLocal")}
+                  />
+                  <span id="email-domain" className="shrink-0 type-body text-muted-foreground">
+                    @{SIGN_UP_EMAIL_DOMAIN}
+                  </span>
+                </div>
+                <FieldError errors={[errors.emailLocal]} />
               </Field>
               <Field data-invalid={Boolean(errors.password)}>
                 <FieldLabel htmlFor="password">비밀번호</FieldLabel>
