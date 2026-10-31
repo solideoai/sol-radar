@@ -1,11 +1,14 @@
 ---
 title: "입찰 일정 구글 캘린더·.ics 내보내기 구현 계획"
-status: draft
+status: superseded
 tags: [sol-radar, plan, calendar, hackathon]
 updated: 2026-10-30
 ---
 
 # 입찰 일정 구글 캘린더·.ics 내보내기 Implementation Plan
+
+> [!warning] 퇴역 (2026-10-30, [[16-DECISIONS|ADR-073]] 예약)
+> `.ics` 내려받기와 `GET /api/v1/calendar/ics`는 2026-10-30 사용자 결정(ADR-073)으로 퇴역한다. 일정별 "구글 캘린더에 추가" 링크(Task 1 `googleCalendarUrl`·Task 3 `UpcomingItem`)는 유지한다. 후속은 `polaris/specs/planned/2026-10-30-google-calendar-sync.md`다. 아래 본문은 당시 계획 기록이라 지우지 않는다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
