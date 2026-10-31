@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-30
+updated: 2026-10-31
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -78,7 +78,8 @@ updated: 2026-10-30
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|`200 {bidId, watched, watcherCount}`. 조직·사용자는 세션에서 결정한다|
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor&limit` → `Page<AnalysisHistoryItem>`|
 |GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=<UUID,...>` → `WorkforceResult` (중복 없는 1~3건)|
-|POST|`/calendar/google/sync`|auth|입찰 일정(`/calendar`) 구글 캘린더 수동 밀어넣기([[16-DECISIONS\|ADR-073]]). 지금 보는 달(KST)·보기·고른 종류의 일정을 사용자 구글 계정의 전용 보조 캘린더 "SOL RADAR 입찰 일정"(첫 밀어넣기 때 만든다)에 넣는다. 일정은 `extendedProperties.private.solKey`(= 일정 `key`)와 매핑 표 `google_calendar_events`(`user_id`·`event_key`·`google_event_id`)로 식별해 만들기·갱신·삭제(그 달에서 사라진 일정)를 멱등하게 한다. 담당자 이름은 싣지 않는다. 본문 해석은 화면과 같다(`view`가 없으면 `org`, `kinds`가 없으면 전부. `month`는 `YYYY-MM` 필수). 조직은 세션이 정한다. 구글 호출은 동시 4건(상한은 측정 뒤 정한다). 자동 동기화(Worker)는 발표 뒤|`{month:"YYYY-MM", view?:"org"\|"mine", kinds?:"<쉼표 목록>"}`(strict, 틀린 `month`는 `400 VALIDATION_ERROR`) → `200 {month, calendarId, created, updated, deleted, failed}`(`failed`는 구글 호출이 실패한 일정 수. 하나라도 있으면 `last_result=FAILED`). `401`, `403 CSRF_REJECTED`, 연결 없음 `409 GOOGLE_NOT_CONNECTED`, 연결 만료 `409 GOOGLE_EXPIRED`, 조직 전체 보기에서 IT 공고를 읽지 못하면 `503 SERVICE_UNAVAILABLE`(`component:"calendar-relevant"`), 구글 오류 `502 UPSTREAM_ERROR`|
+|POST|`/calendar/google/sync`|auth|입찰 일정(`/calendar`) 구글 캘린더 수동 밀어넣기([[16-DECISIONS\|ADR-073]]). 지금 보는 달(KST)·보기·고른 종류의 일정을 사용자 구글 계정의 전용 보조 캘린더 "SOL RADAR 입찰 일정"(첫 밀어넣기 때 만든다)에 넣는다. 일정은 `extendedProperties.private.solKey`(= 일정 `key`)와 매핑 표 `google_calendar_events`(`user_id`·`event_key`·`google_event_id`)로 식별해 만들기·갱신·삭제를 멱등하게 한다. 삭제는 그 달 매핑 가운데 지금 고른 종류(`key`의 종류)에서 사라진 일정만이고, `mine` 보기와 종류를 하나도 고르지 않은 요청은 삭제하지 않는다. 담당자 이름은 싣지 않고, DEMO 공고는 제목에 `[DEMO]`·설명 첫 줄에 "가상 데이터(DEMO)"를 붙인다. 본문 해석은 화면과 같다(`view`가 없으면 `org`, `kinds`가 없으면 전부. `month`는 `YYYY-MM` 필수). 조직은 세션이 정한다. 구글 호출은 동시 4건(상한은 측정 뒤 정한다). 자동 동기화(Worker)는 발표 뒤|`{month:"YYYY-MM", view?:"org"\|"mine", kinds?:"<쉼표 목록>"}`(strict, 틀린 `month`나 넣을 일정이 500건을 넘으면 `400 VALIDATION_ERROR`, 구글을 부르지 않는다) → `200 {month, calendarId, created, updated, deleted}`. 일부 일정의 구글 호출이 실패하면 `502 UPSTREAM_ERROR`(`details.code:"PARTIAL"`과 건수, `last_result=FAILED`, 성공한 일정은 매핑에 남아 다음 번에 갱신). `401`, `403 CSRF_REJECTED`, 연결 없음 `409 GOOGLE_NOT_CONNECTED`, 연결 만료 `409 GOOGLE_EXPIRED`, 조직 전체 보기에서 IT 공고를 읽지 못하면 `503 SERVICE_UNAVAILABLE`(`component:"calendar-relevant"`), 구글 오류 `502 UPSTREAM_ERROR`|
+|GET|`/me/google-calendar/connect`|session(본인)|구글 캘린더 연결 시작(ADR-073). 캘린더 툴바 [구글 캘린더 연동]·[다시 연결] 링크가 부른다. 사용자 id를 서명한 state 쿠키를 굽고 Supabase 구글 OAuth(`calendar.events` 범위·offline·consent, 구글이 아직 로그인 수단이 아니면 `linkIdentity`, 이미 연결돼 있으면 `login_hint`)로 보낸다. 돌아오는 곳은 `/auth/callback?flow=google-calendar`다. 로그인이 아니거나 다른 사이트에서 온 이동(`Sec-Fetch-Site`)이거나 서버에 구글 env가 빠졌으면 `next`로 돌려보낸다(`?google=failed`)|`?next=<사이트 안 경로>` → `307`(구글 동의 화면 또는 `next`). 콜백 결과는 `next?google=connected\|consent_denied\|no_refresh_token\|state_mismatch\|failed`, 다른 계정이면 세션을 끊고 `/auth/login?link=google-mismatch`|
 |GET|`/me/google-calendar`|session(본인)|구글 캘린더 연결 상태(ADR-073). 연결 없음·`CONNECTED`·`EXPIRED`, 연결된 구글 이메일, 마지막 반영 시각·결과(`SYNCED`\|`FAILED`\|`EXPIRED`)|`GoogleCalendarLinkView`|
 |DELETE|`/me/google-calendar`|session(본인)|연결 해제(본인 `google_calendar_links` 행과 매핑 행을 지운다. 구글 쪽 revoke는 부르지 않고, 구글 캘린더에 이미 넣은 일정은 건드리지 않는다)|`204`|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사, N4b). 점수 속성은 받지 않는다(ADR-021). 계약은 §4.7.1|POST `{name,departmentId,jobTitleId,email?}` → `201 EditedTeamMember`, PATCH `{departmentId?,jobTitleId?,employmentStatus?}` → `200 EditedTeamMember`|
@@ -109,7 +110,7 @@ updated: 2026-10-30
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`.
 
-API가 없는 화면(의도한 예외): [[16-DECISIONS|ADR-060]]의 새 메뉴 자격 갭 레이더(`/gaps`)·발주 현황(`/market`)·입찰 일정(`/calendar`)은 서버 컴포넌트가 사용자 세션(RLS)으로 도메인 함수(`@/server/gaps` `getGapRadar`·`@/server/market` `getMarketOverview`·`@/server/calendar` `getCalendarEvents`)를 직접 부른다. `/api/v1` 경로는 없다. 다만 `/calendar`는 구글 캘린더 밀어넣기 `POST /calendar/google/sync`와 연결 상태 `GET`·`DELETE /me/google-calendar`가 있다(같은 `getCalendarEvents`를 사용자 세션으로 부른다, [[16-DECISIONS|ADR-073]]). `.ics` 내려받기 `GET /calendar/ics`는 2026-10-30 사용자 결정(ADR-073)으로 지운다. 화면 계약은 [[06-UI-UX|06 UI]]다.
+API가 없는 화면(의도한 예외): [[16-DECISIONS|ADR-060]]의 새 메뉴 자격 갭 레이더(`/gaps`)·발주 현황(`/market`)·입찰 일정(`/calendar`)은 서버 컴포넌트가 사용자 세션(RLS)으로 도메인 함수(`@/server/gaps` `getGapRadar`·`@/server/market` `getMarketOverview`·`@/server/calendar` `getCalendarEvents`)를 직접 부른다. `/api/v1` 경로는 없다. 다만 `/calendar`는 구글 캘린더 밀어넣기 `POST /calendar/google/sync`와 연결 상태 `GET`·`DELETE /me/google-calendar`가 있다(같은 `getCalendarEvents`를 사용자 세션으로 부른다, [[16-DECISIONS|ADR-073]]). `.ics` 내려받기 `GET /calendar/ics`는 2026-10-30 사용자 결정(ADR-073)으로 지웠다. 화면 계약은 [[06-UI-UX|06 UI]]다.
 
 ### P1 조회·저장 계약
 
@@ -616,7 +617,7 @@ interface PeoplePage {
 |429|`MANUAL_DAILY_LIMIT`|KST 하루 수동 수집 20회(전역)를 다 씀. `Retry-After` 헤더|`{limit, nextAvailableAt, retryAfterSeconds}`|
 |429|`KAKAO_TEST_THROTTLED`|[[16-DECISIONS\|ADR-038]]. 시험 메시지를 1분 안에 다시 요청하거나 24시간 10회를 넘김(§9)|`{retryAfterSeconds:60}` + `Retry-After: 60`|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|502|`UPSTREAM_ERROR`|ADR-073. 구글 캘린더 API가 오류를 돌려줌(인증 만료는 `409 GOOGLE_EXPIRED`). `details` 형태는 zod 스키마에서 정한다|—|
+|502|`UPSTREAM_ERROR`|ADR-073. 구글 캘린더 API가 오류를 돌려줌(인증 만료는 `409 GOOGLE_EXPIRED`). 밀어넣기에서 일부만 실패하면 `details.code:"PARTIAL"`과 건수를 싣는다|—|
 |503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(Supabase Storage) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다. 수동 수집(fixture 밖 소스)인데 정기 수집 Job Scheduler가 없으면(ingest Worker 미기동) `{component:"ingest-worker", reason:"SCHEDULER_INACTIVE"}`다. 나라장터 입찰공고 밖 서비스(조달요청·K-water·LH·KEPCO) 수동 수집인데 Worker가 남긴 서비스 상태가 준비가 아니면(키 없음·한도 미정·인증 실패 등) `{component:"source", source, serviceKey, reason}`이다. `redis-api`는 Vercel `frontend`가 회사 `redis-api`에 닿지 못했거나 응답이 잘못됐을 때다(아래 "Redis HTTPS 접수 경계")|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"\|"ingest-worker"\|"source"\|"redis-api"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.

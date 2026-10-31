@@ -56,11 +56,13 @@ const LOGIN_LABELS = {
   naver: "네이버 로그인",
 };
 
-const LINK_NOTICE_KEYS = ["invalid", "oauth-failed", "suspended"] as const;
+const LINK_NOTICE_KEYS = ["invalid", "oauth-failed", "suspended", "google-mismatch"] as const;
 const LINK_NOTICES: Record<(typeof LINK_NOTICE_KEYS)[number] | "none", string | null> = {
   invalid: "메일의 링크가 만료됐거나 이미 사용됐습니다. 로그인하거나 메일을 다시 받아 주세요.",
   "oauth-failed": "간편 로그인을 마치지 못했습니다. 다시 시도하거나 이메일로 로그인해 주세요.",
   suspended: SUSPENDED_NOTICE,
+  // 구글 캘린더 연동(ADR-073)이 시작한 사람과 다른 계정으로 돌아와 세션을 끊었다(/auth/callback?flow=google-calendar).
+  "google-mismatch": "다른 계정으로 로그인되어 연결을 취소했습니다. 다시 로그인하세요.",
   none: null,
 };
 

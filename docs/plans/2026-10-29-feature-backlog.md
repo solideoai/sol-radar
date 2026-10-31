@@ -13,7 +13,7 @@ updated: 2026-10-30
 
 ## Schedule constraint
 
-- Screen freeze: 2026-11-01 (Sun). Filming: 2026-11-01 – 11-02. Official submission: 2026-11-03. Presentation: 2026-11-04 ([[12-ROADMAP|12 Roadmap]] "남은 일정 제안", [[16-DECISIONS|ADR-054]]).
+- Screen freeze: 2026-11-03 (Tue), moved from 11-01 by the user on 2026-10-30 ([[16-DECISIONS|ADR-073]] reserved). Filming: 2026-11-01 – 11-02. Official submission: 2026-11-03. Presentation: 2026-11-04 ([[12-ROADMAP|12 Roadmap]] "남은 일정 제안", [[16-DECISIONS|ADR-054]]).
 - About 2.5 working days remain before the freeze. They overlap with the company notification Worker start-up (10-30 – 10-31) and the Kakao S0 receive test.
 - Any new or changed screen must land before the freeze. Collection-only work (no screen change) can land after filming.
 - All work stays additive: do not change the core-cut contracts (`ingest_save_revision`, analysis job, `analyze()` formula, goldens 94/72/68). Do not show probability, win-rate or "chance of winning" figures ([[16-DECISIONS|ADR-007]], ADR-037 condition 4).
@@ -39,7 +39,7 @@ The user's list, translated from Korean:
 | 6 | Org chart name search | **Done** (2026-10-29, `6883b73f`) | — | — | — |
 | 3 | Person project history | **Done** (2026-10-29, `6622f487`, production DB `20261029001000`) | — | — | — |
 | 2 + 8 | Team staffing for recommended bids | **Done** (2026-10-30, `006f9836`, production deploy `5961f552`) | — | — | — |
-| 7 | Google Calendar | **Done** (2026-10-30, `a73fa25c`, production deploy `5961f552`) | — | — | — |
+| 7 | Google Calendar | **Done** (2026-10-30, `a73fa25c`, production deploy `5961f552`). `.ics` part retired on 2026-10-30, see the D3 note below | — | — | — |
 | 4 | Procurement plan collection | Registry entry approved, never called | Normalizer, mapping, Worker schedule, IT scope, company Worker rollout | 1 day code + rollout | After filming (recommended) |
 | 5 | Bid price analysis / prediction | Conflicts with the product positioning; no award data collected | Drop from the hackathon | — | Not in hackathon (recommended) |
 
@@ -158,6 +158,9 @@ The first option of each decision is the recommended one.
 | D3 | Item 7 method | Event link + `.ics` download | Google OAuth two-way sync (not feasible before the freeze) |
 | D5 | Item 4 timing | Code and rollout after filming | Code and company Worker rollout before the freeze |
 | D6 | Item 1 | Already done on `/bids`; confirm which screen was meant | — |
+
+> [!warning] D3 changed on 2026-10-30 (user decision, [[16-DECISIONS|ADR-073]] reserved)
+> 2026-10-30 사용자 결정으로 `.ics` 내려받기(`GET /api/v1/calendar/ics`)를 빼고 구글 캘린더 연동(구글 로그인 연결에 캘린더 권한을 얹고, 전용 보조 캘린더 "SOL RADAR 입찰 일정"에 수동 밀어넣기)으로 바꾼다. 일정별 "구글 캘린더에 추가" 링크는 유지한다. 스펙은 `polaris/specs/planned/2026-10-30-google-calendar-sync.md`, [[2026-10-30-calendar-export|calendar export]] 계획은 superseded다.
 
 ## 관련 문서
 

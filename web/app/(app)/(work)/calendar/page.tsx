@@ -23,10 +23,17 @@ import {
   type CalendarMonth,
   type CalendarView,
 } from "@/server/calendar";
+import {
+  loadMyGoogleCalendar,
+  readGoogleCalendarConfig,
+  toGoogleConnectOutcome,
+} from "@/server/google-calendar";
+import { errorNameOf } from "@/server/shared";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { CALENDAR_PATH, CALENDAR_TITLE } from "./calendar-copy";
 import { siteOriginOf } from "./calendar-export";
 import { BidCalendar, capUpcoming } from "./calendar-view";
+import type { GoogleCalendarToolbar } from "./google-connect";
 
 export const metadata: Metadata = { title: CALENDAR_TITLE };
 
@@ -50,20 +57,17 @@ function calendarHref(
     : CALENDAR_PATH;
 }
 
-const ICS_PATH = "/api/v1/calendar/ics";
-
-// .ics 내려받기 주소. 달은 늘 적는다(파일은 지금 보는 달이다). 보기·종류는 calendarHref 와 같게 기본값이면 뺀다.
-function icsHref(
-  month: CalendarMonth,
-  view: CalendarView,
-  kinds: readonly CalendarEventKind[],
-): string {
-  const params = new URLSearchParams({ month: monthKey(month) });
-  if (view !== DEFAULT_CALENDAR_VIEW) params.set("view", view);
-  const kindsValue = kindsParam(kinds);
-  if (kindsValue !== null) params.set("kinds", kindsValue);
-  return `${ICS_PATH}?${params.toString().replaceAll("%2C", ",")}`;
-}
+// 구글 캘린더 연동(ADR-073)의 연결 상태. 서버에 연동 설정(env 셋)이 없으면 버튼이 늘 실패하므로 두지 않는다(null).
+// 구글 표가 아직 없는 DB(마이그레이션 적용 전)에서도 달력은 열린다. 버튼만 숨기고 오류 이름을 남긴다.
+const loadGoogleView = () =>
+  readGoogleCalendarConfig(process.env) === null
+    ? Promise.resolve(null)
+    : loadMyGoogleCalendar().catch((error: unknown) => {
+        console.error(
+          JSON.stringify({ event: "google_calendar.load_failed", error: errorNameOf(error) }),
+        );
+        return null;
+      });
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   await connection();
@@ -82,11 +86,10 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const days = weeks.flat();
   // 관련 공고는 보일 칸(오늘부터 달력 격자 끝과 다가오는 14일)의 원본 일정이 들어올 공고 마감 범위만 읽는다.
   const window = relevantDeadlineWindow(days.at(-1)?.date ?? today, today);
-  const { events, relevantFailed } = await getCalendarEvents(
-    { orgId: work.orgId, userId: work.userId },
-    requested,
-    { window },
-  );
+  const [{ events, relevantFailed }, googleView] = await Promise.all([
+    getCalendarEvents({ orgId: work.orgId, userId: work.userId }, requested, { window }),
+    loadGoogleView(),
+  ]);
   // 종류 거르기는 그리기 직전에 한다. hasAnyEvents 는 거르기 전 일정으로 본다(빈 조직 안내와 "고른 종류 없음"을 나눈다).
   const shown = filterKinds(events, kinds);
   const byDate = eventsByDate(shown);
@@ -101,6 +104,16 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const kindsFiltered = kindsParam(kinds) !== null;
   const siteOrigin = siteOriginOf(await headers());
   const monthHref = (target: CalendarMonth) => calendarHref(target, requested, kinds);
+  // 연결하고 돌아올 곳은 지금 보는 달·보기·종류 그대로다(?google= 은 빼고). 밀어넣기도 같은 범위다.
+  const google: GoogleCalendarToolbar | null =
+    googleView === null
+      ? null
+      : {
+          state: googleView.state,
+          outcome: toGoogleConnectOutcome(single(raw.google)),
+          returnPath: calendarHref(month, requested, kinds),
+          sync: { month: monthKey(month), view: requested, kinds: kindsParam(kinds) },
+        };
   return (
     <BidCalendar
       monthLabel={`${month.year}년 ${month.month}월`}
@@ -116,6 +129,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       hasAnyEvents={events.length > 0}
       relevantFailed={relevantFailed}
       siteOrigin={siteOrigin}
+      google={google}
       links={{
         prev: monthHref(shiftMonth(month, -1)),
         next: monthHref(shiftMonth(month, 1)),
@@ -131,7 +145,6 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           ]),
         ) as Record<CalendarEventKind, string>,
         allKinds: kindsFiltered ? calendarHref(month, requested, CALENDAR_EVENT_KINDS) : null,
-        ics: icsHref(month, requested, kinds),
       }}
     />
   );

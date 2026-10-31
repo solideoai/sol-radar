@@ -1,12 +1,14 @@
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { CalendarDay, CalendarEvent, CalendarEventKind } from "@/server/calendar";
 import {
-  ICS_DOWNLOAD,
-  ICS_UNAVAILABLE,
+  GOOGLE_CONNECT_NOTICES,
+  GOOGLE_SYNC_ERRORS,
+  googleSynced,
+  googleSyncedEmpty,
   KIND_ORDER,
   MORE_MENU_MAX,
   moreMenuOverflow,
@@ -16,6 +18,7 @@ import {
   upcomingOverflow,
 } from "./calendar-copy";
 import { BidCalendar, capUpcoming, MAX_CHIPS, type CalendarLinks } from "./calendar-view";
+import { syncResultOf, type GoogleCalendarToolbar } from "./google-connect";
 
 // 입찰 일정 화면 하나를 진짜 Chromium 에 그린다(데이터는 가짜). 일정 모으기 규칙은 calendar.model.test.ts 가 맡는다.
 // 사이드바(256px)를 편 업무 틀과 같은 본문 폭에서 1440·1280 두 폭의 넘침을 재고 증거 스크린샷을 남긴다.
@@ -24,6 +27,9 @@ vi.mock("next/link", () => ({
   __esModule: true,
   default: ({ children, ...props }: React.ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
+// 구글 연동 툴바는 돌아온 결과(?google=)를 알린 뒤 주소에서 지운다(router.replace).
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const NOW = "2026-10-28T05:00:00.000Z"; // KST 10-28(수) 14:00
 const TODAY = "2026-10-28";
@@ -101,13 +107,22 @@ const LINKS: CalendarLinks = {
     KIND_ORDER.map((kind) => [kind, `/calendar?month=2026-10&kinds=${kind}`]),
   ) as Record<CalendarEventKind, string>,
   allKinds: null,
-  ics: "/api/v1/calendar/ics?month=2026-10",
+};
+const GOOGLE: GoogleCalendarToolbar = {
+  state: "CONNECTED",
+  outcome: null,
+  returnPath: "/calendar?month=2026-10&view=mine",
+  sync: { month: "2026-10", view: "mine", kinds: "BID_DEADLINE,OPENING" },
 };
 
 const mounted: Root[] = [];
+beforeEach(() => {
+  router.replace.mockReset();
+});
 afterEach(() => {
   for (const root of mounted.splice(0)) root.unmount();
   document.body.replaceChildren();
+  vi.unstubAllGlobals();
 });
 
 type Props = React.ComponentProps<typeof BidCalendar>;
@@ -136,6 +151,7 @@ function show(overrides: Partial<Props> = {}) {
             hasAnyEvents
             relevantFailed={false}
             siteOrigin="https://sol.example"
+            google={null}
             {...overrides}
           />
         </div>
@@ -415,17 +431,6 @@ describe("입찰 일정 화면", () => {
     await userEvent.keyboard("{Escape}");
   });
 
-  it("툴바에 이 달 .ics 내려받기 링크가 있다", async () => {
-    await page.viewport(1280, 1000);
-    show();
-
-    const download = page.getByRole("link", { name: "이 달 일정 내려받기(.ics)" });
-    await expect.element(download).toHaveAttribute("href", "/api/v1/calendar/ics?month=2026-10");
-    await expect.element(download).toHaveAttribute("download");
-    // 1280px 에서 툴바가 줄을 바꿔도 가로로 넘치지 않는다.
-    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
-  });
-
   it("다가오는 일정마다 구글 캘린더에 추가 링크가 새 창으로 열린다", async () => {
     await page.viewport(1440, 1000);
     const site = event("site", "2026-10-29T01:00:00.000Z", "2026-10-29", {
@@ -461,10 +466,6 @@ describe("입찰 일정 화면", () => {
       .element(notice)
       .toHaveTextContent("IT 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.");
     expect(notice.element().querySelector("svg")).not.toBeNull();
-    // 이때 내려받기는 503 이라 누를 수 없게 하고, 이유를 같은 안내에 싣는다.
-    await expect.element(notice).toHaveTextContent(ICS_UNAVAILABLE);
-    await expect.element(page.getByRole("button", { name: ICS_DOWNLOAD })).toBeDisabled();
-    await expect.element(page.getByRole("link", { name: ICS_DOWNLOAD })).not.toBeInTheDocument();
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/calendar-1440-relevant-failed.png",
     });
@@ -472,5 +473,204 @@ describe("입찰 일정 화면", () => {
     await expect
       .element(page.getByRole("link", { name: /^제출 마감 15:00 today/ }))
       .toHaveAttribute("href", "/projects/p1");
+  });
+});
+
+// ── 구글 캘린더 연동 툴바(ADR-073): 버튼 셋, 결과 띠, 돌아온 결과. 요청은 가짜 fetch 다 ──
+describe("구글 캘린더 연동 툴바", () => {
+  const shot = (name: string) =>
+    page.screenshot({ path: `../../../../test-results/google-calendar/${name}.png` });
+  const status = () => page.getByRole("status");
+
+  it("서버에 연동 설정이 없으면(google=null) 버튼을 두지 않는다", async () => {
+    await page.viewport(1440, 1000);
+    show();
+    await expect.element(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(document.body.textContent).not.toContain("구글 캘린더 연동");
+    expect(document.body.textContent).not.toContain("구글 캘린더에 넣기");
+    expect(document.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it("연결 전은 [구글 캘린더 연동], 만료는 [다시 연결] 링크이고 지금 보는 화면으로 돌아오게 연결을 시작한다", async () => {
+    await page.viewport(1440, 1000);
+    show({ google: { ...GOOGLE, state: "DISCONNECTED" } });
+    const connect = page.getByRole("link", { name: "구글 캘린더 연동", exact: true });
+    await expect
+      .element(connect)
+      .toHaveAttribute(
+        "href",
+        "/api/v1/me/google-calendar/connect?next=%2Fcalendar%3Fmonth%3D2026-10%26view%3Dmine",
+      );
+    await expect
+      .element(connect)
+      .toHaveAttribute("title", "구글 계정을 연결하고 이 달 일정을 보조 캘린더에 넣습니다");
+    await expect
+      .element(page.getByRole("button", { name: "구글 캘린더에 넣기" }))
+      .not.toBeInTheDocument();
+    await userEvent.hover(page.getByRole("heading", { level: 1 }));
+    await shot("calendar-1440-disconnected");
+
+    for (const root of mounted.splice(0)) root.unmount();
+    document.body.replaceChildren();
+    show({ google: { ...GOOGLE, state: "EXPIRED" } });
+    await expect
+      .element(page.getByRole("link", { name: "다시 연결", exact: true }))
+      .toHaveAttribute(
+        "href",
+        "/api/v1/me/google-calendar/connect?next=%2Fcalendar%3Fmonth%3D2026-10%26view%3Dmine",
+      );
+  });
+
+  it("[구글 캘린더에 넣기]는 지금 보는 범위를 확인 헤더로 보내고, 넣는 동안 비활성·aria-busy, 끝나면 건수와 [구글 캘린더 열기](새 창)를 띠에 보인다", async () => {
+    await page.viewport(1440, 1000);
+    const calls: { url: string; init: RequestInit | undefined }[] = [];
+    const reply = Promise.withResolvers<Response>();
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return reply.promise;
+    });
+    show({ google: GOOGLE });
+
+    const sync = page.getByRole("button", { name: "구글 캘린더에 넣기" });
+    await expect
+      .element(sync)
+      .toHaveAttribute(
+        "title",
+        "지금 보는 달·보기·종류의 일정을 구글 보조 캘린더 'SOL RADAR 입찰 일정'에 넣습니다. 조직 전체 보기에서는 고른 종류 가운데 없어진 일정을 지웁니다.",
+      );
+    await userEvent.click(sync);
+    await expect.element(sync).toBeDisabled();
+    await expect.element(sync).toHaveAttribute("aria-busy", "true");
+    await expect.element(status()).toHaveTextContent("구글 캘린더에 넣는 중…");
+    await expect.element(status()).toHaveAttribute("aria-busy", "true");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("/api/v1/calendar/google/sync");
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(calls[0]?.init?.headers).toMatchObject({ "X-Requested-With": "sol-radar" });
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      month: "2026-10",
+      view: "mine",
+      kinds: "BID_DEADLINE,OPENING",
+    });
+
+    reply.resolve(
+      Response.json({ month: "2026-10", calendarId: "c", created: 3, updated: 1, deleted: 2 }),
+    );
+    await expect
+      .element(status())
+      .toHaveTextContent(googleSynced({ created: 3, updated: 1, deleted: 2 }));
+    await expect.element(sync).toBeEnabled();
+    await expect.element(status()).toHaveAttribute("aria-busy", "false");
+    const open = page.getByRole("link", { name: "구글 캘린더 열기(새 창)" });
+    await expect.element(open).toHaveAttribute("href", "https://calendar.google.com/calendar/");
+    await expect.element(open).toHaveAttribute("target", "_blank");
+    await expect.element(open).toHaveAttribute("rel", "noopener noreferrer");
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    await userEvent.hover(page.getByRole("heading", { level: 1 }));
+    await shot("calendar-1440-synced");
+  });
+
+  it("만료(409 GOOGLE_EXPIRED)면 띠가 다시 연결을 안내하고 버튼이 [다시 연결]로 바뀐다", async () => {
+    await page.viewport(1280, 1000);
+    vi.stubGlobal("fetch", async () =>
+      Response.json(
+        { error: { code: "GOOGLE_EXPIRED", message: "만료", details: null } },
+        { status: 409 },
+      ),
+    );
+    show({ google: GOOGLE });
+    await userEvent.click(page.getByRole("button", { name: "구글 캘린더에 넣기" }));
+    await expect.element(status()).toHaveTextContent(GOOGLE_SYNC_ERRORS.expired);
+    await expect.element(page.getByRole("link", { name: "다시 연결", exact: true })).toBeVisible();
+    await expect
+      .element(page.getByRole("button", { name: "구글 캘린더에 넣기" }))
+      .not.toBeInTheDocument();
+    // 1280px 에서 툴바가 줄을 바꿔도 가로로 넘치지 않는다.
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    await userEvent.hover(page.getByRole("heading", { level: 1 }));
+    await shot("calendar-1280-expired");
+  });
+
+  it("응답마다 띠 문구가 스펙 상태 표와 같다(빈 달·일부 실패·IT 공고 실패·연결 없음·준비 전)", () => {
+    const error = (status: number, code: string, component: string | null = null) =>
+      syncResultOf(status, { error: { code, message: "서버 글자", details: { component } } });
+    expect(syncResultOf(200, { created: 0, updated: 0, deleted: 0 }).band).toEqual({
+      tone: "ok",
+      message: "이 달에는 넣을 일정이 없습니다.",
+      showOpen: false,
+    });
+    expect(syncResultOf(200, { created: 0, updated: 0, deleted: 2 }).band.message).toBe(
+      googleSyncedEmpty(2),
+    );
+    expect(error(502, "UPSTREAM_ERROR", "google-calendar").band.message).toBe(
+      "구글 캘린더 오류로 일부를 넣지 못했습니다. 다시 눌러 주세요.",
+    );
+    expect(error(503, "SERVICE_UNAVAILABLE", "calendar-relevant").band.message).toBe(
+      "IT 공고 일정을 불러오지 못해 넣지 않았습니다. 새로 고친 뒤 다시 시도하세요.",
+    );
+    expect(error(503, "SERVICE_UNAVAILABLE", "google-calendar").band.message).toBe(
+      GOOGLE_SYNC_ERRORS.notReady,
+    );
+    expect(error(409, "GOOGLE_NOT_CONNECTED")).toEqual({
+      band: { tone: "error", message: GOOGLE_SYNC_ERRORS.notConnected },
+      state: "DISCONNECTED",
+    });
+    expect(error(409, "GOOGLE_EXPIRED").state).toBe("EXPIRED");
+    // 500건 상한(보안 리뷰 C). 다른 400 은 알 수 없는 오류 문구다.
+    expect(error(400, "VALIDATION_ERROR", "google-calendar-limit").band.message).toBe(
+      "한 번에 넣을 수 있는 일정은 500건까지입니다. 일정 종류를 줄여 주세요.",
+    );
+    expect(error(400, "VALIDATION_ERROR").band.message).toBe(GOOGLE_SYNC_ERRORS.unknown);
+    // 모양이 틀린 200 은 성공으로 보이지 않는다.
+    expect(syncResultOf(200, { created: "3" }).band.tone).toBe("error");
+    expect(syncResultOf(500, null).band.message).toBe(GOOGLE_SYNC_ERRORS.unknown);
+  });
+
+  it("연결하고 돌아오면 결과를 띠에 한 번 알리고 주소에서 ?google= 을 지운다", async () => {
+    await page.viewport(1440, 1000);
+    show({ google: { ...GOOGLE, outcome: "connected" } });
+    await expect.element(status()).toHaveTextContent(GOOGLE_CONNECT_NOTICES.connected);
+    await vi.waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith("/calendar?month=2026-10&view=mine", {
+        scroll: false,
+      }),
+    );
+    expect(router.replace).toHaveBeenCalledTimes(1);
+
+    for (const root of mounted.splice(0)) root.unmount();
+    document.body.replaceChildren();
+    show({ google: { ...GOOGLE, state: "DISCONNECTED", outcome: "no_refresh_token" } });
+    await expect
+      .element(status())
+      .toHaveTextContent(
+        "구글이 갱신 토큰을 주지 않았습니다. 구글 계정 보안 설정에서 SOL RADAR 접근을 지우고 다시 연결하세요.",
+      );
+    await expect
+      .element(page.getByRole("link", { name: "구글 캘린더 연동", exact: true }))
+      .toBeVisible();
+  });
+
+  it("390px: 툴바 버튼과 띠 링크는 44px 이상이고, 긴 띠는 줄을 바꿔 가로로 넘치지 않는다", async () => {
+    await page.viewport(390, 900);
+    vi.stubGlobal("fetch", async () =>
+      Response.json({ month: "2026-10", calendarId: "c", created: 12, updated: 30, deleted: 4 }),
+    );
+    show({ google: GOOGLE, eventsByDate: {}, upcoming: [] });
+    const sync = page.getByRole("button", { name: "구글 캘린더에 넣기" });
+    expect(sync.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    await userEvent.click(sync);
+    const open = page.getByRole("link", { name: "구글 캘린더 열기(새 창)" });
+    await expect.element(open).toBeVisible();
+    expect(open.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+    await shot("calendar-390-synced");
+
+    for (const root of mounted.splice(0)) root.unmount();
+    document.body.replaceChildren();
+    show({ google: { ...GOOGLE, state: "DISCONNECTED" }, eventsByDate: {}, upcoming: [] });
+    const connect = page.getByRole("link", { name: "구글 캘린더 연동", exact: true });
+    expect(connect.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+    await shot("calendar-390-disconnected");
   });
 });

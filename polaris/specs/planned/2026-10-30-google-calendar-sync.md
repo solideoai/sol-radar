@@ -2,7 +2,7 @@
 title: "입찰 일정 구글 캘린더 연동"
 status: planned
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-10-31
 tags:
   - sol-radar
   - calendar
@@ -38,7 +38,8 @@ tags:
 
 | Method | Path | 권한 | 응답 |
 |---|---|---|---|
-| POST | `/api/v1/calendar/google/sync` | auth | 본문 `{month, view, kinds}` → `200 {created, updated, deleted, calendarId}`. `401`, `403 CSRF_REJECTED`, `409 GOOGLE_NOT_CONNECTED`, `409 GOOGLE_EXPIRED`, `503 SERVICE_UNAVAILABLE`(IT 공고 읽기 실패, `component:"calendar-relevant"`), `502 UPSTREAM_ERROR`(구글 오류) |
+| POST | `/api/v1/calendar/google/sync` | auth | 본문 `{month, view, kinds}` → `200 {month, calendarId, created, updated, deleted}`. `401`, `403 CSRF_REJECTED`, `409 GOOGLE_NOT_CONNECTED`, `409 GOOGLE_EXPIRED`, `503 SERVICE_UNAVAILABLE`(IT 공고 읽기 실패, `component:"calendar-relevant"`), `502 UPSTREAM_ERROR`(구글 오류, 일부 실패면 `details.code:"PARTIAL"`과 건수) |
+| GET | `/api/v1/me/google-calendar/connect?next=` | session(본인) | `307` 구글 동의 화면(서명 state 쿠키) 또는 `next?google=failed` |
 | GET | `/api/v1/me/google-calendar` | session(본인) | 연결 상태·구글 이메일·마지막 반영 시각·결과 |
 | DELETE | `/api/v1/me/google-calendar` | session(본인) | `204`. 연결 행·매핑 행을 지운다. 구글 revoke는 부르지 않는다 |
 | (삭제) | `GET /api/v1/calendar/ics` | — | Route Handler·계약 시험·화면 링크를 지운다 |
@@ -90,7 +91,7 @@ tags:
 - 새 창 링크는 `rel="noopener noreferrer"`와 "(새 창)" 접근 이름을 붙인다.
 - 모바일(ADR-072)에서 툴바 버튼은 44px 영역, 띠는 한 열로 줄바꿈한다.
 - 기존 `Button`·`Alert`·설정 칸 부품만 쓰고, 색은 `foreground`·`muted-foreground`·`border`·상태색만 쓴다.
-- 보안: refresh token은 암호문만 저장하고 응답·로그에 평문을 쓰지 않는다. `POST`·`DELETE`는 `X-Requested-With: sol-radar`(CSRF). 콜백은 `flow`·`next`를 화이트리스트로 검사하고 외부 주소로 보내지 않는다. 연결·해제·밀어넣기 결과는 `audit_logs`에 남긴다(토큰 값 없이).
+- 보안: refresh token은 암호문만 저장하고 응답·로그에 평문을 쓰지 않는다. `POST`·`DELETE`는 `X-Requested-With: sol-radar`(CSRF). 콜백은 `flow`·`next`를 화이트리스트로 검사하고 외부 주소로 보내지 않는다. 연결·해제·밀어넣기 결과는 서버 로그(JSON 한 줄, 토큰·이메일 없이)에 남긴다. `audit_logs` 기록은 발표 뒤 후속이다(2026-10-30 마스터 결정: `audit_logs`는 사용자 세션 쓰기가 없고 `org_id`가 필수이며 action 제약에 값이 없어 새 마이그레이션·security definer 함수가 필요하다. 카카오 연결·해제도 감사 기록을 남기지 않는다).
 
 ## 구현 단계와 완료 기준
 
@@ -106,6 +107,20 @@ tags:
 | 7 통합 검증 | `pnpm verify`, 실제 구글 1회 왕복, `docs/evidence/google-calendar/`, PROGRESS | exit 0, 두 번 눌러도 중복 0 |
 
 검증 규칙은 `docs/17-CLAUDE-IMPLEMENTATION.md` 해커톤 검증 정책(ADR-046)이다. 개발 중 `pnpm verify:changed`, 통합 때 전체 `pnpm verify`. 실제 구글 계정 왕복은 1회만 하고 결과(연결·밀어넣기 두 번·해제)를 `docs/evidence/google-calendar/`에 남긴다. 운영 DB 적용(`pnpm db:push`)과 Vercel env 추가는 사용자 확인 뒤다.
+
+## 구현 메모 (2026-10-30, 마스터 결정 포함)
+
+스펙 본문과 달라진 것과 구체화한 것이다. 구현은 `feat/google-calendar-sync`(worktree `sol-radar-worktrees/google-calendar`)다.
+
+- 연결 시작은 클라이언트 부품이 아니라 서버 경로 `GET /api/v1/me/google-calendar/connect`가 한다. 사용자 id를 서명한 state 쿠키를 굽고 `linkIdentity` 또는 `signInWithOAuth`+`login_hint`를 고른다. 툴바의 `google-connect.tsx`는 그 주소로 가는 일반 링크다(미리 읽기 방지).
+- 콜백 처리는 `web/app/auth/callback/google-calendar.ts`와 `web/server/google-calendar`에 있다(4단계 표의 `auth.service`가 아니다). 결과 값은 스펙 네 가지에 `state_mismatch`(연결 요청 만료·다른 브라우저)와 `failed`(설정·구글 오류)를 더했다. 다른 계정이면 세션을 끊고 `/auth/login?link=google-mismatch&next=/calendar`로 보낸다(로그아웃 상태의 `/calendar`는 쿼리 없이 로그인으로 보내 안내가 사라지기 때문).
+- 삭제 범위: 그 달 매핑 가운데 지금 고른 종류(`key`의 종류)에서 사라진 일정만 지운다. `mine` 보기와 종류를 하나도 고르지 않은 요청은 지우지 않는다(조직 일정이 "내 일정"에 없다고 사라진 것은 아니다).
+- 일부 실패는 `200`이 아니라 `502 UPSTREAM_ERROR`(`details.code:"PARTIAL"`)다. 성공한 일정은 매핑에 남아 다음 번에 갱신이다.
+- 서버에 구글 env 셋이 없거나 연결 상태를 읽지 못하면 `/calendar`에 버튼을 두지 않는다(동작하지 않는 버튼 금지). 운영 env를 넣기 전에는 버튼이 보이지 않는다.
+- [연결 해제]는 확인 단계 없이 바로 지운다(카카오 칸과 같음). 토스트로 "구글 캘린더에 넣은 일정은 남습니다."를 알린다.
+- `audit_logs` 기록 대신 서버 로그 JSON 한 줄(`event: google_calendar.connect|sync|disconnect`, 토큰·구글 이메일·캘린더 id·일정 제목 없음)을 남긴다. `audit_logs`는 사용자 세션 쓰기가 없고 `org_id`가 필수이며 action 제약에 값이 없어, 발표 뒤 후속이다.
+- `pnpm check:env`는 구글 키 셋 중 일부만 있으면 빠진 키마다 `MISSING_KEY`, `GOOGLE_TOKEN_ENC_KEY`가 base64 32바이트가 아니면 `INVALID_FORMAT`이다.
+- 보안 리뷰(2026-10-31) 반영: DEMO 공고는 구글 일정 제목에 `[DEMO] `, 설명 첫 줄에 "가상 데이터(DEMO)"를 붙인다(일정별 링크도 같음). 수집 문자열의 `<`·`>`는 뺀다. 구글 암호문 AAD에 `google:` 접두를 붙인다(카카오와 키가 같아도 서로 풀리지 않게). 한 번에 넣는 일정은 500건까지(넘으면 `400 VALIDATION_ERROR`, 구글을 부르지 않는다). 받아들인 위험(본인 행 쓰기로 자기 일정 삭제 가능, 해제 때 revoke 없음, 재연결 때 다른 계정 선택 시 빈 계정, identity 둘)은 ADR-073에 적었다.
 
 ## 열린 질문 (사용자가 준비할 것)
 

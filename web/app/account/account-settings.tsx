@@ -28,6 +28,11 @@ import {
   KAKAO_NOTIFY_HEADING_ID,
   KakaoNotifySection,
 } from "@/app/(app)/[slug]/settings/kakao-notify-section";
+import {
+  GOOGLE_CALENDAR_HEADING_ID,
+  GoogleCalendarSection,
+} from "@/app/(app)/[slug]/settings/google-calendar-section";
+import type { GoogleCalendarView, GoogleConnectOutcome } from "@/server/google-calendar";
 import type { KakaoConnectOutcome, KakaoNotifyView } from "@/server/kakao-notify";
 
 const LINK_OUTCOMES: readonly LinkOutcome[] = [
@@ -96,6 +101,7 @@ export function AccountSettings({
   link,
   settingsPath,
   kakao,
+  google,
 }: {
   profile: ProfileView;
   login: Extract<MyLoginMethods, { status: "ready" }>;
@@ -103,6 +109,8 @@ export function AccountSettings({
   settingsPath: string;
   // 개인 설정(/<slug>/settings)만 넘긴다. 업무 조직 없는 계정 화면(/auth/account)에는 칸이 없다 — 추천 공고를 받을 조직이 없다.
   kakao?: { view: KakaoNotifyView; outcome: KakaoConnectOutcome | null };
+  // 구글 캘린더 연동(ADR-073). 개인 설정에서만 보인다(일정을 넣는 버튼은 /calendar 에 있다).
+  google?: { view: GoogleCalendarView; outcome: GoogleConnectOutcome | null };
 }) {
   const outcome = LINK_OUTCOMES.find((known) => known === link) ?? null;
   const name = nameOf(profile.displayName, profile.email);
@@ -185,6 +193,19 @@ export function AccountSettings({
             description="추천 공고(추천·보류 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."
           >
             <KakaoNotifySection view={kakao.view} outcome={kakao.outcome} />
+          </SettingsSection>
+        ) : null}
+        {google ? (
+          <SettingsSection
+            id={GOOGLE_CALENDAR_HEADING_ID}
+            title="구글 캘린더"
+            description="연결한 구글 계정의 보조 캘린더에 입찰 일정을 넣습니다. 일정 넣기는 입찰 일정 화면에서 합니다."
+          >
+            <GoogleCalendarSection
+              view={google.view}
+              outcome={google.outcome}
+              settingsPath={settingsPath}
+            />
           </SettingsSection>
         ) : null}
         <SettingsSection

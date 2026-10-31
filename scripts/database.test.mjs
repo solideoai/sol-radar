@@ -3955,3 +3955,208 @@ describe("가입 약관 동의 기록 (20261027000600)", () => {
     await db.exec("reset role");
   });
 });
+
+describe("구글 캘린더 연동 — 본인 행·매핑 (20261030002000)", () => {
+  const [alice, bob] = users;
+  const sealed = "v1.kid.iv.tag.ciphertext";
+  const link = (db, who) =>
+    db.query(
+      "insert into public.google_calendar_links (user_id, refresh_token_enc, google_email) values ($1, $2, $3)",
+      [who, sealed, `${who}@gmail.invalid`],
+    );
+  const mapping = (db, who, key, date) =>
+    db.query(
+      "insert into public.google_calendar_events (user_id, event_key, google_event_id, event_date) values ($1, $2, $3, $4)",
+      [who, key, `g-${key}`, date],
+    );
+  const countFor = async (db, table) =>
+    (await db.query(`select count(*)::int as n from ${table}`)).rows[0].n;
+
+  it("본인 행만 만들고 읽고 바꾸며, 남의 user_id 로는 행을 만들지 못한다", async (t) => {
+    const db = await migratedDb(t);
+    await actAs(db, alice);
+    await link(db, alice);
+    await assert.rejects(link(db, bob), /row-level security/);
+    assert.deepEqual(
+      (
+        await db.query(
+          "select user_id, status, google_email, refresh_token_enc, calendar_id from public.google_calendar_links",
+        )
+      ).rows,
+      [
+        {
+          user_id: alice,
+          status: "CONNECTED",
+          google_email: `${alice}@gmail.invalid`,
+          refresh_token_enc: sealed,
+          calendar_id: null,
+        },
+      ],
+    );
+    await db.query(
+      "update public.google_calendar_links set calendar_id = 'cal-1', status = 'EXPIRED'",
+    );
+    await actAs(db, bob);
+    assert.equal(await countFor(db, "public.google_calendar_links"), 0);
+    // 남의 행은 보이지 않으므로 바꾸거나 지워도 0행이다.
+    await db.query("update public.google_calendar_links set status = 'CONNECTED'");
+    await db.query("delete from public.google_calendar_links");
+    await db.exec("reset role");
+    assert.deepEqual(
+      (await db.query("select status, calendar_id from public.google_calendar_links")).rows,
+      [{ status: "EXPIRED", calendar_id: "cal-1" }],
+    );
+  });
+
+  it("상태·결과는 정해진 값만 받고 빈 암호문은 거절한다", async (t) => {
+    const db = await migratedDb(t);
+    await actAs(db, alice);
+    await assert.rejects(
+      db.query(
+        "insert into public.google_calendar_links (user_id, refresh_token_enc) values ($1, '')",
+        [alice],
+      ),
+      /refresh_token_enc_check/,
+    );
+    await link(db, alice);
+    await assert.rejects(
+      db.query("update public.google_calendar_links set status = 'BROKEN'"),
+      /status_check/,
+    );
+    await assert.rejects(
+      db.query("update public.google_calendar_links set last_result = 'MAYBE'"),
+      /last_result_check/,
+    );
+    await db.query("update public.google_calendar_links set last_result = 'SYNCED'");
+  });
+
+  it("매핑은 본인 것만 보이고 연결을 지우면 함께 지워진다", async (t) => {
+    const db = await migratedDb(t);
+    await actAs(db, alice);
+    await link(db, alice);
+    await mapping(db, alice, "BID_DEADLINE:b1", "2026-11-03");
+    await mapping(db, alice, "OPENING:b1", "2026-12-01");
+    await assert.rejects(mapping(db, alice, "BID_DEADLINE:b1", "2026-11-03"), /duplicate key/);
+    await assert.rejects(mapping(db, bob, "BID_DEADLINE:b2", "2026-11-03"), /row-level security/);
+    assert.deepEqual(
+      (
+        await db.query(
+          "select event_key from public.google_calendar_events where event_date >= '2026-11-01' and event_date < '2026-12-01' order by 1",
+        )
+      ).rows.map((row) => row.event_key),
+      ["BID_DEADLINE:b1"],
+    );
+    await actAs(db, bob);
+    assert.equal(await countFor(db, "public.google_calendar_events"), 0);
+    // 연결 행이 없는 사람은 매핑도 만들 수 없다(FK).
+    await assert.rejects(mapping(db, bob, "BID_DEADLINE:b2", "2026-11-03"), /foreign key/);
+    await actAs(db, alice);
+    await db.query("delete from public.google_calendar_links");
+    await db.exec("reset role");
+    assert.equal(await countFor(db, "public.google_calendar_events"), 0);
+  });
+
+  it("anon 은 두 표에 아무 권한이 없고 RLS 우회가 없다", async (t) => {
+    const db = await migratedDb(t);
+    await actAs(db, alice, "anon");
+    await assert.rejects(
+      db.query("select * from public.google_calendar_links"),
+      /permission denied for table google_calendar_links/,
+    );
+    await assert.rejects(
+      db.query("select * from public.google_calendar_events"),
+      /permission denied for table google_calendar_events/,
+    );
+    await db.exec("reset role");
+    assert.deepEqual(
+      (await findRlsBypasses(db)).filter((finding) => finding.name.startsWith("google_calendar")),
+      [],
+    );
+  });
+
+  // 보안 리뷰 F1: 운영자 예외 없음, 매핑 표의 남의 행, user_id 옮기기.
+  const snapshot = async (db) => ({
+    links: (
+      await db.query(
+        "select user_id, status, calendar_id from public.google_calendar_links order by 1",
+      )
+    ).rows,
+    events: (
+      await db.query(
+        "select user_id, event_key, google_event_id from public.google_calendar_events order by 1, 2",
+      )
+    ).rows,
+  });
+
+  it("운영자(profiles.is_admin)도 남의 구글 연결·매핑을 읽거나 바꾸거나 지우지 못한다", async (t) => {
+    const db = await migratedDb(t);
+    const operator = users[2];
+    await db.query("update public.profiles set is_admin = true where id = $1", [operator]);
+    await actAs(db, alice);
+    await link(db, alice);
+    await mapping(db, alice, "BID_DEADLINE:b1", "2026-11-03");
+    await db.exec("reset role");
+    const before = await snapshot(db);
+    await actAs(db, operator);
+    assert.equal(await countFor(db, "public.google_calendar_links"), 0);
+    assert.equal(await countFor(db, "public.google_calendar_events"), 0);
+    const changed = [
+      await db.query("update public.google_calendar_links set status = 'EXPIRED'"),
+      await db.query("update public.google_calendar_events set google_event_id = 'g-x'"),
+      await db.query("delete from public.google_calendar_events"),
+      await db.query("delete from public.google_calendar_links"),
+    ];
+    assert.deepEqual(
+      changed.map((result) => result.affectedRows),
+      [0, 0, 0, 0],
+    );
+    await db.exec("reset role");
+    assert.deepEqual(await snapshot(db), before);
+  });
+
+  it("매핑 표에서 남의 행은 바꾸거나 지워도 0행이다", async (t) => {
+    const db = await migratedDb(t);
+    await actAs(db, alice);
+    await link(db, alice);
+    await mapping(db, alice, "BID_DEADLINE:b1", "2026-11-03");
+    await actAs(db, bob);
+    await link(db, bob);
+    await db.exec("reset role");
+    const before = await snapshot(db);
+    await actAs(db, bob);
+    const updated = await db.query(
+      "update public.google_calendar_events set google_event_id = 'g-x' where user_id = $1",
+      [alice],
+    );
+    const deleted = await db.query("delete from public.google_calendar_events where user_id = $1", [
+      alice,
+    ]);
+    assert.deepEqual([updated.affectedRows, deleted.affectedRows], [0, 0]);
+    await db.exec("reset role");
+    assert.deepEqual(await snapshot(db), before);
+  });
+
+  it("update 로 연결·매핑의 user_id 를 남에게 옮기지 못한다", async (t) => {
+    const db = await migratedDb(t);
+    // bob 의 연결 행이 있어 FK 는 통과한다. 막는 것은 RLS 의 with check 다.
+    await actAs(db, bob);
+    await link(db, bob);
+    await actAs(db, alice);
+    await link(db, alice);
+    await mapping(db, alice, "BID_DEADLINE:b1", "2026-11-03");
+    await assert.rejects(
+      db.query("update public.google_calendar_events set user_id = $1", [bob]),
+      /row-level security/,
+    );
+    await db.query("delete from public.google_calendar_events");
+    await assert.rejects(
+      db.query("update public.google_calendar_links set user_id = $1", [users[2]]),
+      /row-level security/,
+    );
+    await db.exec("reset role");
+    assert.deepEqual(
+      (await db.query("select user_id from public.google_calendar_links order by 1")).rows,
+      [alice, bob].sort().map((user_id) => ({ user_id })),
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import type { CalendarEventKind, CalendarView } from "@/server/calendar";
+import type { GoogleConnectOutcome } from "@/server/google-calendar";
 
 // /calendar 문구. page·loading·error 가 같은 제목과 설명을 쓴다(읽는 동안과 읽은 뒤 제목 줄이 튀지 않게).
 // "use client" 파일에 두면 서버 부품(page·loading)이 받을 때 값이 아니라 클라이언트 참조가 되어 여기 따로 둔다.
@@ -76,13 +77,49 @@ export const upcomingOverflow = (count: number) =>
 export const MORE_MENU_MAX = 15;
 export const moreMenuOverflow = (count: number) =>
   `그 밖에 ${count}건 · 일정 종류를 거르면 줄어듭니다`;
-// 내보내기(OAuth 없음). .ics 는 지금 보는 달·보기·종류 그대로 내려받고, 구글 링크는 일정 하나를 사용자의 구글 캘린더에 채워 연다.
-export const ICS_DOWNLOAD = "이 달 일정 내려받기(.ics)";
-export const ICS_HINT = "구글 캘린더·아웃룩에서 가져오기로 추가합니다. 자동으로 갱신되지 않습니다.";
+// 일정별 링크(OAuth 없음): 일정 하나를 사용자의 구글 캘린더 "일정 만들기" 화면에 채워 연다. 연동 여부와 상관없이 쓴다.
 export const GOOGLE_ADD = "구글 캘린더에 추가";
-// IT 공고를 못 읽으면 내려받기는 일부만 담지 않고 503 이라 버튼을 끄고 이유를 실패 안내 뒤에 붙인다.
-export const ICS_UNAVAILABLE =
-  "IT 공고 일정이 빠진 파일은 내려주지 않습니다. 새로 고친 뒤 내려받으세요.";
+
+// ── 구글 캘린더 연동(ADR-073). 띠 문구는 스펙(polaris/specs 2026-10-30-google-calendar-sync) "상태" 표 그대로다(끝에 마침표만 붙였다) ──
+// 툴바 버튼 셋: 연결 전 [구글 캘린더 연동] → 연결 뒤 [구글 캘린더에 넣기] → 만료면 [다시 연결].
+export const GOOGLE_CONNECT = "구글 캘린더 연동";
+export const GOOGLE_CONNECT_HINT = "구글 계정을 연결하고 이 달 일정을 보조 캘린더에 넣습니다";
+export const GOOGLE_SYNC = "구글 캘린더에 넣기";
+export const GOOGLE_SYNC_HINT =
+  "지금 보는 달·보기·종류의 일정을 구글 보조 캘린더 'SOL RADAR 입찰 일정'에 넣습니다. 조직 전체 보기에서는 고른 종류 가운데 없어진 일정을 지웁니다.";
+export const GOOGLE_RECONNECT = "다시 연결";
+export const GOOGLE_SYNCING = "구글 캘린더에 넣는 중…";
+export const GOOGLE_OPEN = "구글 캘린더 열기";
+export const GOOGLE_CALENDAR_HOME = "https://calendar.google.com/calendar/";
+export const googleSynced = (counts: { created: number; updated: number; deleted: number }) =>
+  `구글 캘린더에 넣었습니다: 새로 ${counts.created}건 · 갱신 ${counts.updated}건 · 삭제 ${counts.deleted}건`;
+// 그 달 일정이 0건이면 넣은 것이 없다. 이전에 넣은 일정을 지웠으면 건수를 붙인다.
+export const googleSyncedEmpty = (deleted: number) =>
+  deleted > 0
+    ? `이 달에는 넣을 일정이 없습니다. 이전에 넣은 일정 ${deleted}건을 지웠습니다.`
+    : "이 달에는 넣을 일정이 없습니다.";
+// 밀어넣기 실패. 오류 코드(05 API)마다 하나다. 서버 message 대신 이 글자를 쓴다(화면 문구를 한곳에 둔다).
+export const GOOGLE_SYNC_ERRORS = {
+  expired: "구글 연결이 만료됐습니다. 다시 연결하세요.",
+  notConnected: "구글 계정이 연결되어 있지 않습니다. 먼저 연결하세요.",
+  upstream: "구글 캘린더 오류로 일부를 넣지 못했습니다. 다시 눌러 주세요.",
+  relevant: "IT 공고 일정을 불러오지 못해 넣지 않았습니다. 새로 고친 뒤 다시 시도하세요.",
+  notReady: "구글 캘린더 연동이 아직 준비되지 않았습니다. 잠시 뒤 다시 시도하세요.",
+  signedOut: "로그인이 끝났습니다. 다시 로그인한 뒤 시도하세요.",
+  tooMany: "한 번에 넣을 수 있는 일정은 500건까지입니다. 일정 종류를 줄여 주세요.",
+  unknown: "구글 캘린더에 넣지 못했습니다. 잠시 뒤 다시 시도하세요.",
+} as const;
+// 구글 연결에서 돌아온 결과(?google=). account_mismatch 는 세션을 끊어 로그인 화면이 같은 글자를 보인다.
+// state_mismatch·failed 는 스펙 표 밖의 결과(연결 요청 만료·서버 설정·구글 오류)다. 설정 화면의 구글 칸도 이 글자를 쓴다.
+export const GOOGLE_CONNECT_NOTICES: Record<GoogleConnectOutcome, string> = {
+  connected: "구글 캘린더를 연결했습니다. [구글 캘린더에 넣기]로 이 달 일정을 넣으세요.",
+  consent_denied: "구글 캘린더 권한을 허용하지 않아 연결하지 않았습니다.",
+  account_mismatch: "다른 계정으로 로그인되어 연결을 취소했습니다. 다시 로그인하세요.",
+  no_refresh_token:
+    "구글이 갱신 토큰을 주지 않았습니다. 구글 계정 보안 설정에서 SOL RADAR 접근을 지우고 다시 연결하세요.",
+  state_mismatch: "연결 요청이 만료되었거나 올바르지 않습니다. 다시 연결하세요.",
+  failed: "구글 캘린더를 연결하지 못했습니다. 잠시 뒤 다시 시도하세요.",
+};
 export const MONTH_EMPTY = "이 달에는 일정이 없습니다.";
 export const NO_EVENTS_HINT =
   "입찰 공고에서 별을 눌러 관심 표시하거나 입찰 프로젝트를 열면 일정이 여기에 모입니다.";

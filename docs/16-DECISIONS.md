@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-30
+updated: 2026-10-31
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -101,8 +101,10 @@ updated: 2026-10-30
 1. **화면 동결을 2026-11-01에서 2026-11-03(화)으로 연기한다.** 공식 제출 11-03·발표 11-04(ADR-054)는 그대로다. 촬영·리허설 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표에만 둔다. ADR-061·070 본문의 "11-01"은 결정 당시 값이다.
 2. **카카오 간편 로그인·나에게 보내기 실발송까지 됐다는 사용자 보고(2026-10-30)를 기록한다.** 증거 기록 경로는 미확인이고, 마지막 측정 증거(2026-10-30 12:47, [기록](evidence/company-rollout/20261030/notify-worker-rollout.md))는 운영 연결 0건·알림 Worker 카카오 발송 꺼짐이다. 실수신은 녹화 뒤에만 "확인"으로 적는다(ADR-038·054 원칙 유지).
 3. **입찰 일정(`/calendar`)의 `.ics` 내려받기와 `GET /api/v1/calendar/ics`를 빼고 구글 캘린더 연동으로 바꾼다.** 구글 로그인 연결(`linkIdentity`)에 `calendar.events` 권한을 얹어 `provider_refresh_token`을 AES-256-GCM으로 암호화해 새 표 `google_calendar_links`에 저장하고, 툴바 버튼 하나로 지금 보는 달·보기·종류의 일정을 사용자 구글 계정의 전용 보조 캘린더 "SOL RADAR 입찰 일정"에 밀어넣는다(매핑 표 `google_calendar_events`로 멱등, 두 번 눌러도 중복 0). 일정별 "구글 캘린더에 추가" 링크(`googleCalendarUrl`)는 유지한다. 자동 동기화·양방향·구독형 ICS·담당자 이름 전송·조직 공용 캘린더는 만들지 않는다. env `GOOGLE_OAUTH_CLIENT_ID`·`GOOGLE_OAUTH_CLIENT_SECRET`·`GOOGLE_TOKEN_ENC_KEY`는 웹 서버 전용이다(ADR-018 예외를 ADR-038 카카오에서 구글로 넓힌다). RLS는 본인 행만(`user_id = auth.uid()`), service role은 쓰지 않는다. API·오류 코드는 [[05-API-SPEC|05]] §2, 화면은 [[06-UI-UX|06]] §5.15(교체 전 서술에 경고 콜아웃)다.
-   - 암호문 열(`refresh_token_enc`)은 카카오(`kakao_notify_links`, 열 숨김)와 달리 `authenticated`가 자기 행을 읽을 수 있다. 암호문은 서버 전용 키 + AAD(`userId:refresh`)로 묶여 브라우저가 풀 수 없고 다른 사용자 행으로 옮겨도 풀리지 않지만, 키가 새는 사고의 노출 면은 카카오보다 넓다. 비공개 자료가 늘면 열 단위 grant로 다시 정한다.
-   - **반영 상태(2026-10-30)**: 마이그레이션 `20261030002000_google_calendar_links.sql`·정책 시험 4건, 도메인 `web/server/google-calendar/`·`web/server/token-seal/`(카카오 암호화를 공통화, 포맷·키 이름 호환), `POST /api/v1/calendar/google/sync`·`GET/DELETE /api/v1/me/google-calendar`·연결 콜백, 설정 개인 탭 "구글 캘린더" 칸까지 작업 트리에 있다(커밋 전). `/calendar` 툴바 [구글 캘린더 연동]/[넣기] 버튼과 결과 띠, `.ics` 라우트·버튼·시험 제거, `pnpm check:env` 부분 설정 거부, 연결·해제·밀어넣기 `audit_logs`, 구글 왕복 증거(`docs/evidence/google-calendar/`)는 남았다. 일부 일정 실패는 스펙의 `502`가 아니라 `200 {…, failed: n}`으로 돌려준다(구현 선택, 05에 반영할 것).
+   - 암호문 열(`refresh_token_enc`)은 카카오(`kakao_notify_links`, 열 숨김)와 달리 `authenticated`가 자기 행을 읽을 수 있다. 암호문은 서버 전용 키 + AAD(`google:` 접두 + `userId:refresh`, 2026-10-31 보안 리뷰로 접두 추가)로 묶여 브라우저가 풀 수 없고 다른 사용자 행으로 옮겨도 풀리지 않지만, 키가 새는 사고의 노출 면은 카카오보다 넓다. 비공개 자료가 늘면 열 단위 grant로 다시 정한다.
+   - **반영 상태(2026-10-31)**: 브랜치 `feat/google-calendar-sync`에 마이그레이션 `20261030002000_google_calendar_links.sql`과 정책 시험, 도메인 `web/server/google-calendar/`·`web/server/token-seal/`(카카오 암호화를 공통화, 카카오 포맷·키 이름 호환), `GET /api/v1/me/google-calendar/connect`·`POST /api/v1/calendar/google/sync`·`GET/DELETE /api/v1/me/google-calendar`·연결 콜백, `/calendar` 툴바 버튼 3상태와 결과 띠, 설정 개인 탭 "구글 캘린더" 칸, `pnpm check:env` 부분 설정·형식 거부가 있고 `.ics` 라우트·버튼·시험은 지웠다. 운영 DB 적용·Vercel env·main push·실제 구글 왕복 증거(`docs/evidence/google-calendar/`)는 남았다(항목마다 사용자 승인).
+   - **구현 중 정한 것(2026-10-30·31 마스터 결정, 스펙 "구현 메모")**: 일부 일정 실패는 `502 UPSTREAM_ERROR`(`details.code:"PARTIAL"`)다. 삭제는 조직 전체 보기에서 고른 종류 안의 사라진 일정만이고 `mine` 보기는 지우지 않는다. 연결·해제·밀어넣기는 `audit_logs` 대신 서버 로그 JSON 한 줄(토큰·구글 이메일·캘린더 id·일정 제목 없음)에 남긴다(`audit_logs`는 사용자 세션 쓰기가 없고 `org_id` 필수라 발표 뒤). DEMO 공고는 구글 일정 제목에 `[DEMO]`, 설명 첫 줄에 "가상 데이터(DEMO)"를 붙인다. 구글 암호문 AAD에 `google:` 접두를 붙여 카카오와 키가 같아도 서로 풀리지 않게 한다. 한 번에 넣는 일정은 500건까지다.
+   - **받아들인 위험(2026-10-31 보안 리뷰)**: ① 표가 본인 행 insert·update를 열어 두어(사용자 세션으로 서버가 쓰므로) 사용자가 PostgREST로 자기 `calendar_id`·`google_event_id`를 바꾸면 밀어넣기가 자기 구글 계정의 다른 일정을 지울 수 있다. 본인 토큰으로만 동작해 권한 상승은 없다. ② 해제 때 구글 토큰을 revoke하지 않는다(05 §2). ③ 이미 구글이 연결된 사용자가 [다시 연결]에서 가입 안 된 다른 구글 계정을 고르면 빈 계정이 생기고 세션은 끊긴다. ④ 한 사용자에게 구글 identity가 둘이면 화면의 구글 이메일이 저장 토큰 계정과 다를 수 있다. ⑤ 밀어넣기에 사용자당 속도 제한이 없다(요청당 500건 상한만). 웹의 속도 제한 도우미(`app/_lib/rate-limit.ts`)는 Redis TCP를 쓰는데 Vercel frontend는 `REDIS_URL`을 금지하므로(ADR-045) redis-api 중계 경로가 새로 필요하다. 발표 뒤 재동의를 Supabase 세션 밖의 구글 OAuth 직접 흐름으로 바꾸고 security definer RPC로 쓰기를 좁힐 때 같이 정한다.
 
 ## ADR-072 모바일 웹 기본 대응 허용 (ADR-007 웹 폭 제한 개정)
 

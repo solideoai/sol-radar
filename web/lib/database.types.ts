@@ -1131,6 +1131,82 @@ export type Database = {
         }
         Relationships: []
       }
+      google_calendar_events: {
+        Row: {
+          event_date: string
+          event_key: string
+          google_event_id: string
+          synced_at: string
+          user_id: string
+        }
+        Insert: {
+          event_date: string
+          event_key: string
+          google_event_id: string
+          synced_at?: string
+          user_id: string
+        }
+        Update: {
+          event_date?: string
+          event_key?: string
+          google_event_id?: string
+          synced_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "google_calendar_links"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      google_calendar_links: {
+        Row: {
+          calendar_id: string | null
+          created_at: string
+          google_email: string | null
+          last_result: string | null
+          last_synced_at: string | null
+          refresh_token_enc: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calendar_id?: string | null
+          created_at?: string
+          google_email?: string | null
+          last_result?: string | null
+          last_synced_at?: string | null
+          refresh_token_enc: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string | null
+          created_at?: string
+          google_email?: string | null
+          last_result?: string | null
+          last_synced_at?: string | null
+          refresh_token_enc?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingest_errors: {
         Row: {
           created_at: string

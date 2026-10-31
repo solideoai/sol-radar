@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-30
+updated: 2026-10-31
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -27,7 +27,7 @@ updated: 2026-10-30
 - **세션 갱신**: 화면 요청은 `web/proxy.ts`가 토큰을 갱신한다. 자체 refresh 엔드포인트는 없다.
 - **CSRF**: 쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. Bearer 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다. 다른 출처의 페이지가 이 헤더를 붙이려면 CORS preflight가 필요한데 CORS 헤더를 열지 않으므로 막힌다. 템플릿의 `/api/*`는 Bearer만 받아 이 문제가 없지만, SOL RADAR의 `/api/v1`은 화면의 polling·변경 요청 때문에 쿠키도 받으므로 이 헤더를 요구한다.
 - **XSS**: 요청마다 새 nonce를 만들고 그 nonce를 가진 스크립트만 실행한다(템플릿 `web/proxy.ts`·`web/server/csp`). 화면에 `dangerouslySetInnerHTML`을 쓰지 않고, 공고 본문·첨부 텍스트 같은 외부 입력은 텍스트로만 그린다. 세션 쿠키가 HttpOnly가 아니므로 이 방어가 토큰 보호의 핵심이다.
-- **가입**: 공개 가입이다([[16-DECISIONS|16 ADR]] ADR-018). 누구나 `/auth/sign-up`에서 이메일 + 비밀번호로, 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만든다. 이메일 가입 화면은 `@` 앞부분만 받고 도메인을 `solideos.com`으로 고정한다(2026-10-30 사용자 지시). 화면의 제한이라 Supabase Auth API를 직접 부르거나 간편 로그인으로 가입하면 다른 도메인 계정도 생긴다. 가입만으로는 업무 조직 데이터가 열리지 않는다. 조직 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주고, 업무 조직 합류는 초대 수락으로만 한다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다. 간편 로그인 제공자의 Client ID·Secret은 Supabase 쪽에만 두고 웹 env·브라우저 번들에 넣지 않는다. 버튼 플래그(`NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`)는 공개 값이고, 제공자를 설정한 뒤에만 켠다(설정 전에 켜면 누를 때 `provider is not enabled`).
+- **가입**: 공개 가입이다([[16-DECISIONS|16 ADR]] ADR-018). 누구나 `/auth/sign-up`에서 이메일 + 비밀번호로, 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만든다. 이메일 가입 화면은 `@` 앞부분만 받고 도메인을 `solideos.com`으로 고정한다(2026-10-30 사용자 지시). 화면의 제한이라 Supabase Auth API를 직접 부르거나 간편 로그인으로 가입하면 다른 도메인 계정도 생긴다. 가입만으로는 업무 조직 데이터가 열리지 않는다. 조직 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주고, 업무 조직 합류는 초대 수락으로만 한다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다. 간편 로그인 제공자의 Client ID·Secret은 Supabase 쪽에만 두고 웹 env·브라우저 번들에 넣지 않는다. 예외는 구글 캘린더 연동([[16-DECISIONS|ADR-073]])이다: refresh token 갱신에 쓰는 같은 구글 Client ID·Secret을 웹 서버 전용 env에 둔다(브라우저 번들·`NEXT_PUBLIC_` 금지, 아래 "구글 캘린더 연동" 절). 버튼 플래그(`NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`)는 공개 값이고, 제공자를 설정한 뒤에만 켠다(설정 전에 켜면 누를 때 `provider is not enabled`).
 - **가입 약관 동의 기록**(migration `20261027000600`, 운영 적용): 전에는 이메일 가입 화면이 이용약관·개인정보 수집·이용·만 14세 이상(필수)과 마케팅 수신(선택) 동의를 받기만 하고 저장하지 않았다. 이제 가입 트리거 `handle_new_user`가 필수 셋이 JSON `true`일 때만 계정을 만들고 `user_consents`에 동의 시각을 남긴다. 아니면 `consent_required`로 가입 전체가 되돌아간다. 시각은 DB의 `now()`이고 화면이 보낸 시각을 믿지 않는다. 화면 역할은 본인 기록만 읽고, 고치거나 지울 수 없다([[04-DATABASE|04 DB]] §3.1 "가입 약관 동의 검사", 근거 [live 가드 검증](evidence/live-guards/20261027.md)).
   - **남은 공백(후속 과제)**: 간편 가입(OAuth: 구글·카카오·네이버)은 동의 화면을 거치지 않는다. 트리거는 부서·직급 키가 없는 가입을 OAuth로 보고 동의 없이 미완료 프로필만 만든다. 그래서 간편 가입 사용자는 `user_consents` 행이 없다. 가입 정보 보완 화면에서 동의를 받는 일은 아직 없다.
 - **현재 조직**: 서버가 정하고 요청의 조직 ID를 믿지 않는다. 업무 멤버십 2개 이상은 지원하지 않는다(`403 UNSUPPORTED_ACCOUNT_STATE`, [[16-DECISIONS|ADR-021]]).
@@ -100,6 +100,7 @@ updated: 2026-10-30
 |Supabase Storage|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 |열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
 |카카오 토큰 유출·연결 위조|카카오톡 알림 토큰은 서버에서 암호화해 저장하고 worker만 복호화한다. 화면 역할은 토큰 열을 읽지 못한다. 연결 콜백은 `state`를 서버에서 검증한다. 토큰·본문·공고명은 로그에 싣지 않는다. 아래 "카카오톡 알림" 절([[16-DECISIONS\|ADR-038]])|
+|구글 캘린더 토큰 유출·다른 계정 연결|구글 refresh token은 웹 서버가 암호화해 저장하고 응답·로그에 평문을 싣지 않는다. 연결 시작이 사용자에 묶인 서명 `state` 쿠키를 굽고, 콜백은 시작한 사람과 다른 사용자면 세션을 끊는다. 아래 "구글 캘린더 연동" 절([[16-DECISIONS\|ADR-073]])|
 
 ### 해커톤 동안 수용한 위험 ([[16-DECISIONS|ADR-033]] E11)
 
@@ -228,6 +229,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
   - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·로컬 운영자 CLI 전용. 웹 서버·클라이언트 번들 금지), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - 카카오톡 알림([[16-DECISIONS|ADR-038]]): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`(토큰 암호화 키, base64 32바이트). 웹 서버·worker 전용이고 `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다(ADR-018 예외). 키 이름만 `infra/env/company-worker.env.example`·`web/.env.example`에 있고 값은 없다.
+  - 구글 캘린더 연동([[16-DECISIONS|ADR-073]]): `GOOGLE_OAUTH_CLIENT_ID`·`GOOGLE_OAUTH_CLIENT_SECRET`(Supabase 구글 제공자와 같은 값, refresh token 갱신용)·`GOOGLE_TOKEN_ENC_KEY`(base64 32바이트, 카카오 키와 따로 만든다). 웹 서버 전용이고 `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다. 키 이름만 `web/.env.example`·`infra/env/demo.env.example`(주석)에 있다. `pnpm check:env`가 셋 중 일부만 있거나 키 형식이 틀리면 거부한다.
   - redis 비밀번호는 `demo` 프로필에서도 기본값을 쓰지 않는다. `pnpm check:env`는 `CHANGE_ME`와 `minioadmin` 값을 placeholder로 거부한다.
 - `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038). 운영 알림 전용 Worker는 2026-10-30부터 빈 값(카카오 발송 꺼짐)으로 돈다([[13-NOTIFICATIONS|13 알림]] "운영 알림 처리 위험"). 실제 공고 수신을 녹화할 때만 그 Worker를 `memo`로 켠다([회사 실행서](../infra/company/README.md) §9.6, [[16-DECISIONS|ADR-054]]). 그 Worker에서 `mock`은 쓰지 않는다(보내지 않은 카카오를 `SENT`로 적는다). 증거에 토큰·카카오 사용자 ID를 남기지 않는다.
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
@@ -279,6 +281,15 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - **전송 원장(ADR-050)**: 전송 의도 원장과 claim 함수 2개는 Worker만 접근하고 화면 역할에는 권한을 주지 않는다(`20261023000700`~`00704`). env 이름은 `web/.env.example`·`infra/env/company-worker.env.example`에 키 이름만 있고, 실제 값은 Git·로그·증거에 넣지 않는다.
 - **카카오 정책**: 카카오는 서비스가 사용자에게 보내는 자동 안내에 알림톡을 안내한다. 나에게 보내기는 해커톤 시연용이고 운영은 알림톡이다. 발표·제출물에서 이렇게 밝힌다.
 - **메일 알림(ADR-041)**: 해커톤에서 뺐고 코드가 없다. 만들 때는 Gmail 앱 비밀번호·SMTP 인증값을 서버 전용 env에만 두고, 받는 주소·제목·공고명·본문을 로그·증거에 남기지 않는다([[13-NOTIFICATIONS|13]]).
+
+## 구글 캘린더 연동 ([[16-DECISIONS|ADR-073]])
+
+- **나가는 값**: 지금 보는 달의 입찰 일정(공고명·종류·마감 시각·발주기관·장소·SOL RADAR 주소)이 사용자 본인 구글 계정의 보조 캘린더 "SOL RADAR 입찰 일정"에 들어간다. 사용자가 버튼을 누를 때만 보낸다. 담당자 이름·점수·권고·회사 프로필은 싣지 않는다. DEMO 공고는 제목에 `[DEMO]`, 설명 첫 줄에 "가상 데이터(DEMO)"를 붙인다. 수집 문자열의 `<`·`>`는 뺀다. 구글 호출 호스트는 `www.googleapis.com`·`oauth2.googleapis.com` 둘로 고정이다.
+- **토큰 보관**: 구글 refresh token은 웹 서버가 AES-256-GCM(`GOOGLE_TOKEN_ENC_KEY`, AAD `google:` 접두 + 사용자)으로 암호화해 `google_calendar_links`에 저장한다. 평문은 DB·응답·로그에 두지 않는다. 표는 본인 행만(RLS `user_id = auth.uid()`), service role은 쓰지 않는다. 카카오와 달리 암호문 열을 본인이 읽을 수 있고, 본인 행 쓰기가 열려 있다(받아들인 위험은 ADR-073).
+- **연결 검증**: 연결 시작(`GET /api/v1/me/google-calendar/connect`)은 같은 사이트 이동(`Sec-Fetch-Site`)만 받고, 사용자에 묶인 10분짜리 서명 `state`를 httpOnly 쿠키(경로 `/auth/callback`)로 굽는다. 콜백은 `state`가 없거나 맞지 않으면 코드 교환 전에 끝내고, 시작한 사람과 다른 사용자면 세션을 끊고 로그인 화면으로 보낸다. `next`는 사이트 안 경로만 받는다. Supabase Redirect URLs에 `/auth/callback`(쿼리 포함)이 허용돼 있어야 한다(운영 대시보드 확인 필요).
+- **남용 방지**: 한 번에 넣는 일정은 500건까지다(넘으면 구글을 부르지 않고 `400`). 구글 호출은 동시 4건이다. 일정 id에 빈 값·`.`·`..`가 오면 부르기 전에 거절한다. 사용자당 속도 제한은 없다(Vercel에서 Redis TCP 금지, 발표 뒤 redis-api 중계로, ADR-073 받아들인 위험 ⑤).
+- **로그**: 연결·해제·밀어넣기 결과를 서버 로그 JSON 한 줄로 남긴다(토큰·구글 이메일·캘린더 id·일정 제목 없음). `audit_logs` 기록은 발표 뒤다.
+- **연결 끊기**: 설정 개인 탭 [연결 해제]가 연결 행과 매핑 행을 지운다. 구글 쪽 revoke는 부르지 않고 구글 캘린더에 넣은 일정은 남는다(사용자가 구글 계정 보안 설정에서 접근을 지울 수 있다). 회원 탈퇴 때는 연결 행이 같이 지워진다(FK cascade).
 
 ## 정보 보존
 원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). DB 백업과 Storage 파일 바이트의 백업·복원은 별도로 확인한다. DB 백업만으로 파일 보존을 보장하지 않는다.
