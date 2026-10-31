@@ -4,7 +4,6 @@ import {
   CalendarPlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  DownloadIcon,
   LayersIcon,
   StarIcon,
   TriangleAlertIcon,
@@ -13,7 +12,7 @@ import Link from "next/link";
 import { AppPage } from "@/components/app-page";
 import { dDay, formatKst } from "@/components/bids/format";
 import { DemoBadge } from "@/components/bids/status-badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,9 +34,6 @@ import {
   CALENDAR_DESCRIPTION,
   CALENDAR_TITLE,
   GOOGLE_ADD,
-  ICS_DOWNLOAD,
-  ICS_HINT,
-  ICS_UNAVAILABLE,
   KIND_FILTER_ALL,
   KIND_FILTER_EMPTY,
   KIND_LABELS,
@@ -63,6 +59,12 @@ import {
 import { googleCalendarUrl } from "./calendar-export";
 import { CalendarKindFilter } from "./calendar-kind-filter";
 import { KIND_ICON } from "./calendar-kinds";
+import {
+  GoogleCalendarBand,
+  GoogleCalendarButton,
+  GoogleCalendarSync,
+  type GoogleCalendarToolbar,
+} from "./google-connect";
 
 // 서버 모듈을 값으로 부르지 않는다(브라우저 시험이 그대로 그린다). 날짜 계산은 page 가 끝내서 넘긴다.
 // 일정 종류는 색이 아니라 아이콘과 글자로 구분한다. 칩의 접근 이름(aria-label)에 종류·시각·관심·DEMO 를 모두 글자로 싣는다.
@@ -84,8 +86,6 @@ export type CalendarLinks = {
   // 종류마다 그 칩을 켜고 끈 주소, 거르는 중일 때만 전부 켠 주소(전부 보이면 null)
   kinds: Record<CalendarEventKind, string>;
   allKinds: string | null;
-  // 지금 보는 달·보기·종류 그대로의 .ics 내려받기 주소(GET /api/v1/calendar/ics)
-  ics: string;
 };
 
 const timeOf = (at: string) => formatKst(at).slice(11);
@@ -377,6 +377,7 @@ export function BidCalendar({
   hasAnyEvents,
   relevantFailed,
   siteOrigin,
+  google,
 }: {
   monthLabel: string;
   weeks: CalendarDay[][];
@@ -398,6 +399,8 @@ export function BidCalendar({
   relevantFailed: boolean;
   // 이 사이트 주소(구글 일정 설명에 SOL RADAR 링크를 싣는다). 모르면 null 이고 링크 줄을 뺀다.
   siteOrigin: string | null;
+  // 구글 캘린더 연동 툴바(ADR-073). 서버에 연동 설정이 없거나 연결 상태를 못 읽으면 null 이고 버튼을 두지 않는다.
+  google: GoogleCalendarToolbar | null;
 }) {
   const monthHasEvents = weeks.some((week) =>
     week.some((day) => day.inMonth && (eventsByDate[day.date]?.length ?? 0) > 0),
@@ -407,79 +410,75 @@ export function BidCalendar({
   const upcomingShown = upcoming.slice(0, UPCOMING_VISIBLE);
   const upcomingRest = upcoming.slice(UPCOMING_VISIBLE);
   const monthDays = weeks.flat().filter((day) => day.inMonth && eventsByDate[day.date]?.length);
+  const toolbar = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="type-heading tabular-nums">{monthLabel}</h2>
+        <nav aria-label="달 이동" className="flex items-center gap-1">
+          <Link
+            href={links.prev}
+            aria-label="이전 달"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon-sm" }),
+              "max-md:size-11",
+            )}
+          >
+            <ChevronLeftIcon aria-hidden />
+          </Link>
+          <Link
+            href={links.today}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "max-md:min-h-11")}
+          >
+            오늘
+          </Link>
+          <Link
+            href={links.next}
+            aria-label="다음 달"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon-sm" }),
+              "max-md:size-11",
+            )}
+          >
+            <ChevronRightIcon aria-hidden />
+          </Link>
+        </nav>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* 같은 일정을 다른 범위로 보는 하나 고르기 전환이라 테두리 상자 안의 알약이다(2026-10-28 화면 개편). */}
+        <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
+          {VIEW_ORDER.map((option) => (
+            <Link
+              key={option}
+              href={links.views[option]}
+              aria-current={option === view ? "page" : undefined}
+              className={cn(
+                "inline-flex items-center rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11",
+                option === view
+                  ? "bg-selected font-semibold text-selected-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {VIEW_LABELS[option]}
+            </Link>
+          ))}
+        </nav>
+        {google === null ? null : <GoogleCalendarButton />}
+      </div>
+    </div>
+  );
   return (
     <AppPage title={CALENDAR_TITLE} description={CALENDAR_DESCRIPTION} contentClassName="max-w-360">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="type-heading tabular-nums">{monthLabel}</h2>
-          <nav aria-label="달 이동" className="flex items-center gap-1">
-            <Link
-              href={links.prev}
-              aria-label="이전 달"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "icon-sm" }),
-                "max-md:size-11",
-              )}
-            >
-              <ChevronLeftIcon aria-hidden />
-            </Link>
-            <Link
-              href={links.today}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "max-md:min-h-11")}
-            >
-              오늘
-            </Link>
-            <Link
-              href={links.next}
-              aria-label="다음 달"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "icon-sm" }),
-                "max-md:size-11",
-              )}
-            >
-              <ChevronRightIcon aria-hidden />
-            </Link>
-          </nav>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 같은 일정을 다른 범위로 보는 하나 고르기 전환이라 테두리 상자 안의 알약이다(2026-10-28 화면 개편). */}
-          <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
-            {VIEW_ORDER.map((option) => (
-              <Link
-                key={option}
-                href={links.views[option]}
-                aria-current={option === view ? "page" : undefined}
-                className={cn(
-                  "inline-flex items-center rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11",
-                  option === view
-                    ? "bg-selected font-semibold text-selected-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {VIEW_LABELS[option]}
-              </Link>
-            ))}
-          </nav>
-          {/* 파일 내려받기라 Link(화면 이동·미리 읽기)가 아니라 a 다. IT 공고를 못 읽었으면 내려받기도 503 이라
-              누르면 브라우저가 이유 없이 실패만 보이므로 끄고, 이유는 아래 실패 안내에 싣는다. */}
-          {relevantFailed ? (
-            <Button variant="outline" size="sm" disabled>
-              <DownloadIcon aria-hidden />
-              {ICS_DOWNLOAD}
-            </Button>
-          ) : (
-            <a
-              href={links.ics}
-              download
-              title={ICS_HINT}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <DownloadIcon aria-hidden />
-              {ICS_DOWNLOAD}
-            </a>
-          )}
-        </div>
-      </div>
+      {/* 결과 띠는 버튼 아래 한 줄이다. 버튼과 띠가 같은 상태를 보도록 둘을 GoogleCalendarSync 로 감싼다. */}
+      {google === null ? (
+        toolbar
+      ) : (
+        <GoogleCalendarSync toolbar={google}>
+          <div>
+            {toolbar}
+            <GoogleCalendarBand />
+          </div>
+        </GoogleCalendarSync>
+      )}
       <div className="flex flex-col gap-3">
         <div>
           <p className="type-label text-muted-foreground">{VIEW_HINTS[view]}의 일정입니다.</p>
@@ -490,7 +489,7 @@ export function BidCalendar({
               className="mt-1 flex items-start gap-1.5 type-caption wrap-anywhere text-muted-foreground"
             >
               <TriangleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
-              {RELEVANT_LOAD_FAILED} {ICS_UNAVAILABLE}
+              {RELEVANT_LOAD_FAILED}
             </p>
           ) : null}
         </div>

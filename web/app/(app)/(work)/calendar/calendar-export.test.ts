@@ -2,15 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "@/server/calendar";
 import {
   exportDescriptionOf,
+  exportPlaceOf,
   exportSummaryOf,
   googleCalendarUrl,
-  icsCalendar,
   siteOriginOf,
 } from "./calendar-export";
 
-// 일정 내보내기 글자(구글 캘린더 링크·.ics). 화면과 Route Handler 가 같이 쓰는 순수 함수다.
-
-const NOW = "2026-10-30T03:04:05.000Z";
+// 일정 내보내기 글자(구글 캘린더 링크·구글 캘린더 연동 본문). 화면과 Route Handler 가 같이 쓰는 순수 함수다.
 
 type EventExtra = Partial<Omit<CalendarEvent, "bid">> & Partial<CalendarEvent["bid"]>;
 
@@ -59,86 +57,44 @@ describe("구글 캘린더 링크", () => {
     expect(url.searchParams.get("location")).toBe("조달청 본관 3층");
     expect(exportDescriptionOf(site, null)).toBe("기관: 기관 미정\n장소: 조달청 본관 3층");
     expect(url.toString()).not.toContain(encodeURIComponent("김담당"));
-    expect(icsCalendar([site], { siteOrigin: null, now: NOW, name: "x" })).not.toContain("김담당");
+    expect(exportSummaryOf(site) + exportDescriptionOf(site, null)).not.toContain("김담당");
     expect(exportDescriptionOf(event(), "https://sol.example")).toBe(
       "기관: 조달청\nSOL RADAR: https://sol.example/bids/b1?origin=live",
     );
   });
 });
 
-describe(".ics", () => {
-  it(".ics 는 CRLF·필수 칸·이스케이프를 지킨다", () => {
-    const text = icsCalendar([event({ title: "가상; 정보,시스템\\구축" })], {
-      siteOrigin: null,
-      now: NOW,
-      name: "SOL RADAR 입찰 일정",
-    });
-    expect(text.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);
-    expect(text.endsWith("END:VCALENDAR\r\n")).toBe(true);
-    expect(text).toContain("SUMMARY:[공고 마감] 가상\\; 정보\\,시스템\\\\구축");
-    expect(text).toMatch(/\r\nDTSTAMP:\d{8}T\d{6}Z\r\n/);
-    expect(text).not.toContain("URL:");
-    // CRLF 가 아닌 줄바꿈은 없다.
-    expect(text.replaceAll("\r\n", "")).not.toMatch(/[\r\n]/);
-  });
-
-  it("일정마다 UID·시각·설명 줄바꿈 이스케이프·장소·주소를 싣는다", () => {
-    const text = icsCalendar(
-      [event({ kind: "SITE_BRIEFING", key: "SITE_BRIEFING:b1", place: "본관, 3층" })],
-      { siteOrigin: "https://sol.example", now: NOW, name: "x" },
+describe("가상 공고 표시·꺾쇠", () => {
+  // 보안 리뷰 A: 구글로 나간 가상 공고를 실제 공고로 오해하지 않게 한다. 링크와 연동이 같은 글자를 쓴다.
+  it("가상 공고는 제목 맨 앞에 [DEMO], 설명 첫 줄에 가상 데이터(DEMO)를 붙인다", () => {
+    const demo = event({ isDemo: true, cancelled: true, href: "/bids/b1?origin=demo" });
+    expect(exportSummaryOf(demo)).toBe("[DEMO] (공고 취소) [공고 마감] 가상 정보시스템 구축");
+    expect(exportDescriptionOf(demo, "https://sol.example")).toBe(
+      "가상 데이터(DEMO)\n기관: 조달청\nSOL RADAR: https://sol.example/bids/b1?origin=demo",
     );
-    const lines = text.replaceAll("\r\n ", "").split("\r\n");
-    expect(lines).toEqual([
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//SOL RADAR//입찰 일정//KO",
-      "CALSCALE:GREGORIAN",
-      "METHOD:PUBLISH",
-      "X-WR-CALNAME:x",
-      "X-WR-TIMEZONE:Asia/Seoul",
-      "BEGIN:VEVENT",
-      "UID:SITE_BRIEFING:b1@sol-radar",
-      "DTSTAMP:20261030T030405Z",
-      "DTSTART:20261103T010000Z",
-      "DTEND:20261103T013000Z",
-      "SUMMARY:[현장설명회] 가상 정보시스템 구축",
-      "DESCRIPTION:기관: 조달청\\n장소: 본관\\, 3층\\nSOL RADAR: https://sol.example/bids/b1?origin=live",
-      "LOCATION:본관\\, 3층",
-      "URL:https://sol.example/bids/b1?origin=live",
-      "END:VEVENT",
-      "END:VCALENDAR",
-      "",
-    ]);
+    const url = new URL(googleCalendarUrl(demo, null));
+    expect(url.searchParams.get("text")).toMatch(/^\[DEMO\] /);
+    expect(url.searchParams.get("details")?.split("\n")[0]).toBe("가상 데이터(DEMO)");
+    expect(exportSummaryOf(event())).not.toContain("DEMO");
+    expect(exportDescriptionOf(event(), null)).not.toContain("DEMO");
   });
 
-  it("일정이 없어도 달력 머리와 끝은 있다", () => {
-    const text = icsCalendar([], { siteOrigin: null, now: NOW, name: "x" });
-    expect(text).not.toContain("BEGIN:VEVENT");
-    expect(text.endsWith("X-WR-TIMEZONE:Asia/Seoul\r\nEND:VCALENDAR\r\n")).toBe(true);
-  });
-
-  it("긴 한글 줄은 75옥텟 이하로 글자 경계에서 접는다", () => {
-    const text = icsCalendar([event({ title: "가".repeat(80) })], {
-      siteOrigin: null,
-      now: NOW,
-      name: "x",
+  // 보안 리뷰 D: 구글 캘린더는 설명의 HTML 일부를 서식으로 그린다. 수집한 글자의 꺾쇠를 빼 태그로 읽히지 않게 한다.
+  it("공고명·기관명·장소의 < > 를 빼고 제목·설명·장소·링크에 같이 적용한다", () => {
+    const tagged = event({
+      kind: "SITE_BRIEFING",
+      title: '<a href="https://evil.example">긴급</a> 공고',
+      agency: "<b>조달청</b>",
+      place: "<script>본관</script>",
     });
-    const lines = text.split("\r\n");
-    expect(lines.every((line) => new TextEncoder().encode(line).length <= 75)).toBe(true);
-    // 접은 줄을 이으면 원래 줄이다(글자 가운데를 자르지 않는다).
-    expect(text.replaceAll("\r\n ", "")).toContain(`SUMMARY:[공고 마감] ${"가".repeat(80)}`);
-    expect(text).not.toContain("�");
-  });
-
-  it("4바이트 글자(이모지)도 가운데를 자르지 않는다", () => {
-    const title = "🚀".repeat(40);
-    const text = icsCalendar([event({ title })], { siteOrigin: null, now: NOW, name: "x" });
-    const lines = text.split("\r\n");
-    expect(lines.every((line) => new TextEncoder().encode(line).length <= 75)).toBe(true);
-    // 줄마다 UTF-8 로 그대로 오간다(UTF-16 짝 가운데를 자르면 깨진 글자가 된다).
-    const roundTrip = (line: string) => new TextDecoder().decode(new TextEncoder().encode(line));
-    expect(lines.every((line) => roundTrip(line) === line)).toBe(true);
-    expect(text.replaceAll("\r\n ", "")).toContain(`SUMMARY:[공고 마감] ${title}`);
+    expect(exportSummaryOf(tagged)).toBe('[현장설명회] a href="https://evil.example"긴급/a 공고');
+    expect(exportDescriptionOf(tagged, null)).toBe("기관: b조달청/b\n장소: script본관/script");
+    expect(exportPlaceOf(tagged)).toBe("script본관/script");
+    expect(exportPlaceOf(event({ place: "<>" }))).toBeNull();
+    const url = new URL(googleCalendarUrl(tagged, null));
+    for (const field of ["text", "details", "location"]) {
+      expect(url.searchParams.get(field)).not.toMatch(/[<>]/);
+    }
   });
 });
 

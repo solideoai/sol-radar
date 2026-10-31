@@ -749,3 +749,62 @@ test("redis-api SOL_INGEST_MODE is optional and must name a run mode when set", 
     });
   }
 });
+
+// ADR-073: 구글 캘린더 연동 env 셋은 셋 다 없거나 셋 다 있어야 한다. 키는 base64 32바이트다.
+const GOOGLE_KEY = Buffer.alloc(32, 7).toString("base64");
+const GOOGLE_ALL = {
+  GOOGLE_OAUTH_CLIENT_ID: "client-id-fake.apps.googleusercontent.invalid",
+  GOOGLE_OAUTH_CLIENT_SECRET: "client-secret-fake",
+  GOOGLE_TOKEN_ENC_KEY: GOOGLE_KEY,
+};
+
+test("checkEnv: 구글 캘린더 env 는 셋 다 없거나 셋 다 있으면 통과하고, 일부만 있으면 빠진 키마다 MISSING_KEY", async () => {
+  await withRoot({ web: { ...WEB_BASE, ...GOOGLE_ALL } }, async (root) => {
+    assert.deepEqual((await checkEnv({ root })).problems, []);
+  });
+  const { GOOGLE_OAUTH_CLIENT_SECRET: _secret, GOOGLE_TOKEN_ENC_KEY: _key, ...onlyId } = GOOGLE_ALL;
+  await withRoot({ web: { ...WEB_BASE, ...onlyId } }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [
+        ["web/.env.local", "GOOGLE_OAUTH_CLIENT_SECRET", "MISSING_KEY"],
+        ["web/.env.local", "GOOGLE_TOKEN_ENC_KEY", "MISSING_KEY"],
+      ],
+    );
+    assert.equal(result.counts.missing, 2);
+  });
+  // 빈 값·공백뿐인 값은 없는 것과 같다.
+  await withRoot(
+    { web: { ...WEB_BASE, ...GOOGLE_ALL, GOOGLE_OAUTH_CLIENT_ID: '"  "' } },
+    async (root) => {
+      assert.deepEqual(
+        (await checkEnv({ root })).problems.map(({ key, code }) => [key, code]),
+        [["GOOGLE_OAUTH_CLIENT_ID", "MISSING_KEY"]],
+      );
+    },
+  );
+});
+
+test("checkEnv: GOOGLE_TOKEN_ENC_KEY 가 base64 32바이트가 아니면 INVALID_FORMAT, 값은 출력하지 않는다", async () => {
+  for (const bad of [
+    Buffer.alloc(16, 7).toString("base64"),
+    Buffer.alloc(32, 0).toString("base64"),
+    "not-base64-key-value-not-base64-key-value-xx",
+  ]) {
+    await withRoot(
+      { web: { ...WEB_BASE, ...GOOGLE_ALL, GOOGLE_TOKEN_ENC_KEY: bad } },
+      async (root) => {
+        const result = await checkEnv({ root });
+        assert.deepEqual(
+          result.problems.map(({ key, code }) => [key, code]),
+          [["GOOGLE_TOKEN_ENC_KEY", "INVALID_FORMAT"]],
+          bad,
+        );
+        const cli = runCli(root);
+        assert.equal(cli.status, 1);
+        assert.ok(!(cli.stdout + cli.stderr).includes(bad));
+      },
+    );
+  }
+});
