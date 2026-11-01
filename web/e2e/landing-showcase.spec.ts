@@ -41,13 +41,17 @@ test("데이터 출처 줄은 기관마다 로고 한 칸이고, 연결 상태 �
   const region = regionOf(page, SOURCES_TITLE);
   const items = firstCopyItems(page, SOURCES_TITLE);
   await expect(items).toHaveCount(DATA_SOURCES.length);
-  expect(DATA_SOURCES).toHaveLength(9);
+  expect(DATA_SOURCES).toHaveLength(10);
+  expect(DATA_SOURCES.map((source) => source.name).slice(5, 7)).toEqual([
+    "중소벤처기업부",
+    "과학기술정보통신부",
+  ]);
   // 서비스 줄처럼 로고만 있고 이름은 그림 alt 로 읽힌다. 연결 상태는 문서로 관리한다(2026-10-28 사용자 요청).
   const logos = region.locator('ul:not([aria-hidden="true"])').getByRole("img");
-  await expect(logos).toHaveCount(9);
+  await expect(logos).toHaveCount(10);
   await expect(logos.first()).toHaveAttribute("alt", "나라장터(조달청)");
-  // 둘째 사본은 화면 낭독기에서 숨어 줄 전체에서도 이름 있는 그림이 9개다(18개가 아니다).
-  await expect(region.getByRole("img")).toHaveCount(9);
+  // 둘째 사본은 화면 낭독기에서 숨어 줄 전체에서도 이름 있는 그림이 10개다(20개가 아니다).
+  await expect(region.getByRole("img")).toHaveCount(10);
   const visibleText = await items.evaluateAll((elements) =>
     elements.map((element) => (element as HTMLElement).innerText.trim()).filter(Boolean),
   );
