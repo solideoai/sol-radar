@@ -19,7 +19,7 @@ import { INCLUDE_CLOSED_LABEL, PROGRAMS_PATH, RESET_FILTERS_LABEL } from "./prog
 
 // 부처 공고 필터 막대(디자인 스펙 §4.4). BidFilters 와 같은 부품·크기·동작이다.
 // 값은 URL 쿼리가 정본이고 기본값은 주소에 적지 않는다. 필터 밖의 다른 쿼리 키는 그대로 둔다.
-// 쿼리 키·값은 서버 parseProgramNoticeListQuery 와 같아야 한다: source=bizinfo|mss · q(1~50자) · sort=deadline|published · includeClosed=true.
+// 쿼리 키·값은 서버 parseProgramNoticeListQuery 와 같아야 한다: source=bizinfo|mss|msit · q(1~50자) · sort=deadline|published · includeClosed=true.
 // 서버가 버리는 값(반복 키·모르는 값·50자 넘는 검색어)은 여기서도 기본으로 보인다(화면 목록과 필터 칸이 어긋나지 않게).
 
 const ALL = "all";
@@ -34,6 +34,7 @@ const SOURCE_ITEMS: Item[] = [
   { value: ALL, label: "전체 (기본)" },
   { value: "bizinfo", label: "기업마당" },
   { value: "mss", label: "중기부" },
+  { value: "msit", label: "과기정통부" },
 ];
 const SORT_ITEMS: Item[] = [
   { value: DEFAULT_SORT, label: "마감 빠른 순 (기본)" },

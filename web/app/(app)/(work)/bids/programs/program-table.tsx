@@ -13,7 +13,7 @@ import {
 import type { ProgramNoticeListItem, ProgramNoticeSort } from "@/server/program-notices";
 import { deadlineOf, kstDate } from "./program-format";
 import { SourceBadge } from "./program-notice-drawer";
-import { NO_PERIOD, TABLE_CAPTION } from "./programs-copy";
+import { noPeriodText, TABLE_CAPTION } from "./programs-copy";
 
 // 부처 공고 표(디자인 스펙 §4.5). 데이터를 가져오지 않고 props 만 그린다. 쪽 나누기 없이 서버가 준 행(최대 300)을 한 표로 그린다.
 // 행마다 초점을 받는 것은 공고명 단추 하나다. 행 전체 누르기는 두지 않는다(§12.1 Q6).
@@ -139,7 +139,7 @@ function Cell({
         </span>
       );
     case "deadline":
-      return <DeadlineCell applyEndOn={item.applyEndOn} today={today} />;
+      return <DeadlineCell applyEndOn={item.applyEndOn} today={today} source={item.source} />;
     case "published":
       return item.publishedAt === null ? (
         <span className="text-muted-foreground">{EMPTY}</span>
@@ -151,11 +151,20 @@ function Cell({
   }
 }
 
-// 1줄 D-n(보이는 글자는 낭독하지 않고 옆의 sr-only 가 읽는다) · 2줄 짧은 날짜. 마감 없음은 "기간 미표기" 한 줄.
-function DeadlineCell({ applyEndOn, today }: { applyEndOn: string | null; today: string }) {
+// 1줄 D-n(보이는 글자는 낭독하지 않고 옆의 sr-only 가 읽는다) · 2줄 짧은 날짜.
+// 마감 없음은 한 줄이다: 과기정통부 "공고문 확인", 나머지 "기간 미표기".
+function DeadlineCell({
+  applyEndOn,
+  today,
+  source,
+}: {
+  applyEndOn: string | null;
+  today: string;
+  source: ProgramNoticeListItem["source"];
+}) {
   const deadline = deadlineOf(applyEndOn, today);
   if (applyEndOn === null || deadline === null)
-    return <span className="type-label text-muted-foreground">{NO_PERIOD}</span>;
+    return <span className="type-label text-muted-foreground">{noPeriodText(source)}</span>;
   return (
     <div className="flex flex-col">
       <span className={cn("type-label tabular-nums", deadline.past && "text-muted-foreground")}>

@@ -5,7 +5,7 @@ import type { ProgramNoticeListItem } from "@/server/program-notices";
 export const PROGRAMS_PATH = "/bids/programs";
 export const PROGRAMS_TITLE = "부처 지원사업 공고";
 export const PROGRAMS_DESCRIPTION =
-  "기업마당·중소벤처기업부의 지원사업 공고 중 IT 관련 공고만 보입니다. SOL Score와 권고는 계산하지 않습니다.";
+  "기업마당·중기부 지원사업은 IT 관련 공고만, 과기정통부 R&D 신규 공모는 모두 보입니다. SOL Score와 권고는 계산하지 않습니다.";
 export const PROGRAMS_LOADING = "부처 지원사업 공고를 불러오는 중…";
 
 export const SOURCE_LABEL: Record<ProgramNoticeListItem["source"], string> = {
@@ -18,6 +18,12 @@ export const TABLE_CAPTION = "부처 지원사업 공고 목록. 공고명을 �
 export const CAPPED_NOTE = " · 최대 300건까지 보입니다. 출처나 소관기관으로 좁혀 보세요";
 
 export const NO_PERIOD = "기간 미표기";
+// 과기정통부 응답에는 신청 기간이 없다. 기간은 첨부 공고문에만 있다.
+export const CHECK_NOTICE_FILE = "공고문 확인";
+
+/** 마감·신청 기간이 없을 때의 표기. 과기정통부는 "공고문 확인", 나머지는 "기간 미표기"다. */
+export const noPeriodText = (source: ProgramNoticeListItem["source"]): string =>
+  source === "msit" ? CHECK_NOTICE_FILE : NO_PERIOD;
 export const NO_AGENCY = "소관기관 미표기";
 export const CLOSED_HIDDEN = "마감 지난 공고는 숨겨져 있습니다.";
 export const INCLUDE_CLOSED_LABEL = "마감 지난 공고 포함";
@@ -43,4 +49,6 @@ export const DRAWER_COPY = {
   target: "지원대상",
   tags: "분야·태그",
   titleOnly: "이 출처는 제목과 등록일만 제공합니다. 사업 내용과 신청 기간은 원문에서 확인하세요.",
+  titleOnlyMsit:
+    "이 출처는 제목·등록일·담당 부서만 제공합니다. 신청 기간과 사업 내용은 원문의 첨부 공고문에서 확인하세요.",
 } as const;

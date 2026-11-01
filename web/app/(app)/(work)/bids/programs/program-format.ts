@@ -1,7 +1,8 @@
 // 부처 공고의 날짜·마감 표기(디자인 스펙 §3.3). 서버 모듈을 부르지 않는다(클라이언트 부품에서도 쓴다).
 // 신청 기간은 시각 없는 서울 날짜(YYYY-MM-DD)다. 나라장터의 dDay(시각 비교)에 넘기면 UTC 자정(서울 09:00)부터
 // "마감"으로 보여 목록 거르기(서울 날짜 비교)와 어긋난다. 그래서 날짜 차이로 센다. "오늘"은 서버가 목록을 거른 값을 받는다.
-import { NO_PERIOD } from "./programs-copy";
+import type { ProgramNoticeListItem } from "@/server/program-notices";
+import { noPeriodText } from "./programs-copy";
 
 const EMPTY = "—";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -61,15 +62,16 @@ export function deadlineOf(applyEndOn: string | null, today: string): Deadline |
   return { label: `D-${days}`, past: false, srText: `${days}일 남음`, short };
 }
 
-/** 서랍의 신청 기간 한 줄. */
+/** 서랍의 신청 기간 한 줄. 기간이 없으면 출처에 맞는 표기(noPeriodText)다. */
 export function periodText(
   applyStartOn: string | null,
   applyEndOn: string | null,
   today: string,
+  source: ProgramNoticeListItem["source"],
 ): string {
   const deadline = deadlineOf(applyEndOn, today);
   if (applyEndOn === null || deadline === null)
-    return applyStartOn === null ? NO_PERIOD : `${applyStartOn} ~ 미표기`;
+    return applyStartOn === null ? noPeriodText(source) : `${applyStartOn} ~ 미표기`;
   const range = applyStartOn === null ? `~ ${applyEndOn}` : `${applyStartOn} ~ ${applyEndOn}`;
   return `${range} (${deadline.label})`;
 }

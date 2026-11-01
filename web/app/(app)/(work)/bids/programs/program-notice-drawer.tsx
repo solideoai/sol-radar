@@ -88,7 +88,7 @@ function NoticeDetail({ item, today }: { item: ProgramNoticeListItem; today: str
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt className="type-label text-muted-foreground">{DRAWER_COPY.period}</dt>
           <dd className="type-body text-foreground tabular-nums">
-            {periodText(item.applyStartOn, item.applyEndOn, today)}
+            {periodText(item.applyStartOn, item.applyEndOn, today, item.source)}
           </dd>
           <dt className="type-label text-muted-foreground">{DRAWER_COPY.published}</dt>
           <dd className="type-body text-foreground tabular-nums">
@@ -139,8 +139,10 @@ function NoticeDetail({ item, today }: { item: ProgramNoticeListItem; today: str
             )}
           </>
         ) : (
-          // 중기부 RSS 처럼 제목·등록일·주소만 주는 출처(계획 "이름과 값").
-          <p className="type-body text-muted-foreground">{DRAWER_COPY.titleOnly}</p>
+          // 중기부 RSS·과기정통부처럼 제목·등록일·주소만 주는 출처(계획 "이름과 값").
+          <p className="type-body text-muted-foreground">
+            {item.source === "msit" ? DRAWER_COPY.titleOnlyMsit : DRAWER_COPY.titleOnly}
+          </p>
         )}
       </div>
     </>
