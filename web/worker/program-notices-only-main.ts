@@ -7,6 +7,7 @@ import {
 } from "@/server/ingestion";
 import {
   createSupabaseProgramNoticesStore,
+  decodeServiceKey,
   loadProgramNoticesConfig,
   runProgramNoticeRound,
   type ProgramNoticeSource,
@@ -33,17 +34,19 @@ import { PROGRAM_NOTICE_RETRY, readProgramNoticeRuntime } from "@/worker/program
 // 이 worker 는 나라장터 수집과 같은 일정(Asia/Seoul cron, 매일 00·03·…·21시 정각)을 자기 큐(program-notices)에 건다.
 // ingest 큐·일정·quota 키는 건드리지 않는다. 그래서 ingest 전용 worker 를 다시 만들지 않고 따로 켜고 끌 수 있다.
 //
-// 소스는 기업마당 하나다(사용자 결정 2026-10-28). 중기부 RSS 는 부르지 않는다. 수집·정규화·중복 제거·저장 규칙은 program-notices 도메인이다:
+// 소스는 기업마당(사용자 결정 2026-10-28)과 과기정통부(사용자 결정 2026-11-01)다. 중기부 RSS 는 부르지 않는다.
+// 기업마당이 꺼졌거나 키가 없으면 기동하지 않는다. 과기정통부는 설정·키가 틀리면 그 소스만 건너뛰고 기동한다.
+// 수집·정규화·중복 제거·저장 규칙은 program-notices 도메인이다:
 // (source, source_notice_id) upsert, 같은 회차 안 같은 id 는 뒤의 것, 해석 실패·0건이면 저장하지 않는다, 회차마다 program_notice_runs 한 행.
 // live 요청은 수집과 같은 재시도 규칙(ingestion/retry.ts, 시간 초과·429·5xx 만 최대 3번 더)을 쓴다. 회차가 실패해도 일정은 남고 다음 정각에 다시 돈다.
-// 로그에는 상태·건수·오류 코드만 남긴다. BIZINFO_API_KEY 값·요청 URL·응답 본문은 남기지 않는다.
+// 로그에는 상태·건수·오류 코드만 남긴다. BIZINFO_API_KEY·MSIT_ANNOUNCEMENT_API_KEY 값·요청 URL·응답 본문은 남기지 않는다.
 //
 // 전체 worker(main.ts)의 programNoticesWorkerRegistration 은 로컬 Compose 용으로 그대로 둔다. 같은 DB 에서 둘이 함께 떠도 행은 겹치지 않는다
 // (같은 공고는 (source, source_notice_id) upsert 로 한 행). 다만 그쪽은 기동 즉시·60분마다 기업마당과 중기부를 따로 불러 호출과
 // program_notice_runs 행이 늘고, 운영에 중기부 공고가 들어온다. 그래서 함께 띄우지 않는다(compose.program-notices-only.company.yaml).
 //
 // 명령: (없음) 기동 · --check 설정 확인(Redis·Supabase·기업마당을 부르지 않는다) · --status 큐 읽기
-//      · --once 1회 수집(기업마당 요청 1회, 시간 초과·429·5xx 면 최대 3번 더) · --unschedule program-notices 큐의 bizinfo-scheduled 만 삭제
+//      · --once 1회 수집(소스마다 요청 1회, 시간 초과·429·5xx 면 최대 3번 더) · --unschedule program-notices 큐의 bizinfo-scheduled 만 삭제
 
 type Env = Record<string, string | undefined>;
 export type ShutdownSignal = "SIGTERM" | "SIGINT";
@@ -51,8 +54,8 @@ export type ShutdownSignal = "SIGTERM" | "SIGINT";
 export const PROGRAM_NOTICES_QUEUE = "program-notices";
 export const BIZINFO_SCHEDULER_ID = "bizinfo-scheduled";
 export const PROGRAM_NOTICES_JOB_NAME = "program-notices-round";
-/** 회사 운영에서 도는 소스(사용자 결정 2026-10-28: 기업마당만) */
-export const SCHEDULED_SOURCES: readonly ProgramNoticeSource[] = ["bizinfo"];
+/** 회사 운영에서 도는 소스(2026-11-01 사용자 결정: 과기정통부 추가, 중기부는 계속 부르지 않는다) */
+export const SCHEDULED_SOURCES: readonly ProgramNoticeSource[] = ["bizinfo", "msit"];
 
 /** 나라장터 정기 수집(main.ts INGEST_REPEAT)과 같은 일정. immediately 를 주지 않아 기동 즉시 부르지 않고 다음 정각부터 돈다 */
 export const PROGRAM_NOTICES_REPEAT = {
@@ -70,6 +73,8 @@ export type ProgramNoticesPlan = {
   config: ProgramNoticesConfig;
   configFile: string;
   recordingsDir: string;
+  /** 이번 기동에서 도는 소스. 기업마당은 늘 있고, 과기정통부는 설정·키가 맞을 때만 있다 */
+  sources: ProgramNoticeSource[];
   /** --check·기동 로그에 남길 설명. env 값·키·요청 URL 은 싣지 않는다 */
   lines: string[];
 };
@@ -80,7 +85,22 @@ function assertLiveRunMode(env: Env): void {
   }
 }
 
-/** 기동 1단계. 틀리면 던진다(이 worker 의 일은 기업마당 하나라 꺼진 채 뜨지 않는다). 메시지에는 키·경로 이름만 싣는다 */
+/** 과기정통부를 이번 기동에 넣을지와 그 설명 한 줄. 키 값은 싣지 않는다 */
+function msitPlanOf(config: ProgramNoticesConfig, env: Env): { included: boolean; line: string } {
+  const msit = config.msit;
+  if (!msit.ok) return { included: false, line: `과기정통부: ${msit.reason}, 건너뜀` };
+  const { enabled, keyEnv, maxItems } = msit.value;
+  if (!enabled)
+    return {
+      included: false,
+      line: "과기정통부: 꺼짐(program-notices.yaml sources.msit.enabled), 건너뜀",
+    };
+  if (decodeServiceKey(env[keyEnv]) === null)
+    return { included: false, line: `과기정통부: ${keyEnv} 없음 또는 형식 오류, 건너뜀` };
+  return { included: true, line: `과기정통부: 최대 ${maxItems}건 · ${keyEnv} SET` };
+}
+
+/** 기동 1단계. 기업마당이 틀리면 던진다(기업마당이 이 worker 의 기본 일이라 꺼진 채 뜨지 않는다). 메시지에는 키·경로 이름만 싣는다 */
 export async function readProgramNoticesPlan(env: Env): Promise<ProgramNoticesPlan> {
   assertLiveRunMode(env);
   readWorkerEnv(env);
@@ -96,13 +116,16 @@ export async function readProgramNoticesPlan(env: Env): Promise<ProgramNoticesPl
   if ((env[keyEnv]?.trim() ?? "") === "") {
     throw new Error(`${keyEnv} 가 비어 있다(값은 출력하지 않는다)`);
   }
+  const msit = msitPlanOf(loaded.config, env);
   return {
     config: loaded.config,
     configFile: runtime.configFile,
     recordingsDir: runtime.recordingsDir,
+    sources: SCHEDULED_SOURCES.filter((source) => source !== "msit" || msit.included),
     lines: [
       `부처 공고 설정: ${runtime.configFile}`,
       `기업마당: 분야 ${categories.join(",") || "전체"} · 최대 ${maxItems}건 · ${keyEnv} SET`,
+      msit.line,
       `정기 수집: ${INGEST_SCHEDULE_LABEL}(${INGEST_SCHEDULE_TIMEZONE}), 큐 ${PROGRAM_NOTICES_QUEUE}, 일정 ${BIZINFO_SCHEDULER_ID}`,
     ],
   };
@@ -112,7 +135,7 @@ const logLine = (line: string) => {
   console.log(line);
 };
 
-/** 기업마당 회차 하나. 던지지 않는다(runProgramNoticeRound) */
+/** 회사 회차 하나(plan.sources). 던지지 않는다(runProgramNoticeRound) */
 export function runScheduledRound(env: Env, plan: ProgramNoticesPlan): Promise<ProgramRun[]> {
   return runProgramNoticeRound({
     config: plan.config,
@@ -124,7 +147,7 @@ export function runScheduledRound(env: Env, plan: ProgramNoticesPlan): Promise<P
     now: () => new Date(),
     log: logLine,
     retry: PROGRAM_NOTICE_RETRY,
-    sources: SCHEDULED_SOURCES,
+    sources: plan.sources,
   });
 }
 
@@ -311,7 +334,7 @@ async function unschedule(env: Env, deps: ProgramNoticesOnlyDeps): Promise<void>
   deps.log(`${PROGRAM_NOTICES_QUEUE} 큐의 정기 일정을 지웠다: ${BIZINFO_SCHEDULER_ID}`);
 }
 
-/** --once: 일정을 만들지 않고 이 프로세스에서 기업마당을 1회 부른다(실호출). 성공·일부 성공이면 true */
+/** --once: 일정을 만들지 않고 이 프로세스에서 plan.sources 를 1회 부른다(실호출). 모두 성공·일부 성공이면 true */
 async function runOnce(env: Env, deps: ProgramNoticesOnlyDeps): Promise<boolean> {
   const plan = await readProgramNoticesPlan(env);
   for (const line of plan.lines) deps.log(line);

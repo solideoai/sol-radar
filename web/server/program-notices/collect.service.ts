@@ -4,6 +4,7 @@ import { buildBizinfoUrl, parseBizinfoBody, type ParseResult } from "./bizinfo";
 import type { ProgramNoticesConfig } from "./config";
 import { fetchProgramSource, type FetchLike, type FetchProgramResult } from "./http";
 import { parseMssRss } from "./mss-rss";
+import { buildMsitUrl, decodeServiceKey, parseMsitBody } from "./msit";
 import {
   PROGRAM_NOTICE_SOURCES,
   type NormalizedProgramNotice,
@@ -34,7 +35,7 @@ export type RoundDeps = {
   now: () => Date;
   log: (line: string) => void;
   retry: RetryDeps;
-  /** 주어지면 이 소스만 돈다(회사 전용 Worker 는 기업마당만). 없으면 PROGRAM_NOTICE_SOURCES 전부 */
+  /** 주어지면 이 소스만 돈다(회사 전용 Worker 는 기업마당·과기정통부). 없으면 PROGRAM_NOTICE_SOURCES 전부 */
   sources?: readonly ProgramNoticeSource[];
 };
 
@@ -55,8 +56,11 @@ type SourcePlan = {
 };
 
 /** 설정에서 소스별 할 일을 만든다. 설정이 틀린 소스는 null. */
-function planOf(source: ProgramNoticeSource, config: ProgramNoticesConfig): SourcePlan | null {
-  if (source === "bizinfo") {
+const PLAN_BUILDERS: Record<
+  ProgramNoticeSource,
+  (config: ProgramNoticesConfig) => SourcePlan | null
+> = {
+  bizinfo: (config) => {
     if (!config.bizinfo.ok) return null;
     const settings = config.bizinfo.value;
     return {
@@ -74,15 +78,33 @@ function planOf(source: ProgramNoticeSource, config: ProgramNoticesConfig): Sour
         return { ok: true, url, secrets: [key] };
       },
     };
-  }
-  if (!config.mss.ok) return null;
-  const settings = config.mss.value;
-  return {
-    enabled: settings.enabled,
-    parse: parseMssRss,
-    liveRequest: () => ({ ok: true, url: settings.baseUrl, secrets: [] }),
-  };
-}
+  },
+  mss: (config) => {
+    if (!config.mss.ok) return null;
+    const settings = config.mss.value;
+    return {
+      enabled: settings.enabled,
+      parse: parseMssRss,
+      liveRequest: () => ({ ok: true, url: settings.baseUrl, secrets: [] }),
+    };
+  },
+  msit: (config) => {
+    if (!config.msit.ok) return null;
+    const settings = config.msit.value;
+    return {
+      enabled: settings.enabled,
+      parse: parseMsitBody,
+      liveRequest: (env) => {
+        const raw = env[settings.keyEnv]?.trim() ?? "";
+        const key = decodeServiceKey(raw);
+        if (key === null) return { ok: false };
+        const url = buildMsitUrl({ baseUrl: settings.baseUrl, key, maxItems: settings.maxItems });
+        // env 원문(Encoding 키)·푼 값·URL 에 실리는 인코딩 값을 모두 가린다.
+        return { ok: true, url, secrets: [...new Set([raw, key, encodeURIComponent(key)])] };
+      },
+    };
+  },
+};
 
 type Outcome<T> = { ok: true; value: T } | { ok: false; errorCode: ProgramRunErrorCode };
 
@@ -190,7 +212,7 @@ async function collectSource(
     finishedAt: deps.now().toISOString(),
   });
 
-  const plan = planOf(source, deps.config);
+  const plan = PLAN_BUILDERS[source](deps.config);
   if (plan === null) return finish("SKIPPED", "CONFIG_INVALID");
   if (!plan.enabled) return null;
 
@@ -204,12 +226,16 @@ async function collectSource(
   if (!parsed.ok) return finish("FAILED", parsed.errorCode);
   if (!parsed.value.ok) return finish("FAILED", parsed.value.errorCode);
 
-  const { notices, dropped } = parsed.value;
+  const { notices, dropped, excluded = 0 } = parsed.value;
   const counts: Counts = {
-    fetchedCount: notices.length + dropped,
+    fetchedCount: notices.length + dropped + excluded,
     savedCount: 0,
     droppedCount: dropped,
   };
+  // 규칙상 뺀 수(과기정통부 결과 발표 공고)는 로그 한 줄로만 남긴다. 회차 상태는 버린 수(dropped)만 본다.
+  if (excluded > 0) {
+    deps.log(JSON.stringify({ event: "program_notices.excluded", source, excluded }));
+  }
   const status: ProgramNoticeRunStatus = dropped > 0 ? "PARTIAL" : "SUCCEEDED";
   if (notices.length === 0) return finish(status, null, counts);
 
