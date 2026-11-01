@@ -6,12 +6,13 @@ import {
   type ProgramNoticeSource,
 } from "./program-notice.model";
 
-// ── 부처 공고 목록(스펙 §6): 출처·소관기관 검색·정렬·마감 지난 공고 숨김, 두 소스 사이 중복 묶기 ──
+// ── 부처 공고 목록(스펙 §6): 출처·소관기관 검색·정렬·마감 지난 공고 숨김, 소스 사이 중복 묶기 ──
 // repo 는 거르지 않고 최근 등록 순으로 읽는다. 출처·마감·검색·정렬은 여기서 순수 함수로 한다(fake 저장소로 시험한다).
 // 출처도 여기서 거른다. 그래야 "저장된 공고가 아예 없다"(hasAnyNotice)를 조건과 상관없이 판단한다.
 // 마감 판정의 "오늘"은 KST 날짜다(Route 가 kstToday 로 넘긴다). 마감이 null 인 공고는 늘 보인다.
 // 묶기를 마감 거르기보다 먼저 한다. 마감 지난 기업마당 공고의 중기부 쌍둥이(마감 null)가 "기간 미표기"로 남지 않게 한다.
 // IT 관련 공고만 보인다(ADR-069, isItProgramNotice). "저장된 공고"(hasAnyNotice)도 IT 관련 공고만 센다.
+// 과기정통부 공고는 R&D 공모라 IT 필터를 거치지 않는다(2026-11-01 사용자 결정).
 // IT 판정은 dedupe_key 묶음 단위다. 사본 하나라도 IT 면 묶음을 남기고, 대표 사본(기업마당 우선)을 보인다.
 // 묶기 키는 제목 앞머리 [..] 를 무시하므로, 중기부 쌍둥이 앞머리에만 IT 단어가 있을 때 둘 다 사라지지 않게 한다.
 
@@ -199,7 +200,11 @@ export async function listProgramNotices(
   deps: { repo: ProgramNoticesRepo; today: string },
 ): Promise<ProgramNoticeList> {
   const stored = await deps.repo.listRecent({ limit: LIST_FETCH_LIMIT });
-  const itKeys = new Set(stored.filter(isItProgramNotice).map((row) => row.dedupe_key));
+  const itKeys = new Set(
+    stored
+      .filter((row) => row.source === "msit" || isItProgramNotice(row))
+      .map((row) => row.dedupe_key),
+  );
   const rows = stored.filter(
     (row): row is ProgramNoticeRow & { source: ProgramNoticeSource } =>
       isSource(row.source) && (query.source === null || row.source === query.source),

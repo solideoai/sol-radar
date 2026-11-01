@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { listProgramNotices, type ProgramNoticeRow } from "./list.service";
+import {
+  listProgramNotices,
+  parseProgramNoticeListQuery,
+  type ProgramNoticeRow,
+} from "./list.service";
 import { isItProgramNotice } from "./program-notice.model";
 
 // 가상 공고. 제목·사업개요만 바꿔 IT 판정(ADR-069)을 본다.
@@ -78,5 +82,33 @@ describe("지원사업 IT 판정(ADR-069)", () => {
     const shown = await list([bizinfo, mss]);
     expect(shown.items.map((item) => item.id)).toEqual(["biz"]);
     expect(shown.hasAnyNotice).toBe(true);
+  });
+
+  it("과기정통부 공고는 IT 단어가 없어도 보인다", async () => {
+    const msit = {
+      ...row("msit", "2026년도 국제공동연구 신속지원사업 신규과제 공모"),
+      source: "msit",
+    };
+    expect(isItProgramNotice(msit)).toBe(false);
+    const shown = await list([msit]);
+    expect(shown.items.map((item) => item.id)).toEqual(["msit"]);
+    expect(shown.hasAnyNotice).toBe(true);
+  });
+
+  it("과기정통부 쌍둥이가 기업마당에도 있으면 기업마당 행이 보인다", async () => {
+    const biz = { ...row("biz", "국제공동연구 신속지원사업 공모"), dedupe_key: "twin" };
+    const msit = {
+      ...row("msit", "국제공동연구 신속지원사업 공모"),
+      source: "msit",
+      dedupe_key: "twin",
+    };
+    expect((await list([biz, msit])).items.map((item) => item.id)).toEqual(["biz"]);
+  });
+
+  it("출처 조건 msit 를 받는다", () => {
+    expect(parseProgramNoticeListQuery({ source: "msit" })).toMatchObject({
+      ok: true,
+      value: { source: "msit" },
+    });
   });
 });
