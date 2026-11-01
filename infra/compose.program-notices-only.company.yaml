@@ -19,7 +19,7 @@ services:
       context: ../web
       dockerfile: worker/Dockerfile
     init: true
-    # BIZINFO_API_KEY 는 이 파일에서 읽는다. 값을 출력하지 않는다.
+    # BIZINFO_API_KEY·MSIT_ANNOUNCEMENT_API_KEY 는 이 파일에서 읽는다. 값을 출력하지 않는다.
     env_file: .env.worker.local
     command:
       [
