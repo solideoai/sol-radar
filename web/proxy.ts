@@ -36,6 +36,8 @@ export async function proxy(request: NextRequest) {
     "x-nonce": nonce,
     // 레이아웃은 주소를 직접 받지 않으므로 보완 뒤 복귀할 실제 경로만 전달한다. 인증 판단은 각 경계에서 한다.
     "x-sol-radar-path": isBusinessPath ? path + request.nextUrl.search : "",
+    // 로그인이 없을 때 업무 레이아웃이 ?next= 로 실을 요청 경로. 클라이언트가 보낸 같은 이름 헤더는 여기서 덮어쓴다.
+    "x-sol-radar-request-path": path + request.nextUrl.search,
     "content-security-policy": policy,
   });
   response.headers.set("Content-Security-Policy", policy);

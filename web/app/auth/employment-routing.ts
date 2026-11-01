@@ -15,6 +15,15 @@ export function safeEmploymentNext(value: unknown): string {
   }
   return path;
 }
+// 로그인 화면 주소. 업무 화면에서 로그인이 없어 보낼 때 그 화면을 ?next= 로 실어 로그인 뒤 돌아오게 한다(카톡 [분석 보기] 등).
+// 사이트 안 경로만 싣고, 로그인 뒤 기본 화면(/dashboard)이면 싣지 않는다.
+export function loginPath(next?: string | null): string {
+  if (!next) return "/auth/login";
+  const path = safeEmploymentNext(next);
+  return path === "/auth/login" || path === "/dashboard"
+    ? "/auth/login"
+    : `/auth/login?next=${encodeURIComponent(path)}`;
+}
 export function completionPath(next?: string): string {
   const path = safeEmploymentNext(next);
   return path === "/auth/login"

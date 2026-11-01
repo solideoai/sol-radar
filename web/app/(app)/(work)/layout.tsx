@@ -1,7 +1,8 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { loadMyBusinessAccess, loadMyProfile } from "@/app/_lib/my-account";
+import { loginPath } from "@/app/auth/employment-routing";
 import { loadStatusSummary } from "@/app/_lib/work-data";
 import { AppShell } from "@/components/app-shell";
 import { getMyWorkspace } from "@/server/organization";
@@ -21,7 +22,9 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
   const [business, me] = await Promise.all([loadMyBusinessAccess(), loadMyProfile()]);
-  if (business.status !== "ready" || me.status !== "ready") redirect("/auth/login");
+  // 로그인 뒤 보던 화면으로 돌아오게 요청 경로를 싣는다(proxy 가 매 요청 덮어쓴다. 사이트 밖 주소는 loginPath 가 버린다).
+  if (business.status !== "ready" || me.status !== "ready")
+    redirect(loginPath((await headers()).get("x-sol-radar-request-path")));
   const workspace = await getMyWorkspace(business.current.slug);
   if (workspace.status !== "ready") redirect("/auth/organization-state");
 
