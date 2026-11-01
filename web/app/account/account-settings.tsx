@@ -11,7 +11,7 @@ import {
   SUPABASE_PROVIDER_ID,
   type SocialProvider,
 } from "@/lib/auth-providers";
-import { initialOf } from "@/lib/utils";
+import { initialOf, maskEmail } from "@/lib/utils";
 import { getMyLoginMethods, type LinkOutcome, type LoginMethod } from "@/server/auth";
 import { getMyProfile, type ProfileView } from "@/server/profile";
 import type { MyLoginMethods } from "@/server/auth";
@@ -57,8 +57,13 @@ const orderOf = (provider: string) => {
 // 서버의 시간대(UTC)와 상관없이 서울 날짜로 적는다.
 const seoulDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" });
 
+// 구글·카카오 같은 소셜 계정 이메일은 가려서 보인다(화면 녹화·공유 때 노출 방지). 이메일 로그인 줄은 그대로 둔다.
+const shownEmailOf = (method: LoginMethod): string | null =>
+  method.email && method.provider !== "email" ? maskEmail(method.email) : method.email;
+
 const detailOf = (method: LoginMethod): string => {
-  if (method.email) return method.email;
+  const email = shownEmailOf(method);
+  if (email) return email;
   return method.linkedAt ? `${seoulDate.format(new Date(method.linkedAt))}에 연결` : "연결됨";
 };
 
@@ -69,7 +74,7 @@ function toRows(methods: readonly LoginMethod[]): LoginMethodRow[] {
     provider: method.provider,
     label: method.label,
     detail: detailOf(method),
-    email: method.email,
+    email: shownEmailOf(method),
     identityId: method.identityId,
     linkProvider: null,
   }));
