@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 17. Claude Code 구현 운영 규칙
@@ -25,7 +25,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 - **hosted 모델 API 호출 전 사용자 명시 승인 필수.** 승인은 `AI_HOSTED_APPROVED=true`로만 표현하고, 승인 전에는 `AI_PROVIDER=hosted` 설정·키 입력·호출 코드 실행 금지. 승인 없이 hosted면 gateway는 기동 거부. 테스트·CI·골든은 항상 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`) (ADR-010).
 - **클라우드 GPU 임대도 비용 승인 대상이다.** 해커톤 실추론·평가는 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트에 붙여 한다([[16-DECISIONS|ADR-025]]). 클라우드 GPU를 빌리는 일은 hosted API와 같이 사용자 명시 승인 전에는 하지 않는다 ([[16-DECISIONS|ADR-020]], ADR-010).
 - **결정 모델(Bosun) 운영 입력은 영어 템플릿 state만이다.** 운영 경로는 `en` 템플릿만 쓰고, 자유 텍스트는 `/extract`가 돌려준 `translations`(숫자 보존 검사 통과분)로 채운다. 한국어 state(`ko` 템플릿)는 **평가 전용**이다. gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고(없으면 `422 KO_STATE_NOT_ALLOWED`) `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다. 한국어 운영 사용은 평가 결과를 보고 다시 검토한다 (ADR-012 개정, ADR-020, [[03-AI-PIPELINE|03 AI 파이프라인]] §5).
-- **결정 모델(Bosun) 출력은 `review_flags` 추가와 "모델 참고 지표 (점수 미반영)" 표시에만 쓴다.** 자격·점수·권고를 바꾸는 코드 경로를 만들지 않는다. 결정 모델 확률을 충족 확률·낙찰 확률·수주확률로 보이게 쓰지 않는다. 결정 모델을 점수에 반영하려면 평가셋 기준 통과 → 새 알고리즘 버전 `sol-v0.2.x` → ADR 순서를 밟고, 그 전에는 반영 코드를 만들지 않는다 (ADR-004 개정, ADR-020, [[08-SCORING|08 스코어링]]).
+- **결정 모델(Bosun) 출력은 `review_flags` 추가와 "모델 참고 지표 (점수 미반영)" 표시에만 쓴다.** 자격·점수·권고를 바꾸는 코드 경로를 만들지 않는다. 결정 모델 확률을 충족 확률·낙찰 확률·수주확률로 보이게 쓰지 않는다. 결정 모델을 점수에 반영하려면 평가셋 기준 통과 → 새 알고리즘 버전(`sol-v0.3.0` 이후) → ADR 순서를 밟고, 그 전에는 반영 코드를 만들지 않는다 (ADR-004 개정, ADR-020, [[08-SCORING|08 스코어링]]).
 - **정보 부족을 `미충족`으로 판정하지 않는다.** `NOT_SATISFIED`에는 공고 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 하고, 정보가 없으면 `NEEDS_REVIEW` + 사유 코드다 ([[08-SCORING|08 스코어링]]).
 - **실행 모드(`SOL_RUN_MODE=live|fixture|mock`)와 모순된 env는 기동을 거부한다.** 값을 조용히 바꾸지 않는다. 분석마다 실행 모드·AI 공급자·모델 이름을, 공고마다 출처(`source`·`is_demo`)를 기록하고 화면에 표시한다.
 - **mock으로 자동 대체하지 않는다.** 데이터 출처(live → fixture)도 AI(local → mock)도 자동으로 바꾸지 않고, 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다. `AI_FALLBACK_TO_MOCK=true`는 해커톤 동안 구현하지 않아 세 모드 모두 켜면 기동 거부다([[16-DECISIONS|ADR-030]] B11, `infra/run-modes.json`). 나중에 구현하면 실제 대체 때 `ai_provider=MOCK`·`fallback_reason`·`MOCK_FALLBACK` 플래그와 "실제 모델 결과 아님" 배너로 명시한다.
@@ -35,7 +35,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 - **나라장터 서비스키 4개(`G2B_*_SERVICE_KEY`, 서비스마다 하나, [[16-DECISIONS|ADR-022]])는 서버 전용이다.** `OfficialApiConnector`(worker)만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키만 쓴다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지·`docs/evidence/`에 넣지 않고, 쿼리 파라미터로 붙으므로 요청 URL 로그에서도 가린다. 응답의 담당자 이름·전화·이메일은 `NormalizedBid`·데이터셋·모델 입력에 넣지 않는다 ([[09-SECURITY|09 보안]]).
 - **첨부 다운로드는 allowlist로만 한다.** `https://www.g2b.go.kr`만 허용하고, 리다이렉트는 allowlist 안에서만 따르며, DNS를 다시 확인해 사설 IP를 거부한다. timeout 30 s, 최대 50 MB, 형식은 확장자가 아니라 내용으로 판단한다 ([[09-SECURITY|09 보안]] SSRF).
 - 외부 API 필드/URL, 실제 기업 수주실적, 카카오 승인 상태, 벤치마크 수치, 모델 성능을 지어내지 말 것. 공공 API 엔드포인트는 `infra/sources/registry.yaml`에 등록한 것만 부른다. 모르면 `> [!warning] 미검증 가정` + mock.
-- DEMO 데이터는 `is_demo=true`로 저장하고 UI에 DEMO 배지. 실데이터처럼 표시 금지. live 공고는 `is_demo=false`로 fixture 공고와 같은 DB에 있을 수 있으므로 `source`·`is_demo`로 구분해 표시한다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)이고 분석 화면에 "가상 회사 프로필로 분석" 배지를 붙인다. 실제 회사 자료를 쓰려면 ADR과 [[09-SECURITY|09 보안]] 개정이 먼저다 (ADR-019, ADR-020).
+- DEMO 데이터는 `is_demo=true`로 저장하고 UI에 DEMO 배지. 실데이터처럼 표시 금지. live 공고는 `is_demo=false`로 fixture 공고와 같은 DB에 있을 수 있으므로 `source`·`is_demo`로 구분해 표시한다. 회사 프로필은 로컬·시험·`demo:reset`에서 가상 솔리데오 프로필(`is_demo=true`)이고 분석 화면에 "가상 회사 프로필로 분석" 배지를 붙인다. 운영 DB는 공개 자료 프로필(`is_demo=false`)에 회사가 확인한 보유 자격(`COMPANY_CONFIRMED` 출처)만 더하고, 배지는 "공개 자료 회사 프로필로 분석"이다. 비공개 자료를 넣으려면 그 전에 DB 수준 잠금을 다시 정한다 ([[16-DECISIONS|ADR-052]]·ADR-059, [[09-SECURITY|09 보안]]).
 - 새로 추가하거나 바꾼 계산·권한·저장·외부 입력 계약과 실제 결함에는 테스트를 추가한다. 새 표·정책에는 `scripts/database.test.mjs`(PGlite)에 RLS 정책 시험을 더한다. 단순 문구·표시·타입·기존 로직 전달만 하는 코드에 중복 시험을 일률적으로 추가하지 않는다 ([[11-TESTING|11 테스트]], ADR-046).
 - `.env`를 읽어서 출력하거나 Git에 넣지 말 것. credential은 `.env.example` placeholder만.
 - 작업을 묶어 대량 변경하기 전에 변경 파일 및 검증 명령 계획부터 정리할 것.
@@ -100,7 +100,7 @@ docs/evidence/
 전체 목록과 파일명은 [[11-TESTING|11 테스트]] §6을 따른다. LoRA 메모리 검증 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.2다. 서비스키 값·엔드포인트 인증 키·실제 RFP 원문·공공 API 응답의 담당자 개인정보는 증거에 넣지 않는다.
 스크린샷 파일명 규칙: `YYYYMMDD-phaseN-<route>-<state>-<width>.png`
 - `route`: 경로를 하이픈으로. `/auth/login`(Supabase Auth 로그인 화면) → `login`, `/bids` → `bids-list`, `/bids/[id]` → `bid-detail`, `/notifications` → `notifications`, `/admin/ingestion` → `admin-ingestion`.
-- `state`: `loaded | empty | loading | error | forbidden | partial | demo-badge`.
+- `state`: `loaded | empty | loading | error | forbidden | partial | demo-badge | what-if`([[06-UI-UX|06 UI]] §12).
 - `width`: `1440` 기본. 목록과 상세 화면은 `1280`도 1장.
 - 비밀값·토큰이 화면에 보이면 저장 금지.
 - evidence 파일은 커밋 대상. Phase당 10MB 이하(PNG 압축).

@@ -7,7 +7,7 @@ tags:
   - ai
   - evaluation
   - hackathon
-updated: 2026-10-29
+updated: 2026-11-01
 ---
 
 # 21. 모델 학습: 데이터셋·평가·파인튜닝
@@ -337,7 +337,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | 1 내보내기 | 과거 수행 사업의 원공고, 앱의 최종 결정 기록(사람 라벨), 규칙 silver(train 만)를 질문 단위 레코드(§3.7)로 내보낸다. 유료 LLM 라벨은 쓰지 않는다. 분할과 누수 검사는 §3.6 | `scripts/ops/` 운영자 CLI → `datasets/decision/<데이터 버전>/` |
 | 2 학습 | 명령 하나로 LoRA 를 학습한다. GPU 1 만 쓰고, 시작 전에 메모리를 확인한다 | `infra/gpu/bosun-retrain.sh <데이터 버전>`(F2 명령을 감싼다) |
 | 3 평가 게이트 | 지금 서빙 모델과 같은 test 로 E4 를 채점한다. Δ 의 95% CI 가 0 을 배제하고 dev·regression 이 안정일 때만 후보가 된다(§4.4, ADR-034 9번) | `sol_eval.bosun_score` |
-| 4 포장 | manifest sha256 을 만들고 레지스트리에 `candidate` 로 넣는다(§5.4) | `services/ai/models/registry.yaml` |
+| 4 포장 | manifest sha256 을 만들고 레지스트리에 `status: backup` 으로 넣는다(§5.4) | `services/ai/models/registry.yaml` |
 | 5 승인·교체 | 사용자 승인 뒤 8009 서빙 패키지 경로만 바꾼다. 이전 패키지는 남겨 env 하나로 되돌린다 | 회사 Compose |
 
 - 최소 규모는 §3.5 를 따른다(test 20·dev 10 사업, train 질문 기록 1,000건). 모자라면 그 해에는 학습하지 않고 기록만 남긴다.

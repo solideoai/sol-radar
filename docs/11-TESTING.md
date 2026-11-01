@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 11. 검증·테스트 전략
@@ -66,7 +66,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 남긴 범위는 §1 매트릭스의 핵심 케이스다: 골든 94/72/68, 정보 부족·모델 장애·모델 승격 금지, 재현성·가정 재계산, 조직 격리·요청 계약, 수집 멱등·revision, 첨부 보안·키 가림, 알림 멱등·사람 결정, 기동·비용 승인 게이트.
 
 - 축소 직후 수는 웹 23파일·286개, DB 정책 21개, AI 101개, 결정 57개, 브라우저 3파일, E2E 공개 45·인증 13·업무 16개다(정본 목록).
-- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 지금 14파일(`git ls-files 'web/**/*.browser.test.tsx'`)이다. 2026-10-30 작업 트리(구글 캘린더 연동·모바일 웹 포함, 커밋 전) 전체 `pnpm verify`는 루트 311·web 131파일 1,085개·`next build`·AI 264개·결정 57개, exit 0이었다.
+- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 지금 20파일(`git ls-files 'web/**/*.browser.test.tsx'`)이다. 2026-10-31 구글 캘린더 연동 병합(`652741e2`) 뒤 전체 `pnpm verify`는 루트 316·web 135파일 1,097개·`next build`·AI 264개·결정 57개, exit 0이었다([[PROGRESS]]).
 - 새 시험은 핵심 사용자 동작·권한·계산·저장이나 실제 결함을 직접 검증할 때만 더한다. 같은 계약을 여러 계층에서 반복하거나 상수·문구·목업 값·모든 입력 조합을 고정하는 시험은 만들지 않는다.
 
 ### 첨부 처리·파서·live 가드 시험
@@ -110,7 +110,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | G10 | 데이터 계약 수용 기준([[15-DATA-CONTRACTS\|15]] §9) | `FX-11`~`FX-14` | `NormalizedBid`·`EvidenceRef` 계약 시험 없음. 일부 필드는 `revision-diff.test.ts`·`procurement-projection.test.ts`가 지난다 | — | `NormalizedBid` 스키마, `fieldState` 4종, 원본·정규화 값 병기, null 대체 금지 |
 | G11 | 추천 공고 카카오톡: 이벤트 멱등·받는 사람·한 사람 한 통([[16-DECISIONS\|ADR-038]]) | `FX-02`(S4 분석). DB 시험은 시험 안에서 만든 행 | `scripts/committed-integrations-db.test.mjs`, `web/worker/committed-features.test.ts`, `web/worker/notify-outbox.test.ts` | `pnpm test`, `vitest worker` | 사람이 요청한 run이 추천(`BID`)·보류면 `BID_RECOMMENDED` outbox 1건(키 `<orgId>:<bidId>:BID_RECOMMENDED`), 재분석해도 1건. 데모 사전 분석·비추천은 0건. 같은 이벤트를 다시·동시에 처리해도 한 사람 한 통, 결과 불분명이면 다시 보내지 않는다. 본인 연결 행만 안전한 열로 읽힌다. 시험은 `NOTIFY_KAKAO_PROVIDER=mock` |
 
-- G11은 모델도 카카오도 부르지 않는다(`mock` 발송 수단과 가짜 `fetch`). 실발송은 사용자가 하는 수동 1회뿐이다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). 운영 카카오 연결·발송은 0건이다.
+- G11은 모델도 카카오도 부르지 않는다(`mock` 발송 수단과 가짜 `fetch`). 운영 실발송은 시험 밖에서 사용자 승인 뒤에만 했다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). 운영 연결은 1건(admin@solideos.com, 2026-10-30)이다. 시험 발송(`KAKAO_TEST`)은 2026-10-30 2통과 2026-11-01 1건이고, 추천 카톡은 24통(2026-10-30 23통 + 2026-11-01 녹화 1통)이다([실발송 기록](evidence/kakao-notify/20261030-prod-live-send.md), [녹화 기록](evidence/kakao-notify/20261101-recording.md)).
 - `web/e2e-auth/isolation.spec.ts`는 템플릿의 조직 화면 격리 시험이다. G5 E2E는 `bid-isolation.spec.ts`다.
 - E2E가 화면의 요청을 기다릴 때 화면이 본문을 읽지 않는 요청(예: 결정 제출 `201`)에 `response.json()`을 걸면 30초 timeout으로 멈춘다. 상태 코드만 본다([[16-DECISIONS|ADR-035]] F5).
 
@@ -160,7 +160,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 측정 항목(자동 시험 아님, 증거로 남긴다):
 
 - 파서 후보 비교(U13): 실제 RFP 샘플로 후보마다 누락과 라이선스를 비교한다([[07-DATA-PIPELINE|07 수집]]).
-- 실공고 파싱 성공률(P0-3): 실제 공고 30건의 형식별 성공률. 목표치는 두지 않는다. 증거 `phase-2/parse-success-rate.md`.
+- 실공고 파싱 성공률(P0-3): 실제 공고 30건의 형식별 성공률. 목표치는 두지 않는다. 증거 자리는 `phase-2/parse-success-rate.md`이고 아직 없다([[03-AI-PIPELINE|03]] §10.3).
 - Qwen 실추출 인용 검증 통과율과 실공고 1건 E2E 로그(P0-4), Bosun 응답 원문·`stateTrace`(P0-6). 증거는 `phase-5/`.
 
 ### 3.3 외부 의존성 점검 (P0-0)
@@ -217,8 +217,8 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | D1 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login` | `/dashboard`. `?origin=demo`를 붙이면 Topbar `DEMO` 배지. Topbar에 실행 모드·AI 표시는 없다 | `admin@solideos.com`로 대체 |
 | D2 | S2 | 대시보드 | `/dashboard?origin=demo` | "공공조달 요약" 숫자 띠(신규 발견·마감 임박 (7일)·분석 대기·추천 권고·진행 중 입찰 프로젝트)와 목록([[06-UI-UX\|06]] §5.3) | 숫자가 리허설 기록과 다르면 기록만 하고 진행 |
 | D3 | S2 | 목록 | `/bids?origin=demo`, 권고 추천 필터, 점수 내림차순 | 모든 행 `DEMO` 칩, `FX-12` 미노출. 11열이고 1440·1280에서 표 안에서만 가로 스크롤(페이지 가로 스크롤 없음) | — |
-| D4 | S3 | 상세·규칙 우선 | `FX-01` → `FX-03` | `FX-01` 자격 충족·점수 분해 5행·근거 드로어 원문 하이라이트. `FX-03` 권고 비추천, 자격 미충족 근거, 결정 모델 섹션 `규칙 우선` 배지 | 드로어 실패 시 원문 링크 새 탭 |
-| D5 | S3 | 가정 재계산 | `FX-03` "정보통신공사업 등록" 보유 가정 → [가정 지우기] | 권고 비추천 → 보류, 점수 변화 없음, 고정 문구 두 줄, 결정 패널 그대로, `bid_reviews` 불변 | 스위치가 없거나 실패하면 D4까지만 |
+| D4 | S3 | 상세·규칙 우선 | `FX-01` | 자격 3건 충족(회사 확인 출처)·92 추천·점수 분해 5행·근거 드로어 원문 하이라이트. 결정 모델 분포(비추천 쪽)와 `규칙 우선` 배지(`MODEL_RULE_DISAGREEMENT`), 추천 분석 패널 `DONE`·`MODEL`(버튼은 누르지 않는다). 값은 [[19-DEMO-SCENARIO\|19]] §2.2 | 드로어 실패 시 원문 링크 새 탭 |
+| D5 | S3 | 가정 재계산 | `FX-16` "방산업체 지정" 보유 가정 → [가정 지우기] | 띠 보류 → 보류, 70 → 70, 필수 자격 확인 필요 → 충족, 고정 문구 두 줄, 결정 패널 보류 70 그대로, `bid_reviews` 불변 | 스위치가 없거나 실패하면 D4까지만 |
 | D6 | S4 | 즉석 재분석 | `FX-02` → [재분석]. 촬영·발표 때만 누른다 | 202 → `완료`. 예상 점수와 운영 기록 66 보류 설명은 [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 3번이다 | 60초 넘으면 새로고침하고 사유 기록. 실패하면 66 보류 기록으로 설명 |
 | D7 | S4 | 사람 결정 | `FX-02` 결정 패널에서 결정 + 사유 + 담당자(발표자) → [결정 기록] | "마지막 결정: … · 담당자 · 시각", `bid_reviews` +1, 감사로그 1건, 알림 벨에 `REVIEW_ASSIGNED`. `analyst@soltech.invalid`로 보면 읽기 전용 | — |
 | D8 | S-LIVE | 실공고 | `/bids?origin=live` → 분석된 실공고 1건 | `DEMO` 칩 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL, 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"·"공개 자료 회사 프로필로 분석"([[16-DECISIONS\|ADR-052]]) | 분석된 실공고 run이 없으면 찍지 않고 발표에서 그렇게 말한다([[19-DEMO-SCENARIO\|19]] §3) |
@@ -238,7 +238,7 @@ S5·S6 녹화, 운영에 `org-02` 계정이 없을 때의 S7, 운영 사이트�
 | 3 | S0 | seed | `pnpm demo:reset` | 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`, `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`, `bid_reviews` 2건(`FX-01` 추천, `FX-03` 비추천) | seed 재실행(멱등) |
 | 4 | S0 | 세 모드(리허설) | `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway 재시작, 모드마다 `GET /api/v1/admin/ai/status`(ADMIN). 마지막은 `mock` | 기동 거부 없음, `runMode` 일치, `live`·`fixture`는 `qwen.healthy: true`·`kev.registryMatch: true`(gateway `/health` 기준이라 기동 뒤 죽은 모델 서버는 못 잡는다, [[16-DECISIONS\|ADR-035]] F6). `live` 오늘 호출량은 Redis 예산 카운터(`redis-cli GET quota:<serviceId>:<YYYYMMDD>`, KST)와 `/admin/ingestion` 실행 상세 `quotaUsed`로 본다. `run-modes.md`에 기록 | 기동 거부면 모순 키를 고친다. 실패한 모드는 빼고 기록 |
 | 4a | S0 | 사전 분석 | `mock`에서 `pnpm demo:preanalyze`(사용자 확인 뒤). 그 뒤 reset을 돌렸으면 다시 한다 | 18건(`FX-02`·격리 `FX-12` 제외) `COMPLETED`. `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만, `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`([[16-DECISIONS\|ADR-031]] C11) | 실패 건 기록 |
-| 5~11 | S2~S4 | 전체 대체일 때만 | 5.1의 D1~D7과 같은 경로(`localhost:3000`, `?origin=demo`). S4는 미분석 `FX-02`에 [분석 실행] | `FX-01` 94·분해 24.0/25.0/20.0/15.0/10.0·결정 모델 71/24/5, `FX-03` 비추천 68, `FX-02` 72 보류·15.0/18.3/14.0/15.0/10.0·36/52/12(10초 이내 `완료`), 대시보드 추천 권고 `FX-01` 94·`FX-18` 82·`FX-06` 78 | 숫자 불일치는 기록 |
+| 5~11 | S2~S4 | 전체 대체일 때만 | 5.1의 D1~D7과 같은 경로(`localhost:3000`, `?origin=demo`). D4·D5는 로컬 `mock` 대본으로 `FX-01` → `FX-03`, `FX-03` "정보통신공사업 등록" 보유 가정(비추천 → 보류, 68 그대로)이다([[19-DEMO-SCENARIO\|19]] §2). S4는 미분석 `FX-02`에 [분석 실행] | `FX-01` 94·분해 24.0/25.0/20.0/15.0/10.0·결정 모델 71/24/5, `FX-03` 비추천 68, `FX-02` 72 보류·15.0/18.3/14.0/15.0/10.0·36/52/12(10초 이내 `완료`), 대시보드 추천 권고 `FX-01` 94·`FX-18` 82·`FX-06` 78 | 숫자 불일치는 기록 |
 | 12 | S5 | 변경 수집 | `/admin/ingestion`(`admin@solideos.com`) → 수동 수집 `LIVE`(fixture의 live 배치, `SOL_RUN_MODE=live`면 `409 RUN_MODE_MISMATCH`) → `FX-07` [재분석](수집은 분석을 넣지 않는다, [[16-DECISIONS\|ADR-031]] C15) | 🔔 +1(`FX-07` 재분석의 `ANALYSIS_COMPLETE`). `FX-07` revision 2 → 68 → 77(엔진 77.3), 보류 → 추천. `FX-06` diff 마감 +14 → +28, `BID_CHANGED` outbox 1건(벨 알림 없음). `FX-09` revision 늘지 않음. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보이고 다음 장면 |
 | 13 | S6 | 장애 주입 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [재분석] `force=true` | 수 초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `RULES_ONLY`, 요약 띠 "· 응답 없음(규칙만)", `/health/ready` `degraded`. 점수 94·자격 3건 그대로 | 다시 찍는다 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `healthy` → `FX-01` [재분석] | `완료`, 요약 띠 `AI: mock`, 결정 모델 분포 다시 표시 | — |
@@ -279,11 +279,11 @@ docs/evidence/
 | 규칙이 결정 모델을 뒤집지 못한다 | G3, V2-06 | `phase-4/goldens-report.txt`, `FX-03` 상세 스크린샷 |
 | AI 없이도 완결된다 | G6 | `phase-5/ai-fallback.txt`, `*-demo-bid-detail-partial-1440.png` |
 | 조직 간 데이터 격리 | G5 | `phase-1/test-db.txt`, `demo-day/*/isolation-404.json` |
-| 중복 수집·중복 알림 없음 | G1, G2 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
+| 중복 수집·중복 알림 없음 | G1, G2 | `demo-day/20261021-1144/s5-ingestion.txt`(같은 공고 재수집 `skippedDuplicate` 1, FX-09 revision 1 그대로). 알림 멱등 시험 출력 파일은 없다 |
 | 가상 데이터를 가상이라고 표시 | G8 | `phase-3/e2e/*demo-badge*.png` |
-| 자동 시험은 실제 외부 API·모델을 부르지 않는다 | §2 | `phase-2/test-ingestion.txt` |
-| 실제 나라장터 공고를 수집해 분석한다 | P0-0·P0-2 | `phase-0/external-deps.md`, `phase-2/ingest-run-live-*.json` |
-| 처리할 수 없는 첨부는 확인 필요로 표시한다 | V2-03·V2-10 | `phase-2/parse-success-rate.md`, [파서 확인](evidence/parser/20261027-parser-check.md) |
+| 자동 시험은 실제 외부 API·모델을 부르지 않는다 | §2 | 증거 파일 없음 |
+| 실제 나라장터 공고를 수집해 분석한다 | P0-0·P0-2 | `phase-0/external-deps.md`, `company-rollout/20261029/ai-gateway-rollout.md` |
+| 처리할 수 없는 첨부는 확인 필요로 표시한다 | V2-03·V2-10 | [파서 확인](evidence/parser/20261027-parser-check.md). 실공고 형식별 성공률(`phase-2/parse-success-rate.md`)은 아직 없다 |
 | 정보 부족을 미충족으로 판정하지 않는다 | V2-05 | `phase-4/goldens-report.txt` |
 | mock 결과를 실제 모델 결과처럼 보이지 않는다 | V2-02, V2-09 | `phase-5/ai-fallback.txt` |
 

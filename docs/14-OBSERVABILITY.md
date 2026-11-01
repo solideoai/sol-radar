@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-29
+updated: 2026-11-01
 ---
 
 # 14. 관측성·운영
@@ -42,7 +42,7 @@ updated: 2026-10-29
   - AI만 불가 → HTTP 200, `status: "degraded"`, `checks.ai: "unavailable"`. AI는 선택 의존성이다.
   - 모두 정상 → HTTP 200, `status: "ok"`.
 - 관리자 AI 상태: `GET /api/v1/admin/ai/status`(`web/app/api/v1/admin/ai/status/route.ts`, ADMIN). 필드는 [[05-API-SPEC|05 API]]를 따른다.
-- Worker(`web/worker`)는 HTTP 엔드포인트가 없다. 상태는 Compose healthcheck로 본다. Worker가 heartbeat 파일(`WORKER_HEARTBEAT_FILE`, 기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck는 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3). 회사 Worker는 진입점마다 `--check`(설정 확인)·`--status`(큐 상태 읽기)가 있다(`infra/company/README.md`).
+- Worker(`web/worker`)는 HTTP 엔드포인트가 없다. 상태는 Compose healthcheck로 본다. Worker가 heartbeat 파일(`WORKER_HEARTBEAT_FILE`, 기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck는 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3). 회사 ingest·기업마당 전용 Worker는 `--check`(설정 확인)·`--status`(큐 상태 읽기)가 있고, documents·알림 전용 Worker는 `--check`만, analysis 전용 Worker는 둘 다 없다(`web/worker/*-only-main.ts`, `infra/company/README.md`).
 - 관리자 화면: 위 5개 지표 + 오류 원인(민감정보 제거). 지금은 1번과 오류 원인(실행 상세)이 있다.
 
 ## 장애 대응
@@ -54,7 +54,7 @@ updated: 2026-10-29
 
 - 4 Source 요약과 10 API 서비스(partition)별로 연결·인증·마지막 수집/성공·fetched/new/updated/duplicate/error/quarantine을 구분한다. 인증키 발급·인증 성공·정상 0건·장애·미검증은 별개 상태다. 상태 값은 레지스트리와 화면이 정본이다.
 - 통계 GET은 저장된 DB 결과만 읽고 수집·탐침을 실행하지 않는다. 마지막 run 하나를 기관 전체 정상으로 표시하지 않는다. source별 고유 공고·고유 사업기회·반복 fetched·HTTP 호출 수는 다른 지표다.
-- 정상은 최근 60분 이내 COMPLETE 성공 기준이고, 기관 요약은 비활성·미완료 서비스도 반영한다. 서비스별 장애 격리(한 서비스의 인증 오류·한도 소진이 다른 서비스를 멈추지 않음)는 구현돼 있다([[07-DATA-PIPELINE|07 수집]]).
+- 정상(`HEALTHY`)은 마지막 수집이 `SUCCEEDED`·`COMPLETE`이고 정기 간격 + 30분(지금 180 + 30 = 210분) 안에 끝났을 때다(`web/server/opportunities/freshness.ts`·`repo.ts`). 기관 요약은 비활성·미완료 서비스도 반영한다. 서비스별 장애 격리(한 서비스의 인증 오류·한도 소진이 다른 서비스를 멈추지 않음)는 구현돼 있다([[07-DATA-PIPELINE|07 수집]]).
 - 구현·적용 기록: [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md), [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md).
 
 ## 관련 문서

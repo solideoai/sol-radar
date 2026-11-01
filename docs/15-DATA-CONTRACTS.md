@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-29
+updated: 2026-11-01
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -133,7 +133,7 @@ interface KevStateTrace {
 
 |타입|저장 위치|규칙|
 |---|---|---|
-|`CompanyEvidenceRef`|`qualification_checks.company_evidence`, `requirement_assessments.company_evidence`([[04-DATABASE\|04 DB]]), `KevStateTrace.lines[].companyEvidence`, 평가셋 `EvalItem.labels[].companyEvidence`|`profileRevision`은 판정에 쓴 회사 프로필 revision이다. 회사 프로필은 모든 실행 모드에서 가상이다(ADR-019·020)|
+|`CompanyEvidenceRef`|`qualification_checks.company_evidence`, `requirement_assessments.company_evidence`([[04-DATABASE\|04 DB]]), `KevStateTrace.lines[].companyEvidence`, 평가셋 `EvalItem.labels[].companyEvidence`|`profileRevision`은 판정에 쓴 회사 프로필 revision이다. 회사 프로필은 로컬·시험·`demo:reset`에서 가상이고(ADR-019·020), 운영 DB는 공개 자료 프로필(`is_demo=false`)을 새 revision으로 쌓는다([[16-DECISIONS\|ADR-052]])|
 |`KevStateTrace`|`score_runs.kev_output`(결정 모델 응답 원문과 함께), API `KevAssist.stateTrace`([[05-API-SPEC\|05 API]]). 지금 worker는 `kev_output`에만 남기고 `KevAssist.stateTrace`는 늘 null이다([[03-AI-PIPELINE\|03]] §5.7 구현 상태)|운영 state는 `en.v0.2`만이다. `ko.v0.2`는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고 `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다([[03-AI-PIPELINE\|03 AI 파이프라인]], [[09-SECURITY\|09 보안]])|
 
 - 근거가 하나도 없는 줄(예: `(unknown)`)도 state에 들어갈 수 있다. 그 줄만으로 나온 결정 모델 판단은 `NEEDS_REVIEW` 쪽 근거로만 표시한다.

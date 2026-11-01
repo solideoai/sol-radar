@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 10. 배포·실행 프로필
@@ -50,17 +50,17 @@ updated: 2026-10-30
 |---|---|---|---|---|
 | `infra/compose.company.yaml` | `sol-radar-gateway`(checkout `sol-radar-app`) | `redis-api`(`web/Dockerfile`, `127.0.0.1:6380:3000`). 같은 파일의 `ai-gateway`·`worker`(전체)는 운영에서 쓰지 않는다 | redis-api: `SOL_DEPLOYMENT_ROLE=redis-api`, 허용 8경로 | 프로젝트 `up` 금지(회사 실행서 §7.11). redis-api만 `--no-deps`로 다시 만든다 |
 | 회사 전용 `infra/compose.ai-worker.company.yaml`(저장소에 없음) | `sol-radar-ai-worker`(배포 checkout `sol-radar-deploy`) | `ai-gateway`, `sol-radar-ai-gateway:<SHA>`(회사 덮어쓰기 파일로 태그 지정) | `/health`·`/parse`·`/extract`·`/kev`·`/explain`·`/insight`. 결정 모델은 같은 호스트 `127.0.0.1:8009` | 배포 checkout은 회사 전용 carry 커밋(dependency reporter)을 유지한다. 이 컨테이너만 다시 만든다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)) |
-| `infra/compose.ingest-only.company.yaml` | `sol-radar-ingest` | `ingest-worker`, `sol-radar-ingest-worker:<SHA>` | `worker/ingest-only-main.ts`. ingest만(`g2b-scheduled` + 외부 `<key>-scheduled`). documents 큐에 넣지 않는다(`documents: false`, `ingest-only-main.ts:48`). 정기 창 상한 1440분(`SCHEDULED_WINDOW_CAP_MINUTES`, `ingest-only-main.ts:43`), `--once` 창 상한도 1440분(44행) | `SOL_RUN_MODE=live` 고정. `--check`·`--status`·`--once`·`--unschedule`(회사 실행서 §7) |
+| `infra/compose.ingest-only.company.yaml` | `sol-radar-ingest` | `ingest-worker`, `sol-radar-ingest-worker:<SHA>` | `worker/ingest-only-main.ts`. ingest만(`g2b-scheduled` + 외부 `<key>-scheduled`). documents 큐에 넣지 않는다(`documents: false`, `ingest-only-main.ts:52`). 정기 창 상한 1440분(`SCHEDULED_WINDOW_CAP_MINUTES`, `ingest-only-main.ts:45`), `--once` 창 상한도 1440분(46행) | `SOL_RUN_MODE=live` 고정. `--check`·`--status`·`--once`·`--unschedule`(회사 실행서 §7) |
 | `infra/compose.analysis-only.company.yaml` | `sol-radar-analysis-only` | `analysis-worker`, `sol-radar-ai-worker-worker:latest`(회사 원본) | `worker/analysis-only-main.ts`. analysis 큐 + 멈춘 분석 복구 | 회사가 준 원본 파일이다. `restart: "no"` |
 | + `infra/compose.analysis-only.sha.company.yaml` | (위 덮어쓰기) | 이미지 `sol-radar-analysis-worker:<SHA>`, `web/worker/Dockerfile` 빌드, 종료 유예 180초 | 위와 같다 | `latest` 태그를 빌드·태그하지 않는다(회사 실행서 §8.6) |
 | `infra/compose.documents-only.company.yaml` | `sol-radar-documents` | `documents-worker`, `sol-radar-documents-worker:<SHA>` | `worker/documents-only-main.ts`. documents 큐 소비자 + 60초 복구 회차 | live가 아니면 exit 1. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(회사 실행서 §8) |
-| `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 2026-10-30 12:45 KST 첫 기동(카카오 발송 꺼짐, [기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
+| `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 2026-10-30 12:45 KST 첫 기동([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 카카오 실발송(`memo`)은 10-30 오후(15:47 끔)와 11-01 17:16~18:15에만 켰고 지금은 꺼짐이다([10-30 기록](evidence/kakao-notify/20261030-prod-live-send.md)·[11-01 녹화 기록](evidence/kakao-notify/20261101-recording.md)). 컨테이너 `SITE_URL`은 `https://www.solideos-radar.com`이다(11-01 사용자 수정. 그 전 값은 회사 홈페이지라 카톡 [분석 보기]가 회사 홈페이지로 갔다). live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
 | `infra/compose.program-notices-only.company.yaml` | `sol-radar-program-notices` | `program-notices-worker`, `sol-radar-program-notices-worker:<SHA>` | `worker/program-notices-only-main.ts`. 기업마당 지원사업 공고 정기 수집 `bizinfo-scheduled`(KST 3시간 정각). 자기 큐(`program-notices`)만 쓰고 ingest 큐·일정은 건드리지 않는다 | `SOL_RUN_MODE=live` 고정. `BIZINFO_API_KEY`는 `.env.worker.local`. 전체 Worker와 같은 DB에서 함께 띄우지 않는다(회사 실행서 §10) |
 
 - ingest·analysis·documents 전용 Worker의 `AI_GATEWAY_URL`은 `http://172.20.0.1:8000`이다(`infra/compose.documents-only.company.yaml:28`). 부처 공고 Worker는 gateway를 부르지 않는다. redis-api는 `http://ai-gateway:8000`이다(`infra/compose.company.yaml:20`). 둘이 같은 gateway인지는 미확인이다(회사 실행서 §2 D0).
 - Documents Worker 처리량은 env `DOCUMENTS_MAX_PER_BID`(기본 3)·`DOCUMENTS_ROUND_MAX_REVISIONS`(10)·`DOCUMENTS_FETCH_INTERVAL_MS`(2000)·`DOCUMENTS_CONCURRENCY`(2, 최대 2)다. 문서 리스는 600초다([[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약").
-- notify·deadline 등록은 전체 Worker(`web/worker/main.ts`의 `WORKER_REGISTRATIONS`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents·부처 공고 전용 Worker에는 없다(코드 확인). 그래서 운영 알림은 notify 전용 Worker만 처리한다. 2026-10-30 첫 기동 때 쌓인 인앱 28건을 한꺼번에 처리했고, 쌓인 `BID_RECOMMENDED` 22건은 카카오 발송이 꺼져 `DEAD`가 됐다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
-- 환경 파일은 `infra/.env.redis-api.local`·`.env.ai-gateway.local`·`.env.worker.local`이다. 키 이름은 `infra/env/redis-api.env.example`·`company-ai.env.example`·`company-worker.env.example`·`company.env.example`에 있다(회사 실행서 §2).
+- notify·deadline 등록은 전체 Worker(`web/worker/main.ts`의 `WORKER_REGISTRATIONS`)와 notify 전용 Worker(`web/worker/notify-only-main.ts`)에 있다. 회사에서 도는 ingest·analysis·documents·부처 공고 전용 Worker에는 없다(코드 확인). 그래서 운영 알림은 notify 전용 Worker만 처리한다. 2026-10-30 첫 기동 때 쌓인 인앱 28건을 한꺼번에 처리했고, 쌓인 `BID_RECOMMENDED` 22건은 카카오 발송이 꺼져 `DEAD`가 됐다가 같은 날 14:23 사용자 승인으로 되돌려 카톡 22통을 보냈다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md), [실발송 기록](evidence/kakao-notify/20261030-prod-live-send.md)). 기동 전 확인은 회사 실행서 §9.1이다([[13-NOTIFICATIONS|13 알림]]).
+- 환경 파일은 `infra/.env.redis-api.local`·`.env.ai-gateway.local`·`.env.worker.local`이다. 키 이름은 `infra/env/redis-api.env.example`·`company-ai.env.example`·`company-worker.env.example`·`company.env.example`에 있다(회사 실행서 §2). 운영 AI gateway(회사 전용 `sol-radar-ai-worker`)는 `infra/.env.ai-local`(`AI_PROVIDER=local`)을 쓴다(회사 실행서 §2).
 - `infra/compose.gpu.yaml`(`sol-radar-gpu`, `model-router`)은 설계만 있고 운영에 등록하지 않았다. 아래 "회사 GPU 추론 엔드포인트"다.
 
 ## D1 당일 운영 확인
@@ -69,7 +69,7 @@ updated: 2026-10-30
 
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
-3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류다(공개 자료 프로필 revision 5·SOL Score v0.2 기준, [[16-DECISIONS|ADR-059]]·[[16-DECISIONS|ADR-071]]). S4에는 가정 재계산이 없다. 가정 재계산은 S3 FX-01(자격 3건 보유 가정 → 추천 92)에서 한다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
+3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류다(회사 프로필 revision 6·SOL Score v0.2로 계산, 재분석 run은 `sol-v0.2.1`로 저장, [[16-DECISIONS|ADR-059]]·[[16-DECISIONS|ADR-071]]). S4에는 가정 재계산이 없다. S3 FX-01은 저장된 추천 92(run `dfac87db`)이고, 가정 재계산은 S3 끝 FX-16(방산업체 지정 가정 → 70 보류 그대로)에서 한다([[19-DEMO-SCENARIO|19]] §2.2). 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
 4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 운영에 분석된 실공고 run이 있다([AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 촬영 때 run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
 5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
@@ -92,7 +92,7 @@ updated: 2026-10-30
 - 자동 대체 `AI_FALLBACK_TO_MOCK`은 해커톤 동안 만들지 않아 어느 모드든 `true`면 기동을 거부한다. 모드 전환은 사람이 env를 바꾸고 Worker·gateway를 재시작해서 한다([[03-AI-PIPELINE|03]] §8).
 - hosted 공급자는 없다. 승인 게이트(`AI_HOSTED_APPROVED`, `infra/run-modes.json`·`pnpm check:env`·gateway 기동 거부)만 있다. `infra/env/`에 hosted 예시 파일은 없다. 비용이 들므로 사용자 승인 전에는 만들거나 부르지 않는다([[16-DECISIONS|ADR-010]]).
 - 한국어 state 평가(E2)는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]이다. 결정 서버(8009)는 한글 state를 422 `STATE_NOT_ENGLISH`로 거절하고 공유 8009에 `DECISION_ALLOW_KO_STATE`를 켜지 않는다. 데모·운영 gateway에는 `KEV_ALLOW_KO_STATE`를 켜지 않는다.
-- 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(ADR-019). live 분석은 "실제 공고 × 가상 회사 프로필"이다.
+- 회사 프로필은 로컬·시험·`pnpm demo:reset`에서 가상 솔리데오 프로필이다(ADR-019). 운영 DB는 공개 자료 프로필에 회사 확인 자격 3건을 더한 revision 6(`is_demo=false`)이라 운영 live 분석은 "실제 공고 × 공개 자료 회사 프로필"이다([[16-DECISIONS|ADR-052]]).
 
 | 프로필 | 대상 | 기동 |
 |---|---|---|
@@ -131,12 +131,12 @@ updated: 2026-10-30
 - `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`(기본 `5000`·`60000`)는 ai-gateway와 worker 둘 다에 값 없는 키로 넘긴다. 빈 문자열이면 gateway 설정 검증이 실패한다. 기본값은 gateway `settings.py`와 worker `gateway.model.ts`를 함께 바꾼다([[16-DECISIONS|ADR-033]] E4).
 - `NOTIFY_POLL_INTERVAL_MS`(인앱 알림 outbox 처리 간격, 500~60000, 기본 `2000`)는 값이 틀리면 Worker가 키 이름만 알리고 멈춘다([[13-NOTIFICATIONS|13 알림]]).
 - 카카오톡 알림(나에게 보내기, [[16-DECISIONS|ADR-038]]) env:
-  - Worker: `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. 회사 키 이름은 `infra/env/company-worker.env.example:14-18`, 로컬은 `compose.yaml` worker `environment`에 있다.
+  - Worker: `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. 회사 키 이름은 `infra/env/company-worker.env.example:18-22`, 로컬은 `compose.yaml` worker `environment`에 있다.
   - web: `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`(`web/.env.example`). 연결 Route Handler는 `/api/v1/me/kakao-notify/connect`·`callback`·`test`다.
   - `mock`은 외부 호출 없이 보낸 것으로 친다. `memo`는 실발송이고 키 넷이 모두 있어야 하며 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트(AES-256-GCM)여야 한다. 틀리면 Worker가 Redis 연결 전에 키 이름만 알리고 멈춘다. 그 밖의 값도 기동을 멈춘다.
   - 빈 값은 실행 모드에 따라 다르다. `mock`·`fixture`는 mock이다. `live`면 카카오 발송을 끄고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도 뒤 `DEAD`가 되고 발송 기록은 생기지 않는다. live에서 `mock`을 직접 적으면 경고(`notify.kakao.mock_in_live`)를 남긴다. 운영 notify 전용 Worker는 2026-10-30 빈 값으로 떠서 `notify.kakao.disabled`를 남겼다([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md), [live 가드 검증](evidence/live-guards/20261027.md)).
   - `KAKAO_TOKEN_ENC_KEY`는 web이 암호화하고 Worker가 복호화하므로 두 쪽이 같은 값이다. 바꾸면 모든 연결을 다시 해야 한다. 키·시크릿은 서버 전용이다([[09-SECURITY|09 보안]] "카카오톡 알림").
-  - 운영 카카오 연결·발송은 0건이다. 실발송은 사용자가 `memo`로 바꿀 때만 일어난다. 시험은 `mock`이다.
+  - 운영 카카오 연결은 1건이다(CONNECTED, 11-01 17:44:44부터 `enabled=false`). 추천 카톡은 누적 24통(10-30 23·11-01 1)을 보냈다([10-30 기록](evidence/kakao-notify/20261030-prod-live-send.md)·[11-01 녹화 기록](evidence/kakao-notify/20261101-recording.md)). 실발송은 사용자가 알림 Worker를 `memo`로 바꿀 때만 일어난다. 시험은 `mock`이다.
 
 **Phase 0 확정 사항**(정본 [[16-DECISIONS|ADR-024]] 표): placeholder `CHANGE_ME` 금지, Redis 비밀번호 영숫자, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 빈 문자열은 미지정.
 
@@ -337,12 +337,12 @@ S6에서 쓰는 AI 장애 주입은 대체 경로의 **ai-gateway 컨테이너 �
 2. 카카오 로그인을 활성화한다.
 3. Redirect URI에 `<앱 주소>/api/v1/me/kakao-notify/callback`을 등록한다. `KAKAO_REDIRECT_URI`와 같아야 한다([[05-API-SPEC|05 API]] §9).
 4. 동의항목에서 "카카오톡 메시지 전송(`talk_message`)"을 선택 동의로 켠다.
-5. 플랫폼 웹 도메인에 앱 주소를 등록한다. 메시지 링크 도메인은 여기 등록한 도메인과 같아야 한다.
+5. 플랫폼 웹 도메인에 앱 주소를 등록한다. 메시지 링크 도메인은 여기 등록한 도메인과 같아야 한다. 운영 `https://www.solideos-radar.com`이 등록돼 있는지는 사용자 확인이 남았다([11-01 녹화 기록](evidence/kakao-notify/20261101-recording.md)).
 6. 클라이언트 시크릿을 발급한다. 켜면 토큰 요청에 필수다.
 7. 키·시크릿·암호화 키 값은 사용자가 서버 env 파일에 직접 넣는다. 값은 문서·커밋·로그에 쓰지 않는다.
 
 - **S0 수신 시험**(설계 §11, 사용자 몫): 사용자 휴대폰으로 나에게 보내기 한 통을 보내 알림이 울리는지, `talk_message`가 검수 없이 되는지, 피드 모양, 원문 도메인 등록 가능 여부를 본다. 알림이 울리지 않으면 멈추고 사용자에게 묻는다.
-- **수동 실발송 1회**(U10): 알림 전용 Worker 기동(회사 실행서 §9.4·§9.6) 뒤 실공고 S-LIVE와 함께 `memo`로 한 건을 보내 휴대폰 수신을 녹화한다([[16-DECISIONS|ADR-054]]). D1이라 `demo:reset`은 하지 않는다. 녹화 뒤 `mock`으로 되돌린다. 절차서는 [S-LIVE·카카오 실행서](evidence/demo-day/20261024-slive-check/20261025-slive-kakao-runbook.md)다.
+- **수동 실발송 1회**(U10): 알림 전용 Worker 기동(회사 실행서 §9.4·§9.6) 뒤 실공고 추천 한 건을 `memo`로 보내 휴대폰 수신을 녹화한다([[16-DECISIONS|ADR-054]]). D1이라 `demo:reset`은 하지 않는다. 녹화 뒤 Worker를 빈 값(꺼짐)으로 되돌린다. 이 Worker에서 `mock`은 쓰지 않는다(`infra/compose.notify-only.company.yaml`). 절차서는 [S-LIVE·카카오 실행서](evidence/demo-day/20261024-slive-check/20261025-slive-kakao-runbook.md)다. 2026-11-01에 녹화했다([녹화 기록](evidence/kakao-notify/20261101-recording.md)). 고친 [분석 보기] 링크로 실제 카톡을 받아 누르는 확인은 아직 하지 않았다(운영 변경, 별도 승인).
 
 ## Redis HTTPS Gateway (ADR-045)
 

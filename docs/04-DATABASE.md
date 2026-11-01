@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -249,7 +249,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |`USER_INVITE`|`invitations` insert 트리거|
 |`USER_ROLE_CHANGE`|트리거 `log_membership_sol_role_audit`·`log_invitation_sol_role_audit`(`20261023000600`)|
 |`PROJECT_OPEN`, `PROJECT_STATUS_CHANGE`, `PROJECT_RESULT_RECORD`|DB 함수 `open_bid_project`·`change_bid_project_status`·`record_bid_project_result`(§3.8)|
-|`USER_DISABLE`|조직에서 내보내기(§3.1 결정 3. `DELETE /admin/users/:id`는 만들지 않는다, [[16-DECISIONS|ADR-068]]). 이 행을 쓰는 트리거·함수는 아직 없다|
+|`USER_DISABLE`|조직에서 내보내기(§3.1 결정 3. `DELETE /admin/users/:id`는 만들지 않는다, [[16-DECISIONS\|ADR-068]]). 이 행을 쓰는 트리거·함수는 아직 없다|
 |`INGEST_MANUAL`|worker. 요청자(`actor_id`)와 요청자의 조직(`org_id`)은 job 데이터로 받는다|
 |`NOTIFICATION_READ`|`notifications.read_at` update 트리거|
 |`TEAM_MEMBER_CREATE`, `TEAM_MEMBER_UPDATE`|DB 함수 `create_team_member`·`update_team_member`(N4b, ADMIN). `before_after`는 바뀐 운영 정보(팀·직급·재직 상태)만 담는다|
@@ -289,7 +289,7 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 
 ### 3.9 조달 확장·지원사업·기타 표
 
-표마다 목적, `org_id`·RLS, 만든 migration만 적는다. 열은 migration이 정본이다. 모두 `org_id` 열이 없다. 공고 계열과 지원사업 표는 공용이고 `ingest_*`·`kakao_send_claims`·`profile_photo_folders`는 내부 표다. 쓰기는 worker(service role)만 한다(`profile_photo_folders`는 `claim_own_photo_slot` 함수가 쓴다).
+표마다 목적, `org_id`·RLS, 만든 migration만 적는다. 열은 migration이 정본이다. 모두 `org_id` 열이 없다. 공고 계열과 지원사업 표는 공용이고 `ingest_*`·`kakao_send_claims`·`profile_photo_folders`는 내부 표다. 쓰기는 worker(service role)만 한다(`profile_photo_folders`는 `claim_own_photo_slot` 함수가 쓴다). 예외로 `google_calendar_*` 두 표는 `user_id`로 소유하는 개인 설정이고, 본인 세션이 RLS로 본인 행만 읽고 쓴다.
 
 |테이블|목적|RLS (읽기)|migration|
 |---|---|---|---|
@@ -306,15 +306,18 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 |`program_notice_runs`|지원사업 수집 run 기록(`status` ∈ `SUCCEEDED`·`PARTIAL`·`FAILED`·`SKIPPED`, `run_mode`는 §4 `run_mode`)|화면 역할 권한 없음|`20261023000800`|
 |`kakao_send_claims`|카카오 발송 의도 claim. 송신 성공 뒤 DB가 실패해도 같은 사용자·공고를 자동 재발송하지 않는다(ADR-038)|화면 역할 권한 없음. service_role은 select·insert만|`20261023000704`|
 |`profile_photo_folders`|본인 사진 폴더 업로드를 직렬화하는 잠금 행(`claim_own_photo_slot`)|화면 역할 권한 없음|`20261025000110`|
+|`google_calendar_links`|구글 캘린더 연동 한 사람 한 행(PK `user_id`, FK `profiles` 삭제 시 함께). `status` ∈ `CONNECTED`·`EXPIRED`, `last_result` ∈ `SYNCED`·`FAILED`·`EXPIRED`. `refresh_token_enc`는 서버가 AES-256-GCM으로 봉인한 암호문이고 평문을 두지 않는다. `calendar_id`는 첫 밀어넣기 때 만든 전용 보조 캘린더([[16-DECISIONS\|ADR-073]])|본인 행만(읽기·쓰기). anon 권한 없음|`20261030002000`|
+|`google_calendar_events`|밀어넣은 일정 매핑(PK `user_id`·`event_key` ↔ `google_event_id`, `event_date`는 KST 날짜). 연결 행을 지우면 함께 지운다|본인 행만(읽기·쓰기). anon 권한 없음|`20261030002000`|
 
 공고 표 확장: `bid_notices`에 `source_family`(`G2B`·`KWATER`·`LH`·`KEPCO`, check. `source`에서 트리거 `populate_procurement_source`가 채운다)·`service_id`·`provider_company_id`·`provider_record_key`·`procuring_agency_id`(FK `procurement_agencies`)를 더하고 `source`·`stage` 값 집합을 넓혔다(§4, `20261023000100`). 수집 정책은 [[07-DATA-PIPELINE|07 수집]]이다.
 
 Storage 원장(`document_storage_objects`)의 claim·확정·삭제 절차와 접근 정책은 [[16-DECISIONS|ADR-048]]과 `20261021000700`~`000702`가 정본이다. bucket 준비는 migration이 아니라 API 운영 명령이다.
 
-뷰 4개는 모두 `security_invoker`다. `bid_list_items`(§3.4), `watched_bid_list_items`(§3.8), `opportunity_list_items`(`20261023000200`, 조직별 현재 유효 분석을 붙인 사업기회 목록), `watched_opportunity_list_items`(§3.8).
+뷰 4개는 모두 `security_invoker`다. `bid_list_items`(§3.4), `watched_bid_list_items`(§3.8), `opportunity_list_items`(`20261023000200`, 조직별 현재 유효 분석을 붙인 사업기회 목록), `watched_opportunity_list_items`(§3.8). `bid_list_items`·`opportunity_list_items`에는 IT 범위 여부 `it_scope` 열이 있다(`20261029000300`·`20261029000400`). 목록 API는 관심 목록(`watched=me`)이 아니면 `it_scope=true`만 읽는다([[16-DECISIONS|ADR-069]]).
 
 주요 함수(전체는 `web/lib/database.types.ts`. 트리거 함수는 뺐다):
 - 입찰 프로젝트 `open_bid_project`·`change_bid_project_status`·`record_bid_project_result`·`patch_bid_project`(§3.8), 관심 집계 `bid_watch_count`, 마감 알림 `send_deadline_reminders`(D-3·D-1, `20261022000110`, service role 전용)
+- IT 범위 판정 `it_scope_ai_title`·`it_scope_it_class`·`it_scope_of`와 계산 열 `it_scope`(`bid_notices`), 우선 묶음 `opportunity_priority_tier`, 추천순 키 `opportunity_recommend_key`(`20261029000300`, `20261030000100`에서 inline 가능하게 재정의, ADR-069·070)
 - 사업기회 `link_bid_opportunity`·`refresh_bid_opportunity`, 대시보드 읽기 `procurement_summary`·`procurement_filter_options`·`procurement_live_metrics`·`procurement_source_health`·`procurement_dataset_version`·`procurement_last_scheduled_ingest`·`procurement_missing_relevance_revisions`
 - 수집·분석 `ingest_save_revision`(`20261019000009`)·`finish_score_run`·`release_unqueued_score_run`·`latest_ingest_run`(§3.4·§3.6)
 - 첨부 Storage 원장 `claim_document_storage`·`finish_document_storage`·`claim_document_storage_delete`·`finish_document_storage_delete`·`document_storage_candidates`(`20261021000700`~`000702`, service role 전용), documents job 리스 다섯(§7 `20261027000500`)
@@ -353,7 +356,7 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 |`ingest_batch`|`SEED`, `LIVE`|`ingest_runs.batch`|fixture 배치. `SEED` = 기동 시 revision 1, `LIVE` = 데모 중 변경분. API `IngestionRunInput.batch`는 소문자 `"seed"\|"live"`이며 Route Handler의 zod 스키마가 대문자로 바꾼다|
 |`ingest_status`|`RUNNING`, `SUCCEEDED`, `PARTIAL`, `FAILED`|`ingest_runs.status`|`PARTIAL` = 일부 격리|
 |`notification_type`|`BID_CREATED`, `BID_CHANGED`, `DEADLINE_APPROACHING`, `ANALYSIS_COMPLETE`, `REVIEW_ASSIGNED`, `BID_RECOMMENDED`, `KAKAO_TEST`, `KAKAO_EXPIRED`|`outbox_events.event_type`, `notifications.type`|[[13-NOTIFICATIONS\|13 알림]]. 카카오 셋은 ADR-038(`20261023000700`·`20261023000701`)이다. `KAKAO_TEST`는 `outbox_events.event_type`에만, `KAKAO_EXPIRED`는 `notifications.type`에만 있다|
-|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038). `NOTIFY_KAKAO_PROVIDER`가 `memo`면 실발송, `mock`이면 보내지 않고 성공으로 적는다. 비면 live 밖은 `mock`, live는 발송 꺼짐이다(`web/worker/notify-outbox.ts`). 운영 알림 Worker는 2026-10-30 빈 값(live 발송 꺼짐)으로 기동했다(`infra/company/README.md` §9). 운영 실발송은 미확인|
+|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038). `NOTIFY_KAKAO_PROVIDER`가 `memo`면 실발송, `mock`이면 보내지 않고 성공으로 적는다. 비면 live 밖은 `mock`, live는 발송 꺼짐이다(`web/worker/notify-outbox.ts`). 운영 실발송은 승인한 시간에만 `memo`로 켰다. 추천 카톡 `SENT`는 2026-10-30 23건, 2026-11-01 1건이다([10-30 기록](evidence/kakao-notify/20261030-prod-live-send.md), [11-01 기록](evidence/kakao-notify/20261101-recording.md)). 운영 알림 Worker는 2026-11-01 18:15부터 다시 빈 값(발송 꺼짐)이다|
 |`notification_status`|`PENDING`, `SENT`, `FAILED`, `DEAD`|`notifications.status`|`DEAD` = 재시도 소진(DLQ). 읽음은 `read_at`|
 |`outbox_status`|`PENDING`, `PROCESSED`, `FAILED`, `DEAD`|`outbox_events.status`|—|
 |`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`, `g2b-procurement-request`, `kwater-bid-notice`, `kwater-procurement-plan`, `lh-bid-notice`, `lh-pre-specification`, `kepco-ebid-contract`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|
@@ -485,6 +488,14 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 |`20261028000100`|본부·그룹 직속 직원(ADR-063): 팀만 받던 트리거 `check_employee_department` 삭제, `check_department_hierarchy`·`assert_team_member_placement` 재정의|
 |`20261029000100`|추천 분석 `recommendation_insights`(ADR-066). 정책 시험은 `scripts/database.test.mjs` "추천 분석"|
 |`20261029000200`|추천 분석 보안 보강: 제외 제약 `recommendation_insights_pending_or_model_once`(직접 insert 로 모델 호출을 다시 만들지 못함, 정책 재귀를 피해 제약으로), `fallback_reason` 에 `INJECTION_SUSPECTED`|
+|`20261029000300`|IT 공고만 보이기([[16-DECISIONS\|ADR-069]]): IT 범위 판정 함수·계산 열 `it_scope`, 우선 묶음·추천순 키, `opportunity_list_items` 재생성, 대시보드 집계·필터 선택지는 IT 범위만|
+|`20261029000400`|`bid_list_items` 끝에 `it_scope` 열, `watched_bid_list_items` 재생성(ADR-069)|
+|`20261029000500`|목록 커서 데이터 버전 `procurement_dataset_version`을 원본 표 해시로(ADR-070)|
+|`20261029001000`|가상 직원 200명 수행 이력 3~5건 보강|
+|`20261030000100`|IT 판정·정렬 함수를 inline 가능하게 재정의, 집계의 공고별 `it_scope`를 조인으로(ADR-070)|
+|`20261030001000`|가상 직원 기술 등급·수행 이력을 직급에 맞춤(synthetic-people/v3)|
+|`20261030001100`|운영에서 직급이 fixture와 다른 데모 직원의 등급·수행 이력 맞춤|
+|`20261030002000`|구글 캘린더 연동 `google_calendar_links`·`google_calendar_events`(ADR-073)|
 
 `20261019000015`·`20261019000018`이라는 파일은 없다. 운영 DB에 어디까지 적용됐는지는 [[PROGRESS]] 운영 상태 표가 정본이다(적용 기록 예: [prod-migrations](evidence/prod-migrations/20261027/README.md)).
 

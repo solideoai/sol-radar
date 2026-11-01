@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 07. 조달청 데이터 수집
@@ -70,7 +70,7 @@ registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 
 - 수집 run마다 `ingest_runs.run_mode`·`source`·`quota_used`를 남긴다([[04-DATABASE|04 DB]]). 분석 run의 모드 기록(`score_runs.run_mode` 등)은 03·04.
 - `SOL_RUN_MODE`가 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`의 기본값을 정한다. 값을 직접 줬는데 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다(예: `live`인데 `AI_PROVIDER=mock`). 조용히 바꾸지 않는다.
 - 데이터 출처를 자동으로 바꾸지 않는다. `live`에서 공공 API가 실패해도 `FixtureConnector`로 넘어가지 않는다(§2.6). 모드 전환은 env를 바꾸고 worker·gateway를 재시작해서 한다. 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이다.
-- **회사 프로필은 모든 모드에서 가상 솔리데오 프로필**(`company_profiles.is_demo=true`)이다. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이고 화면에 "가상 회사 프로필로 분석" 배지를 붙인다(ADR-019, [[09-SECURITY|09 보안]]). 실제 회사 자료를 쓰려면 별도 ADR과 09 개정이 먼저 있어야 한다.
+- **회사 프로필**: 로컬·시험·`pnpm demo:reset`은 가상 솔리데오 프로필(`company_profiles.is_demo=true`)이고 화면 배지는 "가상 회사 프로필로 분석"이다(ADR-019). 운영 DB는 공개 자료로 만든 프로필에 회사가 확인한 보유 자격 3건을 더한 `is_demo=false` revision 6이고, 배지는 "공개 자료 회사 프로필로 분석"이다([[16-DECISIONS|ADR-052]], [[09-SECURITY|09 보안]] 책임 있는 AI 원칙 6). 그래서 운영 live 분석은 "실제 공고 × 공개 자료 회사 프로필"이다. 비공개 회사 자료를 넣으려면 09의 DB 수준 잠금을 먼저 다시 정한다.
 - 골든 수치(94/72/68)는 `mock` 모드에서만 단언한다. `fixture` 모드의 실모델 추출은 mock 추출과 다를 수 있어 골든 대상이 아니다([[11-TESTING|11 테스트]]).
 
 ### 1.3 수집 출처와 상태
@@ -79,10 +79,10 @@ registry 값(`infra/sources/registry.yaml`)은 코드 설정이다. 회사 서�
 
 | 출처 | registry 키와 상태 | 정기 수집(코드) | 운영 |
 |---|---|---|---|
-| 나라장터 입찰공고 | `g2b-bid-notice` + 보조 3종(`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach`). `APPROVED`, `enabled` 없음(켜짐), `quota.daily` 1000 | `g2b-scheduled`, KST 3시간 정각(§2.2) | 회사 ingest 전용 Worker가 수집한다([회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md)). 보조 조회 기능별 한도(§2.2)도 회사에 반영했다([기록](evidence/ingestion/20261029-g2b-aux-budget.md)) |
+| 나라장터 입찰공고 | `g2b-bid-notice` + 보조 3종(`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach`). `APPROVED`, `enabled` 없음(켜짐), `quota.daily` 1000 | `g2b-scheduled`, KST 3시간 정각(§2.2) | 회사 ingest 전용 Worker가 수집한다([회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md)). 보조 조회 기능별 한도(§2.2)도 회사에 반영했다([기록](evidence/ingestion/20261029-g2b-aux-budget.md)). 10-30 21:00~11-01 12:00 정기 회차 7번이 `FAILED`였고(원인 미확인), 11-01 15:00부터 다시 성공했다. 빈 구간(10-30 18:00~10-31 15:00)은 11-01 16:17 수동 수집이 받았다. 실패 사유를 `summary`에 남기는 수정은 main에만 있고 회사 Worker에는 반영하지 않았다([운영 읽기](evidence/ingestion/20261101-ops-reads.md)) |
 | LH 입찰공고 | `lh-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 1000 | `lh-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록) |
-| K-water 입찰공고 | `kwater-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 10000 | `kwater-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 새 진행 상태 3개 마감 처리(§3.2)도 반영했다. 반영 뒤 회차의 격리 0건 여부는 미확인 |
-| KEPCO 전자입찰계약 | `kepco-ebid-contract`. `enabled: true`, `VERIFIED`, `quota.daily` 100(공급자 한도가 아닌 자체 상한) | `kepco-ebid-contract-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 공고 없는 날 404 빈 쪽 처리(§3.2)도 반영했다. 반영 뒤 회차 결과는 미확인([KEPCO 404 기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md)) |
+| K-water 입찰공고 | `kwater-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 10000 | `kwater-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 새 진행 상태 3개 마감 처리(§3.2)도 반영했다. 운영 회차는 10-30 18:10~11-01 00:00 `PARTIAL`, 11-01 03:00부터 `SUCCEEDED`다(`PARTIAL` 원인 미확인, [운영 읽기](evidence/ingestion/20261101-ops-reads.md)) |
+| KEPCO 전자입찰계약 | `kepco-ebid-contract`. `enabled: true`, `VERIFIED`, `quota.daily` 100(공급자 한도가 아닌 자체 상한) | `kepco-ebid-contract-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 공고 없는 날 404 빈 쪽 처리(§3.2)도 반영했다([KEPCO 404 기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md)). 운영 회차는 모두 `PARTIAL`이고 `FAILED`는 없다(10-30 18:28~11-01 18:08 17회, 응답 범위 미검증 §3.2, [운영 읽기](evidence/ingestion/20261101-ops-reads.md)) |
 | 기업마당 지원사업 | registry 밖. 요청 값은 `infra/sources/program-notices.yaml`([[16-DECISIONS\|ADR-040]]) | 자기 큐 `program-notices`의 `bizinfo-scheduled`, 같은 cron | 회사 부처 공고 전용 Worker(`web/worker/program-notices-only-main.ts`, [회사 실행서](../infra/company/README.md) §10). 회사에서 운영 중이다(같은 반영 기록) |
 | K-water 발주계획 | `kwater-procurement-plan`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
 | LH 사전규격 | `lh-pre-specification`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
@@ -167,7 +167,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 용량: 목록 1회당 100건이고 새 revision마다 보조 조회 3회(오퍼레이션마다 1회)를 쓴다. 개발계정 한도(오퍼레이션당 1,000건/일)는 위 예산 규칙으로 지킨다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
 - **정기 수집 일정**: worker가 BullMQ Job Scheduler `g2b-scheduled`를 `pattern "0 */3 * * *"`, `tz "Asia/Seoul"`로 건다(매일 KST 00·03·06·09·12·15·18·21시). `every`를 쓰지 않고, 기동 즉시 수집하지 않는다. 같은 id로 upsert해 옛 일정을 바꾼다. 운영은 회사 ingest 전용 Worker(`web/worker/ingest-only-main.ts`)가 맡는다. 절차의 정본은 [회사 실행서](../infra/company/README.md) §7이다.
-  - 수동 [지금 불러오기](관리자)는 회사 redis-api의 gate를 거친다. 같은 사용자 60분, 누가 했든 전역 공유 실행 10분, KST 하루 20회다(Redis Lua 한 번으로 원자 처리, 거절·실패 때 쿨다운 없음, `web/server/ingestion/manual-ingest-gate.model.ts`). 상태는 `GET /api/v1/admin/ingestion/manual-gate`([[05-API-SPEC|05]] §2).
+  - 관리자 화면의 수동 [지금 불러오기]는 회사 redis-api의 gate를 거친다. 같은 사용자 60분, 누가 했든 전역 공유 실행 10분, KST 하루 20회다(Redis Lua 한 번으로 원자 처리, 거절·실패 때 쿨다운 없음, `web/server/ingestion/manual-ingest-gate.model.ts`). 상태는 `GET /api/v1/admin/ingestion/manual-gate`([[05-API-SPEC|05]] §2).
   - 수동 job도 정기 수집과 같은 오퍼레이션별 카운터를 센다. 정기 수집은 보조 오퍼레이션 카운터가 900에 닿으면 보조 조회를 멈추고 목록 카운터 1000에서 막는다. 수동 job은 한도가 800이라(`MANUAL_RESERVED_CALLS` 200, `web/worker/quota-store.ts`) 720에서 보조 조회를 멈추고 800에서 막는다(정기 몫 200 보호). ingest 전용 Worker의 정기 창 상한은 24시간이다(`SCHEDULED_WINDOW_CAP_MINUTES`).
   - 화면의 "수집 지연" 기준은 정기 간격 180분 + 30분 = 210분이다([[06-UI-UX|06]] §8).
   - 옛 env `G2B_INGEST_INTERVAL_MINUTES`는 무시한다(`web/worker/ingest-queue.ts` `LEGACY_INGEST_INTERVAL_ENV`).
@@ -552,7 +552,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - 회사에서는 documents 전용 Worker(`web/worker/documents-only-main.ts`, live 강제, `--check` 지원)를 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`)로 띄운다. ingest 전용 Worker와 Analysis Worker는 건드리지 않는다. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(나라장터 요청 간격이 프로세스마다 따로 계산된다). 절차는 [회사 실행서](../infra/company/README.md) §8, 운영 구성은 [[10-DEPLOYMENT|10 배포]] "첨부 처리"다.
 - documents 전용 Worker에는 의존성 보고·Storage 정리(10분)가 없다. 회사에서 고아 객체 정리를 돌릴 곳은 정하지 않았다.
 
-분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]]이다. 대안 A를 채택해 구현했다(`web/worker/analysis-documents-wait.ts`). live 분석은 RUNNING 전에 documents job과 같은 범위 규칙(`pendingDocumentsOf`)으로 처리 전 첨부를 보고, 30초 간격 지연 재확인으로 분석 요청부터 최대 300초 기다린다. 기다리는 run은 `QUEUED`·job `delayed`라 복구 회차가 건드리지 않는다. 넘으면 남은 첨부를 `DOCUMENTS_WAIT_TIMEOUT` 문제 문서로 붙여(`attachmentsIncomplete`) 분석한다. 범위 밖 첨부(ADR-055)·mock·fixture·DEMO 공고는 기다리지 않는다. 회사 Analysis Worker 반영 전이다.
+분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]]이다. 대안 A를 채택해 구현했다(`web/worker/analysis-documents-wait.ts`). live 분석은 RUNNING 전에 documents job과 같은 범위 규칙(`pendingDocumentsOf`)으로 처리 전 첨부를 보고, 30초 간격 지연 재확인으로 분석 요청부터 최대 300초 기다린다. 기다리는 run은 `QUEUED`·job `delayed`라 복구 회차가 건드리지 않는다. 넘으면 남은 첨부를 `DOCUMENTS_WAIT_TIMEOUT` 문제 문서로 붙여(`attachmentsIncomplete`) 분석한다. 범위 밖 첨부(ADR-055)·mock·fixture·DEMO 공고는 기다리지 않는다. 회사 Analysis Worker에는 2026-10-30에 들어갔다(지금 이미지 `efab8acc144b`). 대기 동작을 운영 로그로 본 기록은 아직 없다([기록](evidence/company-rollout/20261030/notify-worker-rollout.md) "남은 것").
 - `pnpm demo:reset`은 `documents` 큐(Redis)를 건드리지 않는다.
 - 알려진 낮은 위험: `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회는 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결(RPC가 `created_at`을 돌려주는 새 마이그레이션)은 [[16-DECISIONS|16 ADR]] 미결정 23번이다.
 

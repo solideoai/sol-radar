@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 02. 시스템 아키텍처
@@ -45,7 +45,7 @@ Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 R
 
 ```mermaid
 flowchart TB
- U["Browser 1280~1920px"] --> V["web · Next.js · 화면 · /api/v1 · web/server"]
+ U["Browser · 반응형 웹(ADR-072)"] --> V["web · Next.js · 화면 · /api/v1 · web/server"]
  U -- 로그인·세션 갱신 --> SA["Supabase Auth"]
  V -- 사용자 세션 · RLS --> PG[("Supabase Postgres")]
  V -- 사용자 JWT · signed URL --> ST[("Supabase Storage")]
@@ -147,13 +147,14 @@ flowchart LR
   R --> WA["sol-radar-analysis-only<br/>analysis · insight"]
   R --> WD["sol-radar-documents"]
   R --> WP["sol-radar-program-notices"]
+  WN["sol-radar-notify<br/>알림 outbox · 마감 알림<br/>(큐 없음, Redis는 기동 확인만)"]
   WA & WD & RA --> AI["sol-radar-ai-worker · AI gateway :8000"]
   AI -- "루프백 http" --> KEV["sol_decision :8009<br/>(같은 호스트, Compose 밖)"]
  end
  VL["회사 vLLM API /vllm/v1"]
  V -- "HTTPS acropolissg.com/redis" --> NG
  V --> SB
- WI & WA & WD & WP -- service role --> SB
+ WI & WA & WD & WP & WN -- service role --> SB
  AI -- HTTPS --> VL
 ```
 - Vercel web은 Redis TCP·service role 없이 회사 `redis-api`에 HTTPS로 접수한다. 회사가 받는 경로는 health·AI 상태·분석 접수/조회·추천 분석 요청·수집 접수/조회·수동 수집 gate 8개다(`web/app/_lib/redis-api-path.ts` `redisApiOperation`). 추천 분석 결과 GET은 Vercel이 사용자 세션(RLS)으로 직접 읽는다. 회사 Compose 프로젝트별 서비스·등록 job은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"다.
