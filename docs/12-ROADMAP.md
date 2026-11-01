@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 12. 구현 순서와 해커톤 컷
@@ -24,17 +24,18 @@ updated: 2026-10-30
 |날짜|할 일|조건·상태|
 |---|---|---|
 |10-30(금)~10-31(토)|알림 Worker 회사 기동|완료(2026-10-30 12:45 KST, 사용자 승인). 카카오 발송 꺼짐으로 띄웠다([[16-DECISIONS\|ADR-068]] 6번). 인앱 알림 2종·마감 알림을 처리한다([기록](evidence/company-rollout/20261030/notify-worker-rollout.md))|
-|10-30(금)|카카오 사용자 연결·S0 수신 시험|사용자 보고(2026-10-30): 카카오 간편 로그인과 카카오 메시지(나에게 보내기) 실발송까지 됐다. 증거 기록 경로 미확인. 실수신 녹화는 촬영 때 한다. 알림 Worker 기동 기록(12:47)의 "카카오 발송 꺼짐"과의 관계는 미확인이다|
+|10-30(금)|카카오 사용자 연결·S0 수신 시험|완료(단계마다 사용자 승인). 14:13 운영 연결(admin@solideos.com, `CONNECTED`), 시험 2통·추천 카톡 23통 SENT. 14:05~15:47만 알림 Worker 카카오를 `memo`로 켰고 15:47 다시 껐다. 연결 행은 15:31부터 `enabled=false`다([기록](evidence/kakao-notify/20261030-prod-live-send.md)). 카카오 간편 로그인 완료는 사용자 보고다. 실수신 녹화는 촬영 때 한다|
 |10-30(금)~11-03(화) 동결 전|구글 캘린더 연동(11-03 동결 전 main)|2026-10-30 사용자 결정([[16-DECISIONS\|ADR-073]]): `.ics` 내려받기와 `GET /api/v1/calendar/ics`를 빼고, 구글 로그인 연결에 캘린더 권한을 얹어 지금 보는 달의 일정을 전용 보조 캘린더 "SOL RADAR 입찰 일정"에 수동으로 밀어넣는다. 일정별 "구글 캘린더에 추가" 링크는 유지. 순서·완료 기준은 [스펙](../polaris/specs/planned/2026-10-30-google-calendar-sync.md). 사용자가 Google Cloud(Calendar API·동의 화면 범위)와 env 값을 준비해야 한다|
-|11-01(일)~11-02(월)|촬영(녹화 클립): D1 운영 사이트 장면·S-GAPS·S-LIVE·카카오 실수신, 로컬 Compose S5·S6|실공고 분석은 운영에 있다([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 카카오 실발송은 사용자 보고(2026-10-30) 기준이고 증거 기록 경로는 미확인이다. `/calendar`는 녹화 클립에 없고 질의응답 라이브라([[18-HACKATHON\|18 해커톤]] §6) 동결 전 바뀌는 구글 캘린더 연동은 촬영 장면과 겹치지 않는다|
-|11-02(월)까지|리허설 중 FX-02 재분석 금지|촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필)"이 보여야 한다. 촬영의 S4 [재분석]만 한다(예상: 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류, SOL Score v0.2, [v0.2 미리 계산](evidence/sol-score-v02/20261030/fx02-forecast.md), [[16-DECISIONS\|ADR-059]]·[[16-DECISIONS\|ADR-071]]). 회사 gateway가 `req-extract/v0.2`로 바뀌어 재분석 때 Qwen을 새로 부르므로 59는 촬영 화면 값으로 다시 확인한다([[16-DECISIONS\|ADR-064]])|
+|11-01(일)|`sol-v0.2.1` 재채점 쓰기(촬영 전)|완료(16:06 KST). 화면 run 384건: 실공고 366(추천 7·보류 349·비추천 10), DEMO 18(추천 10·보류 8, 변화 없음). 새 run 225건. FX-01·FX-16·FX-02 run은 그대로이고 S-LIVE 동국대 최신 run은 `ed2e57d4`(49 보류)다([기록](evidence/sol-score-v02/20261030/v021-rollout.md))|
+|11-01(일)~11-02(월)|촬영(녹화 클립): D1 운영 사이트 장면·S-GAPS·S-LIVE·카카오 실수신, 로컬 Compose S5·S6|화면 동결(11-03) 전에 찍는 일정이다. S4를 11-03부터 찍으면 FX-02 예상은 59가 아니라 53이다(아래 행). 실공고 분석은 운영에 있다([2026-10-29 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 카카오 실수신은 알림 Worker `memo`와 연결 `enabled`를 각각 승인받아 켠 뒤, 카톡을 받은 적 없는 실공고로 찍는다(2026-10-30에 보낸 22개 공고와 15:12 1건은 다시 가지 않는다, [[19-DEMO-SCENARIO\|19]] §4 "녹화 전용"). `/calendar`는 녹화 클립에 없고 질의응답 라이브라([[18-HACKATHON\|18 해커톤]] §6) 동결 전 바뀌는 구글 캘린더 연동은 촬영 장면과 겹치지 않는다|
+|11-02(월)까지|리허설 중 FX-02 재분석 금지|촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필)"이 보여야 한다. 촬영의 S4 [재분석]만 한다(예상: 11-02까지 59 보류(`WATCH`), 11-03부터 53 보류, SOL Score v0.2로 계산, 재분석 run은 `sol-v0.2.1`로 저장, [v0.2 미리 계산](evidence/sol-score-v02/20261030/fx02-forecast.md), [[16-DECISIONS\|ADR-059]]·[[16-DECISIONS\|ADR-071]]). 회사 gateway가 `req-extract/v0.2`로 바뀌어 재분석 때 Qwen을 새로 부르므로 59는 촬영 화면 값으로 다시 확인한다([[16-DECISIONS\|ADR-064]])|
 |11-02(월)|리허설 1|D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함. 2026-10-30 사용자 결정으로 11-01에서 옮겼다|
 |11-02(월)|발표 덱(20분)·녹화 클립 완성, 리허설 2|로컬 전체 `pnpm verify` 1회(GitHub Actions가 돌지 않는다). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md))|
 |11-03(화)|화면 동결|2026-10-30 사용자 결정(11-01에서 연기, [[16-DECISIONS\|ADR-073]]). D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함|
 |11-03(화)|공식 제출|확정(사용자)|
 |11-04(수)|발표: 덱 20분 + 녹화 클립. D1 운영 사이트(`?origin=demo`)는 질의응답 라이브|확정(사용자). `demo:reset` 안 함|
 
-- 끝난 것: 첨부 처리(Documents Worker 회사 운영, [기록](evidence/company-rollout/20261028/sources-rollout.md)), 실공고 분석(위 기록), 새 메뉴 3개([[16-DECISIONS|ADR-060]]), 화면 개편([[16-DECISIONS|ADR-061]]), 추천 분석 운영 반영([[16-DECISIONS|ADR-066]], [기록](evidence/company-rollout/20261029/rec-insight-rollout.md)), DEMO 공고 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)).
+- 끝난 것: 첨부 처리(Documents Worker 회사 운영, [기록](evidence/company-rollout/20261028/sources-rollout.md)), 실공고 분석(위 기록), 새 메뉴 3개([[16-DECISIONS|ADR-060]]), 화면 개편([[16-DECISIONS|ADR-061]]), 추천 분석 운영 반영([[16-DECISIONS|ADR-066]], [기록](evidence/company-rollout/20261029/rec-insight-rollout.md)), DEMO 공고 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)), 카카오 운영 연결·실발송(10-30, [기록](evidence/kakao-notify/20261030-prod-live-send.md)), `sol-v0.2.1` 재채점(11-01, [기록](evidence/sol-score-v02/20261030/v021-rollout.md)).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다(ADR-054 2번). 이 표에 넣지 않는다.
 - X6 파인튜닝·평가 실험 E0~E3·X2는 발표 뒤 진행 예정이라([[16-DECISIONS|ADR-067]]) 이 표에 넣지 않는다. 아래 해커톤 컷 표 "해커톤 이후" 행에 있다.
 
