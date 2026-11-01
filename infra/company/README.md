@@ -644,7 +644,11 @@ docker compose -f infra/compose.notify-only.company.yaml stop notify-worker
 select source, count(*), max(fetched_at) from public.program_notices group by 1;
 select source, run_mode, status, error_code, fetched_count, saved_count, started_at
 from public.program_notice_runs order by started_at desc limit 5;
+select conname, pg_get_constraintdef(oid) from pg_constraint
+where conname in ('program_notices_source_check', 'program_notice_runs_source_check');
 ```
+
+마지막 SQL의 두 행에 모두 `'msit'`가 있어야 한다(마이그레이션 `20261101000050_program_notices_msit_source.sql`). 없으면 여기서 멈춘다. 마이그레이션 전에 과기정통부를 부르면 공고 저장이 `STORE_FAILED`가 되고, 회차 기록(`program_notice_runs`)도 같은 제약에 걸려 남지 않는다.
 
 ### 10.2 D1 이미지 빌드 (외부 호출 없음)
 
