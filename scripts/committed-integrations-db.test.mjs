@@ -104,8 +104,21 @@ it("public programs allow active members to read notices while all client writes
   await db.query(
     "insert into public.program_notices(source,source_notice_id,title,source_url,dedupe_key,fetched_at) values ('mss','1','사업공고','https://mss.go.kr/notice/1','program-1',now())",
   );
+  // 과기정통부(msit)는 두 표 모두 받고, 목록에 없는 출처는 거부한다.
+  await db.query(
+    "insert into public.program_notices(source,source_notice_id,title,source_url,dedupe_key,fetched_at) values ('msit','3186001','신규과제 공모','https://www.msit.go.kr/bbs/view.do?nttSeqNo=3186001','program-2',now())",
+  );
+  await db.query(
+    "insert into public.program_notice_runs(source,run_mode,status) values ('msit','LIVE','SUCCEEDED')",
+  );
+  await assert.rejects(
+    db.query(
+      "insert into public.program_notices(source,source_notice_id,title,source_url,dedupe_key,fetched_at) values ('ntis','1','x','https://www.ntis.go.kr/1','program-3',now())",
+    ),
+    /program_notices_source_check/,
+  );
   await actAs(db, users[0]);
-  assert.equal((await db.query("select title from public.program_notices")).rows.length, 1);
+  assert.equal((await db.query("select title from public.program_notices")).rows.length, 2);
   await assert.rejects(
     db.query("update public.program_notices set title='바꿈'"),
     /permission denied/,
