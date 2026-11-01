@@ -3,15 +3,16 @@ import { z } from "zod";
 import { classifyProcurementRelevance } from "@/server/ingestion";
 
 // ── 모델: 부처 지원사업 공고의 정규화 행과 수집 회차 값. 저장·화면을 모른다 ──
-// 두 소스(기업마당 API·중기부 RSS)를 같은 모양으로 맞춘다. 표·정책은 마이그레이션 20261023000800 이 정한다.
+// 세 소스(기업마당 API·중기부 RSS·과기정통부 API)를 같은 모양으로 맞춘다. 표·정책은 마이그레이션 20261023000800 이 정한다.
 // 실제 공고(실호출·녹음 재생)는 isDemo=false 다. 가상 샘플은 시험에만 쓰고 표에 넣지 않는다.
 
-export const PROGRAM_NOTICE_SOURCES = ["bizinfo", "mss"] as const;
+export const PROGRAM_NOTICE_SOURCES = ["bizinfo", "mss", "msit"] as const;
 export type ProgramNoticeSource = (typeof PROGRAM_NOTICE_SOURCES)[number];
 
 export const PROGRAM_NOTICE_SOURCE_LABELS: Record<ProgramNoticeSource, string> = {
   bizinfo: "기업마당",
   mss: "중기부",
+  msit: "과기정통부",
 };
 
 // 화면에 보이는 글자의 상한(넘으면 잘라 말줄임표를 붙인다). 원문 전체는 "원문 보기" 링크로 본다.

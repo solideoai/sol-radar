@@ -2,11 +2,11 @@ import "server-only";
 import { REDACTED, redactSecrets } from "@/server/ingestion";
 import type { ProgramRunErrorCode } from "./program-notice.model";
 
-// ── 부처 공고 HTTP: 허용 호스트 두 곳에만 https 로 묻고, 리다이렉트를 따르지 않고, 크기·시간을 묶는다 ──
+// ── 부처 공고 HTTP: 허용 호스트 세 곳에만 https 로 묻고, 리다이렉트를 따르지 않고, 크기·시간을 묶는다 ──
 // SSRF 방어(09 보안): 주소는 설정 파일에서 오지만 틀린 값이 들어와도 다른 호스트로는 나가지 않는다.
-// 결과에는 오류 코드만 담는다. 예외 메시지에는 요청 URL(기업마당 crtfcKey 포함)이 실릴 수 있어 남기지 않는다.
+// 결과에는 오류 코드만 담는다. 예외 메시지에는 요청 URL(기업마당 crtfcKey·과기정통부 ServiceKey 포함)이 실릴 수 있어 남기지 않는다.
 
-export const PROGRAM_NOTICE_HOSTS = ["www.bizinfo.go.kr", "mss.go.kr"] as const;
+export const PROGRAM_NOTICE_HOSTS = ["www.bizinfo.go.kr", "mss.go.kr", "apis.data.go.kr"] as const;
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
@@ -93,11 +93,11 @@ export async function fetchProgramSource(
   }
 }
 
-const CRTFC_KEY_QUERY = /([?&]crtfcKey=)[^&#]*/gi;
+const KEY_QUERY = /([?&](?:crtfcKey|ServiceKey)=)[^&#]*/gi;
 
-/** 로그·증거에 남길 URL·문장에서 crtfcKey 값과 비밀 문자열을 가린다. */
+/** 로그·증거에 남길 URL·문장에서 crtfcKey·ServiceKey 값과 비밀 문자열을 가린다. */
 export const redactProgramUrl = (text: string, secrets: readonly string[]): string =>
-  redactSecrets(text.replace(CRTFC_KEY_QUERY, `$1${REDACTED}`), secrets);
+  redactSecrets(text.replace(KEY_QUERY, `$1${REDACTED}`), secrets);
 
 type LinkSite = { origin: string; hosts: readonly string[] };
 

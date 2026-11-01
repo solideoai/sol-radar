@@ -1,8 +1,8 @@
 # 부처 지원사업 공고 수집 설정(ADR-040, 스펙 polaris/specs/done/2026-10-21-agency-program-notices.md §3).
 # 나라장터 registry(registry.yaml)와 따로 둔다. 그 계약(source-registry.ts·OfficialApiConnector)을 고치지 않는다.
 # 읽는 곳: web/server/program-notices/config.ts. 틀리면 그 소스만 꺼지고 worker 기동·나라장터 수집은 그대로다.
-# 주소는 www.bizinfo.go.kr·mss.go.kr 의 https 만 받는다(http.ts PROGRAM_NOTICE_HOSTS). 리다이렉트는 따르지 않는다.
-# 기업마당 인증키는 값이 아니라 env 이름만 둔다. 키 값은 사용자가 infra/.env 에 넣고 worker 만 읽는다.
+# 주소는 www.bizinfo.go.kr·mss.go.kr·apis.data.go.kr 의 https 만 받는다(http.ts PROGRAM_NOTICE_HOSTS). 리다이렉트는 따르지 않는다.
+# 인증키(기업마당·과기정통부)는 값이 아니라 env 이름만 둔다. 키 값은 사용자가 infra/.env(회사는 infra/.env.worker.local)에 넣고 worker 만 읽는다.
 schemaVersion: program-notices/v0.1
 sources:
   bizinfo:
@@ -17,3 +17,11 @@ sources:
     # 중소벤처기업부 사업공고 RSS(최신 20건). 키 없음.
     enabled: true
     baseUrl: https://mss.go.kr/rss/smba/board/310.do
+  msit:
+    # 과학기술정보통신부 사업공고(공공데이터포털 15074634) https://www.data.go.kr/data/15074634/openapi.do
+    # 키는 포털의 Encoding 키를 그대로 넣는다(코드가 한 번 풀어 한 번만 인코딩해 보낸다). 공고번호·신청기간은 응답에 없다.
+    enabled: true
+    baseUrl: https://apis.data.go.kr/1721000/msitannouncementinfo/businessAnnouncMentList
+    keyEnv: MSIT_ANNOUNCEMENT_API_KEY
+    # 회차당 요청 1번. 50을 보내도 서버가 최신 10건만 준다(2026-11-01 녹음).
+    maxItems: 10

@@ -6,20 +6,23 @@ import { PROGRAM_NOTICE_SOURCES, type ProgramNoticeSource } from "./program-noti
 
 // ── 부처 공고 녹음(fixtures/recorded/program-notices/<소스>/*.json) 읽기 ──
 // mock·fixture 모드는 네트워크 대신 녹음을 재생한다(스펙 §7). 녹음 body 는 연락처를 가린 원문이다.
-// 녹음에 기업마당 키가 섞이면 저장소에 키가 커밋된다. 이름이 crtfcKey 인 파라미터가 있으면 형식 오류로 건너뛴다.
+// 녹음에 인증키가 섞이면 저장소에 키가 커밋된다. 이름이 crtfcKey(기업마당)·ServiceKey(과기정통부)인 파라미터가 있으면 형식 오류로 건너뛴다.
 
 export const PROGRAM_RECORDED_SCHEMA_VERSION = "sol-program-recorded/v0.1";
 
-const KEY_PARAM = "crtfckey";
+const KEY_PARAMS: readonly string[] = ["crtfckey", "servicekey"];
 
 const recordingSchema = z.strictObject({
   schemaVersion: z.literal(PROGRAM_RECORDED_SCHEMA_VERSION),
   source: z.enum(PROGRAM_NOTICE_SOURCES),
   params: z
     .record(z.string(), z.string())
-    .refine((params) => !Object.keys(params).some((name) => name.toLowerCase() === KEY_PARAM), {
-      error: "params 에 인증키 파라미터가 있다",
-    }),
+    .refine(
+      (params) => !Object.keys(params).some((name) => KEY_PARAMS.includes(name.toLowerCase())),
+      {
+        error: "params 에 인증키 파라미터가 있다",
+      },
+    ),
   fetchedAt: z.iso.datetime(),
   httpStatus: z.number().int().min(200).max(599),
   contentType: z.string(),

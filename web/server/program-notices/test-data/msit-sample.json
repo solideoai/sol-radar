@@ -1,0 +1,65 @@
+{
+  "response": [
+    { "header": { "resultCode": "00", "resultMsg": "NORMAL_CODE" } },
+    {
+      "body": {
+        "pageNo": "1",
+        "totalCount": 4,
+        "numOfRows": 10,
+        "items": [
+          {
+            "item": {
+              "deptName": "원천기술과",
+              "pressDt": "2026-10-28",
+              "subject": "2026년도 미래개척융합과학기술개발사업(한계돌파 R&amp;D) 신규과제 공모",
+              "managerTel": "***",
+              "managerName": "***",
+              "viewUrl": "http://www.msit.go.kr/bbs/view.do?sCode=user&bbsSeqNo=100&nttSeqNo=3186001",
+              "files": [
+                {
+                  "file": {
+                    "fileName": "공고문.hwp",
+                    "fileUrl": "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "item": {
+              "deptName": "가상협력과",
+              "pressDt": "2026-10-27",
+              "subject": "2026년도 가상 공동연구사업  신규과제 공모",
+              "managerTel": "***",
+              "managerName": "***",
+              "viewUrl": "https://www.msit.go.kr/bbs/view.do?sCode=user&mId=311&mPid=121&bbsSeqNo=100&nttSeqNo=3186002",
+              "files": []
+            }
+          },
+          {
+            "item": {
+              "deptName": "원천기술과",
+              "pressDt": "2026-10-26",
+              "subject": "2026년 가상기술개발사업 신규과제 선정결과 공고",
+              "managerTel": "***",
+              "managerName": "***",
+              "viewUrl": "https://www.msit.go.kr/bbs/view.do?sCode=user&mId=311&mPid=121&bbsSeqNo=100&nttSeqNo=3186003",
+              "files": []
+            }
+          },
+          {
+            "item": {
+              "deptName": "가상정책과",
+              "pressDt": "2026-10-25",
+              "subject": "2027년도 가상혁신사업 신규지원 대상과제 선정계획 공고",
+              "managerTel": "***",
+              "managerName": "***",
+              "viewUrl": "https://www.msit.go.kr/bbs/view.do?sCode=user&mId=311&mPid=121&bbsSeqNo=100&nttSeqNo=3186004",
+              "files": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ export const PROGRAMS_LOADING = "부처 지원사업 공고를 불러오는 중�
 export const SOURCE_LABEL: Record<ProgramNoticeListItem["source"], string> = {
   bizinfo: "기업마당",
   mss: "중기부",
+  msit: "과기정통부",
 };
 
 export const TABLE_CAPTION = "부처 지원사업 공고 목록. 공고명을 누르면 상세가 열립니다.";

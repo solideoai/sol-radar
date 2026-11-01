@@ -10,9 +10,11 @@ import { z } from "zod";
 
 export const PROGRAM_NOTICES_SCHEMA_VERSION = "program-notices/v0.1";
 export const BIZINFO_KEY_ENV = "BIZINFO_API_KEY";
+export const MSIT_KEY_ENV = "MSIT_ANNOUNCEMENT_API_KEY";
 
 const BIZINFO_HOST = "www.bizinfo.go.kr";
 const MSS_HOST = "mss.go.kr";
+const MSIT_HOST = "apis.data.go.kr";
 
 const httpsOn = (host: string) =>
   z.string().refine(
@@ -43,6 +45,14 @@ const mssSchema = z.strictObject({
   baseUrl: httpsOn(MSS_HOST),
 });
 
+// 과기정통부 사업공고(공공데이터포털 15074634). 한 회차에 요청 1번이고, 서버는 numOfRows 와 상관없이 최대 10건을 준다(2026-11-01 녹음).
+const msitSchema = z.strictObject({
+  enabled: z.boolean(),
+  baseUrl: httpsOn(MSIT_HOST),
+  keyEnv: z.literal(MSIT_KEY_ENV),
+  maxItems: z.number().int().min(1).max(99),
+});
+
 const fileSchema = z.object({
   schemaVersion: z.literal(PROGRAM_NOTICES_SCHEMA_VERSION),
   sources: z.record(z.string(), z.unknown()),
@@ -50,10 +60,12 @@ const fileSchema = z.object({
 
 export type BizinfoConfig = z.infer<typeof bizinfoSchema>;
 export type MssConfig = z.infer<typeof mssSchema>;
+export type MsitConfig = z.infer<typeof msitSchema>;
 export type SourceConfig<T> = { ok: true; value: T } | { ok: false; reason: string };
 export type ProgramNoticesConfig = {
   bizinfo: SourceConfig<BizinfoConfig>;
   mss: SourceConfig<MssConfig>;
+  msit: SourceConfig<MsitConfig>;
 };
 export type LoadConfigResult =
   { ok: true; config: ProgramNoticesConfig } | { ok: false; reason: string };
@@ -92,6 +104,7 @@ export async function loadProgramNoticesConfig(file: string): Promise<LoadConfig
     config: {
       bizinfo: sourceConfig("bizinfo", bizinfoSchema, sources.bizinfo),
       mss: sourceConfig("mss", mssSchema, sources.mss),
+      msit: sourceConfig("msit", msitSchema, sources.msit),
     },
   };
 }

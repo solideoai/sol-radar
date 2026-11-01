@@ -14,7 +14,8 @@ import { cleanText, dedupeKeyOf } from "./text";
 // 실제 응답(fixtures/recorded/program-notices/bizinfo, 2026-10-28)은 jsonArray 가 바로 배열이고, 해시태그 칸 이름이 명세와 다르다(hashtags).
 
 export type ParseResult =
-  | { ok: true; notices: NormalizedProgramNotice[]; dropped: number }
+  // excluded: 규칙상 일부러 뺀 수(과기정통부 결과 발표 공고). dropped 와 달리 회차를 PARTIAL 로 만들지 않는다.
+  | { ok: true; notices: NormalizedProgramNotice[]; dropped: number; excluded?: number }
   | { ok: false; errorCode: "RESPONSE_SHAPE" | "XML_DTD_REJECTED" };
 
 const BIZINFO_SITE = {
