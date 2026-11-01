@@ -52,6 +52,7 @@ updated: 2026-11-01
 2. 구글 캘린더 연동 준비물은 사용자가 맡는다(2026-10-31): Google Cloud(Calendar API 켜기·동의 화면 범위 `calendar.events`·테스트 사용자·로컬 redirect URI), Supabase Google 제공자·manual linking·Redirect URLs, env 값. 운영 `NEXT_PUBLIC_AUTH_GOOGLE`은 끈 채 둔다(사용자 결정 2026-10-31). 끈 채로 연결되는지는 로컬 왕복에서 확인한다.
 3. 운영 반영 승인(각각 따로): 구글 캘린더 `pnpm db:push`(`20261030002000`) → Vercel env 3개 넣고 재배포(코드는 이미 운영에 있다). 카카오 고친 [분석 보기] 링크 실수신 확인(다른 추천 공고, 알림 Worker `memo`·연결 다시 켜기). 회사 ingest Worker에 나라장터 실패 사유 기록 수정 반영 여부.
 4. 카카오 아침 묶음(평일 09:00 추천 공고 카톡, [설계](plans/2026-10-30-kakao-morning-digest-design.md))은 사용자 결정(2026-11-01)으로 main 병합·운영 반영을 발표 뒤로 미뤘다. 반영 때 최신 main을 다시 합치고 전체 검증을 다시 돌린다.
+5. 과기정통부 사업공고 운영 반영 승인(각각 따로, [[16-DECISIONS|ADR-075]]): `pnpm db:push`(`20261101000050`) → 회사 부처 공고 Worker를 브랜치 `feat/msit-rnd-notices` SHA로 재생성(회사 실행서 §10) → 운영 DB `msit` 행 확인 → main 병합·push(Vercel). 첫 화면은 최대 10건 중 결과 발표를 뺀 5건 안팎(약 2주치)이다.
 
 ### 남은 일
 
@@ -120,7 +121,7 @@ updated: 2026-11-01
 | N9 | 대시보드 카드 5개 | 완료(main) | [통합 기록](evidence/committed-integrations/integration.md) |
 | P0-8 | 사전규격·발주계획 단계 연결 | 완료(main) | [기록](evidence/p08/README.md) |
 | P1 | N3 관심 공고·N5 분석 결과 비교·N6 입찰 프로젝트·N7 인력 배치 시뮬레이션·N4b 조직·인력 ADMIN 편집([[16-DECISIONS\|ADR-042]]) | 완료(main·운영 배포) | [N3~N7](evidence/navigation/20261022-implementation.md) |
-| 부처 공고 | 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) | 완료. 운영은 기업마당 전용 Worker. 화면 확인 남음 | [기업마당 정기 수집](evidence/program-notices/20261028-bizinfo-schedule.md) |
+| 부처 공고 | 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) | 완료. 운영은 기업마당 전용 Worker. 화면 확인 남음. 과기정통부 출처(ADR-075)는 브랜치 `feat/msit-rnd-notices`, 운영 미반영 | [기업마당 정기 수집](evidence/program-notices/20261028-bizinfo-schedule.md) |
 | 메일 알림 | [[16-DECISIONS\|ADR-041]] | 해커톤에서 뺐다(코드 없음) | [[13-NOTIFICATIONS\|13]] |
 | 운영 구성 | Vercel web + 회사 redis-api·AI gateway·전용 Worker 5종(ingest·analysis·documents·부처 공고·알림), Storage `bid-documents`·`bid-parsed`([[16-DECISIONS\|ADR-045·048·049]]) | 운영 중. 알림 Worker는 2026-10-30부터(카카오 발송 꺼짐). 전체 Worker는 띄우지 않는다 | [[10-DEPLOYMENT\|10]] |
 | 실운영 전환 | 3시간 정기 수집·수동 수집 gate·본문 없는 공고 분석 차단·상단바 실행 모드 표시 제거 | 운영 중. 운영 DEMO 삭제는 발표 뒤 | [기록](evidence/live-ops/20261026/summary.md) |
@@ -144,6 +145,7 @@ updated: 2026-11-01
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-11-01 · 과기정통부 사업공고를 부처 공고 세 번째 출처로 추가([[16-DECISIONS|ADR-075]], 사용자 결정): 녹음기·첫 실호출 녹음(10건 중 결과 발표 5건 제외), 응답 해석, 회사 부처 공고 Worker 회차에 추가(키 없으면 건너뜀), 마이그레이션 `20261101000050`, IT 필터 면제, `/bids/programs` 출처 필터·"공고문 확인", 랜딩 로고 10곳, 회사 실행서 §10. 브랜치 `feat/msit-rnd-notices`, 운영 미반영 · `pnpm verify` exit 0(루트 319·web 1,125 시험·빌드), 랜딩 E2E 10/10, 화면 360·390·768·1280·1440px([증거](evidence/program-notices/20261101-msit/)), 독립 리뷰 Critical 0
 - 2026-11-01 · 문서 전체 점검(사용자 지시 "지금 기준으로 docs 다 검토해서 틀린 부분 수정"): git·Vercel·운영 DB 읽기로 지금 사실을 확정하고 00~21·PROGRESS·submission 5개를 고침. 고친 것은 카카오 "연결 0건·사용자 보고뿐" 서술(실발송 24통·11-01 녹화·지금 꺼짐), 운영 프로필 revision 5 → 6, 옛 가정 재계산 대본(FX-01 → FX-16), `sol-v0.2.0` → `sol-v0.2.1`, 결정 모델 반영 버전 `sol-v0.2.x` → `sol-v0.3.0` 이후, "회사 프로필은 모든 모드에서 가상"(ADR-052), 구글 캘린더 반영 상태(운영 배포·env 없어 버튼 숨김·migration 미적용), 나라장터 수집 장애·수동 수집, 04 표·함수·migration 목록, 05 IT 범위·정렬 5종, 06 로그인·`/gaps`·`/market`·`/calendar` 문구, 14 수집 정상 기준(60분 → 210분), 코드 줄 번호·깨진 증거 경로. ADR 결정 본문·상태는 바꾸지 않음. 22·`docs/CLAUDE.md`·`experiment-tables.md`는 맞아서 그대로 · 고친 파일 `prettier --check` 통과, 위키링크·증거 경로 검사, 운영 DB·Vercel 읽기만([기록](evidence/ingestion/20261101-ops-reads.md))
 - 2026-11-01 · 인력 배치 공고별 추천 팀 구성(사용자 요청, 다른 세션): 요구 기술·역할이 맞는 직원이 0명이어도 분석 스냅샷 인력에서 직무 기준으로 3~12자리 추천 팀을 짜고, 팀별 지원 요청 표를 추천 팀 구성원의 소속 팀으로 묶음. FTE 표기를 "N명분"·"투입 가능 N%"로 바꿈. 코드 `f9dd9e4d`, 20:47 운영 배포 · web `verify:quick` 통과(단위 시험 1,115), 인력 배치 브라우저 시험 9/9. 루트 `verify:changed`는 이번 작업 밖 미커밋 파일의 서식 경고로 멈춤. 운영 로그인 화면 확인 미실행([기록](evidence/workforce/20261101-team-proposal/README.md))
 - 2026-11-01 · 나라장터 정기 수집 실패(10-30 21:00~11-01 12:00, 7회) 조사: 실패로 닫을 때 `summary.failure`에 오류 코드를 남기고 Worker 로그 한 줄을 쓰며, 해석 못 한 응답은 본문 모양(HTML·XML 최상위 태그)을 남기게 고침. main 병합 `e2223bdc`, 회사 ingest Worker 미반영. 빈 구간은 16:17 수동 수집이 받음 · `vitest run worker/ingest-schedule-budget.test.ts` 34/34(문서 점검 때 다시 실행), 운영 DB `ingest_runs` 읽기([기록](evidence/ingestion/20261101-ops-reads.md))
@@ -153,7 +155,6 @@ updated: 2026-11-01
 - 2026-11-01 · 인력 배치 시뮬레이션 화면 정리(사용자 지시): 후보 이름 옆과 공고 선택·선택 목록·결과 카드의 DEMO 표시를 지우고, 후보 이름 왼쪽에 프로필 사진을 그림. 사진은 조직도와 같은 순서(올린 사진 → 정장 사진 → 간편 로그인 사진 → 머리글자)로 서버가 고르며, workforce 조회가 `person_code`·사진 경로를 읽고 올린 사진은 사용자 JWT로 서명. 코드 `a27ab727`(main 로컬) · web `pnpm verify:quick` exit 0(135파일·1,097시험, 타입·린트·lodestar·토큰·색), 커밋 게이트 통과, 인력 배치 브라우저 시험 8/8(새 시험 1), 부품 화면 390·1440px 확인(임시 시험, 커밋 안 함). 운영 로그인 화면 확인은 미실행
 - 2026-10-31 · 구글 캘린더 연동([[16-DECISIONS|ADR-073]]): 작업 트리에 남은 WIP를 stash로 `feat/google-calendar-sync` worktree에 옮겨 마무리. `/calendar` 툴바 [구글 캘린더 연동]·[구글 캘린더에 넣기]·[다시 연결]과 결과 띠, `.ics` 라우트·버튼·시험 삭제, `check:env` 구글 키 짝 검사, `audit_logs` 대신 서버 JSON 로그. 독립 보안 리뷰(높음 0·중간 1·낮음 7) 반영: DEMO 표시, 토큰 봉인 AAD `google:`, 한 번 500건 한도, `<`·`>` 제거, 일정 ID `..` 거부 등. 받아들인 위험 5개는 ADR-073에 적음. 코드 `5f306f62`·문서 `c3fd609c`, main 로컬 병합 `652741e2`(push 전) · 전체 `pnpm verify` exit 0(루트 316·web 135파일 1,097시험·`next build`·AI 264·결정 57), 커밋 게이트 통과. 실계정 왕복·운영 반영 미실행
 - 2026-10-31 · 운영 기록 정리(읽기만): `sol-v0.2.1` 회사·Vercel 반영(10-30 16:15~16:20)과 카카오 운영 실발송(10-30 14:13~15:12)을 그 세션들의 보고 원문과 운영 DB SELECT로 증거에 옮김. `sol-v0.2.1` run 0건(재채점 미실행), 카카오 연결 CONNECTED·`enabled=false`, 발송 claim 25행 · Vercel production `7a772753` READY, `/health/ready` 200, 운영 DB SELECT만([v0.2.1](evidence/sol-score-v02/20261030/v021-rollout.md), [카카오](evidence/kakao-notify/20261030-prod-live-send.md))
-- 2026-10-30 · 발표 전 문서 모순 정리(심사 기준 4항목 대조): 실공고 분석 "3건" 서술 9곳을 "개별 3건 + IT 일괄 371건(v0.2 재채점 뒤 372 = 369 + 3)"으로 통일(18 §7·§8, submission 5개 문서, 00), 모바일 "범위 외" 잔재 6곳을 ADR-072에 맞춤(루트 README·18·limitations·slides-spec), 옛 대본(S4 FX-02 가정 → 비추천 43) 3곳을 ADR-059 10-30 개정(S3 FX-01 → 추천 92)으로(01 FR-22·12 BOOST-2·slides-spec 부록 D), 화면 동결 11-01 잔재(docs/CLAUDE·ADR-070), ADR-073 본문·색인 행 추가(색인 표의 ADR-072 행 앞 빈 줄 제거), migration 66→73·C8 촬영 공고(동국대 49)·역할 4종→5종(slides-spec·01)·Worker 5종(README·slides-spec)·심사자 5인→사장·부사장·CFO(18·01)·시험 수 갱신(slides-spec 슬라이드 14·11), 카카오 "연결 0건" 단정 6곳을 "사용자 보고 + 마지막 측정 증거 0건"으로, 루트 README 과장 2건(발주계획·사전규격 정기 수집, 공고 변경 알림) 정정, 06 §5.15 `.ics`에 ADR-073 경고, `infra/company/README.md` AI gateway mock 서술 정정, 덱 pptx 2개(루트 10-21·deck 10-28)와 옛 값 목록 기록 · `pnpm format:check` 통과. 코드 변경 없음
 
 ## 관련 문서
 

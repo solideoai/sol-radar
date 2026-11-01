@@ -25,7 +25,7 @@ updated: 2026-11-01
 운영 상태(현재 값·확인 시각·건수는 [[PROGRESS|진행 상황]] 운영 상태 표가 정본이다):
 
 - `https://www.solideos-radar.com/health/ready`는 `db`·`redis`·`storage`·`ai`를 본다. `ai`는 회사 AI gateway가 보고한 provider 값이고 운영은 `local`이다.
-- 정기 수집은 회사 ingest 전용 Worker의 BullMQ Job Scheduler다. 나라장터 `g2b-scheduled`와 외부 서비스 `<key>-scheduled`(LH·KEPCO·K-water 입찰공고)가 같은 일정(`pattern "0 */3 * * *"`, `tz "Asia/Seoul"`, `web/server/ingestion/ingest-schedule.ts:9`)으로 돈다. 기업마당은 부처 공고 전용 Worker의 `bizinfo-scheduled`다. 기동 직후 수집은 없다. 출처별 설정은 [[07-DATA-PIPELINE|07 수집]] §2.2다.
+- 정기 수집은 회사 ingest 전용 Worker의 BullMQ Job Scheduler다. 나라장터 `g2b-scheduled`와 외부 서비스 `<key>-scheduled`(LH·KEPCO·K-water 입찰공고)가 같은 일정(`pattern "0 */3 * * *"`, `tz "Asia/Seoul"`, `web/server/ingestion/ingest-schedule.ts:9`)으로 돈다. 기업마당·과기정통부는 부처 공고 전용 Worker의 `bizinfo-scheduled`다(과기정통부는 [[16-DECISIONS|ADR-075]], 회사 반영 전). 기동 직후 수집은 없다. 출처별 설정은 [[07-DATA-PIPELINE|07 수집]] §2.2다.
 - 회사 redis-api에는 `SOL_INGEST_MODE=live`가 있다. 수동 수집 판정만 live이고 `SOL_RUN_MODE`는 그대로다. 관리자 [지금 불러오기]는 `GET /api/v1/admin/ingestion/manual-gate`의 gate(사용자 60분·전역 공유 10분·하루 20회)를 거친다([[05-API-SPEC|05]] §2).
 - Vercel의 `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`)이 화면 기본 출처를 정한다. 값이 없거나 틀리면 실행 모드를 따른다(`live` → `live`, `mock`·`fixture` → `demo`). DEMO 배지는 `?origin=demo`일 때만 뜬다. 분석 단위의 모드·AI 표시는 공고 상세 분석 요약 띠에 있다([[06-UI-UX|06]] §4).
 - 운영 DEMO 공고 19건은 그대로다. 그중 16건의 마감을 +15일 옮겼다([실행 기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다([[16-DECISIONS|ADR-054]]). 운영 DB에 백업 스키마 `demo_cleanup_20261026`이 있다.
@@ -55,7 +55,7 @@ updated: 2026-11-01
 | + `infra/compose.analysis-only.sha.company.yaml` | (위 덮어쓰기) | 이미지 `sol-radar-analysis-worker:<SHA>`, `web/worker/Dockerfile` 빌드, 종료 유예 180초 | 위와 같다 | `latest` 태그를 빌드·태그하지 않는다(회사 실행서 §8.6) |
 | `infra/compose.documents-only.company.yaml` | `sol-radar-documents` | `documents-worker`, `sol-radar-documents-worker:<SHA>` | `worker/documents-only-main.ts`. documents 큐 소비자 + 60초 복구 회차 | live가 아니면 exit 1. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(회사 실행서 §8) |
 | `infra/compose.notify-only.company.yaml` | `sol-radar-notify` | `notify-worker`, `sol-radar-notify-worker:<SHA>` | `worker/notify-only-main.ts`. 알림 outbox(인앱·카카오) + 마감 알림. 큐 없음, Redis는 기동 확인용 연결만 | 2026-10-30 12:45 KST 첫 기동([기동 기록](evidence/company-rollout/20261030/notify-worker-rollout.md)). 카카오 실발송(`memo`)은 10-30 오후(15:47 끔)와 11-01 17:16~18:15에만 켰고 지금은 꺼짐이다([10-30 기록](evidence/kakao-notify/20261030-prod-live-send.md)·[11-01 녹화 기록](evidence/kakao-notify/20261101-recording.md)). 컨테이너 `SITE_URL`은 `https://www.solideos-radar.com`이다(11-01 사용자 수정. 그 전 값은 회사 홈페이지라 카톡 [분석 보기]가 회사 홈페이지로 갔다). live가 아니면 exit 1. 카카오 발송 기본 꺼짐(`NOTIFY_KAKAO_PROVIDER` 빈 값). 전체 Worker와 같은 Supabase에서 함께 띄우지 않는다(회사 실행서 §9) |
-| `infra/compose.program-notices-only.company.yaml` | `sol-radar-program-notices` | `program-notices-worker`, `sol-radar-program-notices-worker:<SHA>` | `worker/program-notices-only-main.ts`. 기업마당 지원사업 공고 정기 수집 `bizinfo-scheduled`(KST 3시간 정각). 자기 큐(`program-notices`)만 쓰고 ingest 큐·일정은 건드리지 않는다 | `SOL_RUN_MODE=live` 고정. `BIZINFO_API_KEY`는 `.env.worker.local`. 전체 Worker와 같은 DB에서 함께 띄우지 않는다(회사 실행서 §10) |
+| `infra/compose.program-notices-only.company.yaml` | `sol-radar-program-notices` | `program-notices-worker`, `sol-radar-program-notices-worker:<SHA>` | `worker/program-notices-only-main.ts`. 기업마당·과기정통부 공고 정기 수집 `bizinfo-scheduled`(KST 3시간 정각, 과기정통부는 키가 있을 때만). 자기 큐(`program-notices`)만 쓰고 ingest 큐·일정은 건드리지 않는다 | `SOL_RUN_MODE=live` 고정. `BIZINFO_API_KEY`·`MSIT_ANNOUNCEMENT_API_KEY`는 `.env.worker.local`. 전체 Worker와 같은 DB에서 함께 띄우지 않는다(회사 실행서 §10) |
 
 - ingest·analysis·documents 전용 Worker의 `AI_GATEWAY_URL`은 `http://172.20.0.1:8000`이다(`infra/compose.documents-only.company.yaml:28`). 부처 공고 Worker는 gateway를 부르지 않는다. redis-api는 `http://ai-gateway:8000`이다(`infra/compose.company.yaml:20`). 둘이 같은 gateway인지는 미확인이다(회사 실행서 §2 D0).
 - Documents Worker 처리량은 env `DOCUMENTS_MAX_PER_BID`(기본 3)·`DOCUMENTS_ROUND_MAX_REVISIONS`(10)·`DOCUMENTS_FETCH_INTERVAL_MS`(2000)·`DOCUMENTS_CONCURRENCY`(2, 최대 2)다. 문서 리스는 600초다([[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약").
@@ -106,7 +106,7 @@ updated: 2026-11-01
 |---|---|
 | Vercel web | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `API_CURSOR_SECRET`(32자 이상), `SOL_RUN_MODE`, 선택 `SOL_DEFAULT_ORIGIN`, `SOL_DEPLOYMENT_ROLE=frontend`, `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`(32바이트 이상 난수) |
 | 회사 redis-api | `SOL_DEPLOYMENT_ROLE=redis-api`, 같은 Supabase URL/anon·실행 모드·cursor secret, 사설 TCP `REDIS_URL`, 같은 `REDIS_API_TOKEN`, `SOL_INGEST_MODE=live`(없으면 `SOL_RUN_MODE`) |
-| 회사 Worker | Supabase URL, `SUPABASE_SERVICE_ROLE_KEY`, 사설 TCP `REDIS_URL`, `AI_GATEWAY_URL`, 실행 모드, G2B 서비스키. 부처 공고 Worker는 `BIZINFO_API_KEY` |
+| 회사 Worker | Supabase URL, `SUPABASE_SERVICE_ROLE_KEY`, 사설 TCP `REDIS_URL`, `AI_GATEWAY_URL`, 실행 모드, G2B 서비스키. 부처 공고 Worker는 `BIZINFO_API_KEY`와 `MSIT_ANNOUNCEMENT_API_KEY`(없으면 과기정통부만 건너뜀) |
 | 공통 Storage 이름 | `SUPABASE_STORAGE_RAW_BUCKET=bid-documents`, `SUPABASE_STORAGE_PARSED_BUCKET=bid-parsed`(기본값) |
 
 - Vercel·redis-api에는 service role·G2B·GPU 키를 넣지 않는다. Vercel에는 `REDIS_URL`도 넣지 않는다. frontend·redis-api는 service role이 있으면 기동을 거부하고, frontend는 `REDIS_URL`이 있으면 거부한다(`web/app/_lib/deployment-role.ts:45-47`).

@@ -84,6 +84,7 @@ registry 값(`infra/sources/registry.yaml`)은 코드 설정이다. 회사 서�
 | K-water 입찰공고 | `kwater-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 10000 | `kwater-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 새 진행 상태 3개 마감 처리(§3.2)도 반영했다. 운영 회차는 10-30 18:10~11-01 00:00 `PARTIAL`, 11-01 03:00부터 `SUCCEEDED`다(`PARTIAL` 원인 미확인, [운영 읽기](evidence/ingestion/20261101-ops-reads.md)) |
 | KEPCO 전자입찰계약 | `kepco-ebid-contract`. `enabled: true`, `VERIFIED`, `quota.daily` 100(공급자 한도가 아닌 자체 상한) | `kepco-ebid-contract-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 공고 없는 날 404 빈 쪽 처리(§3.2)도 반영했다([KEPCO 404 기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md)). 운영 회차는 모두 `PARTIAL`이고 `FAILED`는 없다(10-30 18:28~11-01 18:08 17회, 응답 범위 미검증 §3.2, [운영 읽기](evidence/ingestion/20261101-ops-reads.md)) |
 | 기업마당 지원사업 | registry 밖. 요청 값은 `infra/sources/program-notices.yaml`([[16-DECISIONS\|ADR-040]]) | 자기 큐 `program-notices`의 `bizinfo-scheduled`, 같은 cron | 회사 부처 공고 전용 Worker(`web/worker/program-notices-only-main.ts`, [회사 실행서](../infra/company/README.md) §10). 회사에서 운영 중이다(같은 반영 기록) |
+| 과기정통부 사업공고 | registry 밖. 요청 값은 `infra/sources/program-notices.yaml` `msit`(공공데이터포털 15074634, 최대 10건, [[16-DECISIONS\|ADR-075]]) | 같은 큐·일정 `bizinfo-scheduled`에서 기업마당 다음 | 미반영. 회사 부처 공고 Worker 재생성 전이다(회사 실행서 §10) |
 | K-water 발주계획 | `kwater-procurement-plan`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
 | LH 사전규격 | `lh-pre-specification`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
 | 나라장터 조달요청 | `g2b-procurement-request`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |

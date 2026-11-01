@@ -302,7 +302,7 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 |`ingest_payloads`|수집 응답의 정제 payload(담당자 정보 제외, 2 MiB 이하 check)|화면 역할 권한 없음|`20261023000100`|
 |`ingest_run_items`|수집 run별 레코드 결과(`outcome` ∈ `CREATED`·`CHANGED`·`CANCELLED`·`DUPLICATE`·`QUARANTINED`)|화면 역할 권한 없음|`20261023000100`|
 |`document_storage_objects`|Supabase Storage 파일 원장(ADR-048). `status` ∈ `UPLOADING`·`STORED`·`DELETE_PENDING`·`ERROR`, 크기 1 B~50 MB, 경로는 `raw/bids/`·`parsed/bids/` 아래(check)|화면 역할 권한 없음, Worker 전용|`20261021000700`|
-|`program_notices`|부처 지원사업 공고(`source` ∈ `bizinfo`(기업마당)·`mss`(중소벤처기업부 RSS), `source_url`은 `https://`). 입찰 점수·분석 표와 섞지 않는다([[16-DECISIONS\|ADR-040]])|활동 중 회원|`20261023000800`|
+|`program_notices`|부처 지원사업 공고(`source` ∈ `bizinfo`(기업마당)·`mss`(중소벤처기업부 RSS)·`msit`(과기정통부 사업공고), `source_url`은 `https://`). 입찰 점수·분석 표와 섞지 않는다([[16-DECISIONS\|ADR-040·075]])|활동 중 회원|`20261023000800`·`20261101000050`|
 |`program_notice_runs`|지원사업 수집 run 기록(`status` ∈ `SUCCEEDED`·`PARTIAL`·`FAILED`·`SKIPPED`, `run_mode`는 §4 `run_mode`)|화면 역할 권한 없음|`20261023000800`|
 |`kakao_send_claims`|카카오 발송 의도 claim. 송신 성공 뒤 DB가 실패해도 같은 사용자·공고를 자동 재발송하지 않는다(ADR-038)|화면 역할 권한 없음. service_role은 select·insert만|`20261023000704`|
 |`profile_photo_folders`|본인 사진 폴더 업로드를 직렬화하는 잠금 행(`claim_own_photo_slot`)|화면 역할 권한 없음|`20261025000110`|
