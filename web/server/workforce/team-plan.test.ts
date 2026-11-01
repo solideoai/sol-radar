@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { roleNeedsOf, teamPlanOf, teamsOf } from "./team-plan";
-import type { WorkforceCandidate } from "./workforce.model";
+import { roleNeedsOf, teamPlanOf } from "./team-plan";
+import type { WorkforceCandidate, WorkforceTeamMember } from "./workforce.model";
 
 const person = (
   personId: string,
@@ -18,6 +18,7 @@ const person = (
   role,
   grade: "중급",
   skills: [],
+  matchedSkills: [],
   availableFte,
   matchReason: "",
 });
@@ -56,29 +57,34 @@ it("대응 없는 역할은 짐작하지 않는다", () => {
 it("staffing 이 없으면 역할 필요는 비어 있다", () =>
   expect(roleNeedsOf(null, candidates)).toEqual([]));
 
-it("같은 사람이 두 공고 후보면 팀×공고 표의 두 칸에 모두 나온다", () => {
-  const dev = [person("dev-1", "DEVELOPER", "개발1팀", 1)];
-  const bidA = {
-    bidId: "a",
-    teams: teamsOf(dev),
-    roleNeeds: roleNeedsOf([{ role: "개발", mandatory: true }], dev),
-    candidateBasisMissing: false,
-  };
-  const bidB = { bidId: "b", teams: teamsOf(dev), roleNeeds: [], candidateBasisMissing: false };
-  const plan = teamPlanOf([bidA, bidB]);
-  const row = plan.find((r) => r.department === "개발1팀");
-  expect(row?.cells.map((c) => c.people.map((p) => p.personId))).toEqual([["dev-1"], ["dev-1"]]);
-  expect(row?.personCount).toBe(1);
-  expect(row?.cells[0].roles).toEqual(["개발"]);
+const member = (candidate: WorkforceCandidate, slot: string): WorkforceTeamMember => ({
+  slot,
+  slotRoleCode: null,
+  fit: "ROLE",
+  person: candidate,
+});
+const proposed = (...members: WorkforceTeamMember[]) => ({
+  basis: "ESTIMATE" as const,
+  neededCount: members.length,
+  slotCount: members.length,
+  members,
 });
 
-it("요구조건이 없는 공고는 팀×공고 표에 사람을 채우지 않는다", () => {
-  const dev = [person("dev-1", "DEVELOPER", "개발1팀", 1)];
-  const everyone = [...dev, person("pm-1", "PM", "사업팀", 1)];
+it("팀×공고 표는 추천 팀을 부서로 모으고, 같은 사람이 두 공고에 들면 두 칸에 모두 나온다", () => {
+  const dev = person("dev-1", "DEVELOPER", "개발1팀", 1);
+  const pm = person("pm-1", "PM", "사업팀", 1);
   const plan = teamPlanOf([
-    { bidId: "a", teams: teamsOf(dev), roleNeeds: [], candidateBasisMissing: false },
-    { bidId: "b", teams: teamsOf(everyone), roleNeeds: [], candidateBasisMissing: true },
+    { bidId: "a", proposedTeam: proposed(member(pm, "PM"), member(dev, "개발자")) },
+    { bidId: "b", proposedTeam: proposed(member(dev, "개발")) },
+    { bidId: "c", proposedTeam: null },
   ]);
-  expect(plan.map((row) => row.department)).toEqual(["개발1팀"]);
-  expect(plan[0]?.cells.map((c) => c.people.length)).toEqual([1, 0]);
+  expect(plan.map((row) => row.department)).toEqual(["개발1팀", "사업팀"]);
+  const row = plan[0];
+  expect(row?.cells.map((c) => c.people.map((p) => p.personId))).toEqual([
+    ["dev-1"],
+    ["dev-1"],
+    [],
+  ]);
+  expect(row?.cells.map((c) => c.roles)).toEqual([["개발자"], ["개발"], []]);
+  expect(row?.personCount).toBe(1);
 });

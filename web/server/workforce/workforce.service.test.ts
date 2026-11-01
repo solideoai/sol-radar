@@ -203,3 +203,23 @@ it("FX-01 추출의 '개발 10명'이 DEVELOPER 직원을 후보로 잡는다", 
   expect(item.candidates[0].matchReason).toBe("요구 역할 일치: 개발");
   expect(item.teams[0].department).toBe("개발부");
 });
+
+it("요구 기술·역할이 맞는 직원이 없어 후보가 0명이어도 추천 팀은 비지 않는다", async () => {
+  const { repo, input } = setup();
+  input.extraction = requirementExtractionSchema.parse(
+    JSON.parse(
+      readFileSync(new URL("../../../fixtures/extractions/FX-01.json", import.meta.url), "utf8"),
+    ),
+  );
+  // 직무 이름이 코드가 아니고 기술도 겹치지 않아 기존 후보 규칙으로는 아무도 잡히지 않는다
+  input.team.members[0] = { ...input.team.members[0], role: "개발자", skills: ["Figma"] };
+  const result = await simulateWorkforce("org", ["bid"], { repo }, NOW);
+  if (!result.ok) throw new Error("시뮬레이션 실패");
+  const item = result.data.bids[0];
+  expect(item.candidates).toEqual([]);
+  expect(item.proposedTeam).toMatchObject({ basis: "STAFFING", neededCount: 12, slotCount: 12 });
+  expect(
+    item.proposedTeam?.members.map((m) => [m.slot, m.fit, m.person.personId, m.person.department]),
+  ).toEqual([["개발", "ROLE", "eligible", "개발부"]]);
+  expect(result.data.teamPlan.map((row) => row.department)).toEqual(["개발부"]);
+});

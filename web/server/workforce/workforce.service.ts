@@ -13,8 +13,10 @@ import {
 } from "@/server/scoring";
 import { workRoleOf } from "@/server/shared";
 import { roleNeedsOf, teamPlanOf, teamsOf } from "./team-plan";
+import { proposeTeam } from "./team-proposal";
 import type {
   CurrentWorkforce,
+  StaffingRequirement,
   WorkforceBidResult,
   WorkforceCandidate,
   WorkforceOverload,
@@ -32,13 +34,14 @@ const periodOf = (input: AnalysisInput) =>
   input.bid.projectPeriod ??
   defaultProjectPeriod(kstDate(input.bid.deadlineAt ?? `${input.config.today}T00:00:00Z`));
 
+// 스냅샷 점수 대상 전원(pool)과 그 가운데 요구 기술·역할이 맞는 후보. 요구조건이 없으면 전원이 후보다.
 function candidatesOf(input: AnalysisInput, period: CapacityPeriod, current: CurrentWorkforce) {
   const skills = input.extraction?.requiredSkills;
   const staffing = input.extraction?.staffing;
   const requiredSkills = skills?.state === "KNOWN" ? (skills.value ?? []) : [];
   const roles = staffing?.state === "KNOWN" ? (staffing.value?.map((r) => r.role) ?? []) : [];
   const missing = requiredSkills.length === 0 && roles.length === 0;
-  const candidates = input.team.members.flatMap((member): WorkforceCandidate[] => {
+  const entries = input.team.members.map((member) => {
     const matchedSkills = requiredSkills.filter(
       (skill) => matchSkill(skill, companySkillSet(member.skills)) !== null,
     );
@@ -49,31 +52,38 @@ function candidatesOf(input: AnalysisInput, period: CapacityPeriod, current: Cur
         ? code === member.role
         : role.trim().toLowerCase() === member.role.trim().toLowerCase();
     });
-    if (!missing && matchedSkills.length === 0 && matchedRoles.length === 0) return [];
+    const matched = matchedSkills.length > 0 || matchedRoles.length > 0;
     const person = current.people.find((p) => p.personId === member.personId);
-    return [
-      {
-        personId: member.personId,
-        personCode: person?.personCode ?? null,
-        name: person?.name ?? `스냅샷 인력 ${member.personId.slice(0, 8)}`,
-        department: person?.department ?? null,
-        jobTitle: person?.jobTitle ?? null,
-        isDemo: person?.isDemo ?? false,
-        portraitUrl: person?.portraitUrl ?? null,
-        role: member.role,
-        grade: member.grade,
-        skills: member.skills,
-        availableFte: availableFte({ ...input.team, members: [member] }, period),
-        matchReason: missing
-          ? "후보 적합성 확인 필요"
-          : [
+    const candidate: WorkforceCandidate = {
+      personId: member.personId,
+      personCode: person?.personCode ?? null,
+      name: person?.name ?? `스냅샷 인력 ${member.personId.slice(0, 8)}`,
+      department: person?.department ?? null,
+      jobTitle: person?.jobTitle ?? null,
+      isDemo: person?.isDemo ?? false,
+      portraitUrl: person?.portraitUrl ?? null,
+      role: member.role,
+      grade: member.grade,
+      skills: member.skills,
+      matchedSkills,
+      availableFte: availableFte({ ...input.team, members: [member] }, period),
+      matchReason: missing
+        ? "후보 적합성 확인 필요"
+        : matched
+          ? [
               ...(matchedSkills.length ? [`요구 기술 일치: ${matchedSkills.join(", ")}`] : []),
               ...(matchedRoles.length ? [`요구 역할 일치: ${matchedRoles.join(", ")}`] : []),
-            ].join(" · "),
-      },
-    ];
+            ].join(" · ")
+          : "요구 기술·역할 불일치",
+    };
+    return { candidate, matched };
   });
-  return { candidates, missing };
+  return {
+    pool: entries.map((entry) => entry.candidate),
+    candidates: entries.filter((entry) => missing || entry.matched).map((e) => e.candidate),
+    missing,
+    requiredSkills,
+  };
 }
 
 function currentConflicts(bids: WorkforceBidResult[], current: CurrentWorkforce) {
@@ -147,6 +157,36 @@ function currentConflicts(bids: WorkforceBidResult[], current: CurrentWorkforce)
   return { overloads, sharedCandidates, currentMissingPersonIds: [...missing] };
 }
 
+type BidDraft = {
+  bid: Omit<WorkforceBidResult, "proposedTeam">;
+  /** 분석 스냅샷 점수 대상 전원. 유효한 분석이 없으면 null */
+  pool: WorkforceCandidate[] | null;
+  staffing: StaffingRequirement[] | null;
+  requiredSkills: string[];
+};
+
+// 공고 순서대로 추천 팀을 짠다. 기간이 겹치는 앞 공고의 팀에 든 사람은 다른 사람이 없을 때만 다시 고른다.
+function proposeTeams(drafts: BidDraft[]): WorkforceBidResult[] {
+  return drafts.reduce<WorkforceBidResult[]>((done, { bid, pool, staffing, requiredSkills }) => {
+    const avoid = new Set(
+      done
+        .filter((prev) => prev.period && bid.period && overlaps(prev.period, bid.period))
+        .flatMap((prev) => prev.proposedTeam?.members.map((m) => m.person.personId) ?? []),
+    );
+    const proposedTeam = pool
+      ? proposeTeam({
+          pool,
+          staffing,
+          requiredFte: bid.requiredFte,
+          requiredSkills,
+          title: bid.title,
+          avoidPersonIds: avoid,
+        })
+      : null;
+    return [...done, { ...bid, proposedTeam }];
+  }, []);
+}
+
 export async function simulateWorkforce(
   orgId: string,
   bidIds: string[],
@@ -158,8 +198,8 @@ export async function simulateWorkforce(
     return fail(404, "NOT_FOUND", "공고를 찾을 수 없거나 접근할 수 없습니다", { resource: "bid" });
   const currentAssignmentsAsOf = now.toISOString();
   const current = await repo.current(orgId, currentAssignmentsAsOf);
-  const bids = await Promise.all(
-    notices.map(async (notice, index): Promise<WorkforceBidResult> => {
+  const drafts = await Promise.all(
+    notices.map(async (notice, index): Promise<BidDraft> => {
       if (!notice) throw new Error("공고를 읽지 못했습니다");
       const latestAttempt = await repo.latestAttempt(orgId, bidIds[index]);
       for (let offset = 0; ; offset += 20) {
@@ -177,9 +217,14 @@ export async function simulateWorkforce(
               input.config.today,
             );
             const available = input.team.members.length ? availableFte(input.team, period) : null;
-            const { candidates, missing } = candidatesOf(input, period, current);
-            const staffing = input.extraction?.staffing;
-            return {
+            const { pool, candidates, missing, requiredSkills } = candidatesOf(
+              input,
+              period,
+              current,
+            );
+            const staffing =
+              input.extraction?.staffing.state === "KNOWN" ? input.extraction.staffing.value : null;
+            const bid: Omit<WorkforceBidResult, "proposedTeam"> = {
               ...notice,
               analysisId: row.id,
               analysisStatus: row.status,
@@ -204,19 +249,17 @@ export async function simulateWorkforce(
               note: factor.note,
               candidateBasisMissing: missing,
               candidates,
-              roleNeeds: roleNeedsOf(
-                staffing?.state === "KNOWN" ? staffing.value : null,
-                candidates,
-              ),
+              roleNeeds: roleNeedsOf(staffing, candidates),
               teams: teamsOf(candidates),
             };
+            return { bid, pool, staffing, requiredSkills };
           } catch (error) {
             if (!(error instanceof RangeError)) throw error;
           }
         }
         if (rows.length < 20) break;
       }
-      return {
+      const bid: Omit<WorkforceBidResult, "proposedTeam"> = {
         ...notice,
         analysisId: null,
         analysisStatus: null,
@@ -237,8 +280,10 @@ export async function simulateWorkforce(
         roleNeeds: [],
         teams: [],
       };
+      return { bid, pool: null, staffing: null, requiredSkills: [] };
     }),
   );
+  const bids = proposeTeams(drafts);
   return {
     ok: true,
     status: 200,

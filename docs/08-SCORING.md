@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -18,7 +18,7 @@ updated: 2026-10-30
 
 SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 결정 모델 출력은 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
 
-알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.1` 하나다(2026-10-29 `sol-v0.1.0` → `sol-v0.2.0`, 2026-10-30 자격 판정만 바꿔 `sol-v0.2.1`, [[16-DECISIONS|ADR-071]]). 저장된 `sol-v0.2.0` 스냅샷도 읽어 현재 규칙으로 계산한다(가정 재계산·추천 분석·인력 배치·재채점). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
+알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.1` 하나다(2026-10-29 `sol-v0.1.0` → `sol-v0.2.0`, 2026-10-30 자격 판정만 바꿔 `sol-v0.2.1`, [[16-DECISIONS|ADR-071]]). 저장된 `sol-v0.2.0` 스냅샷도 읽어 현재 규칙으로 계산한다(가정 재계산·추천 분석·인력 배치·재채점). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 실행 모드가 아니라 DB가 정한다. 로컬·시험·`demo:reset`은 가상 솔리데오 프로필(§6.1)이고, 운영(D1)은 공개 자료 프로필에 회사가 확인한 자격 3건을 더한 revision 6이다([[16-DECISIONS|ADR-052]], [[16-DECISIONS|ADR-059]] 2차 개정).
 
 추출값을 그대로 쓰지 않고 규칙 쪽이 만드는 파생값 두 개:
 
@@ -312,7 +312,7 @@ flowchart TD
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
 > [!warning] 가상 데이터
-> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 로컬 seed 가상 프로필(revision 2) 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 결정 모델 값은 `mock` 실행 모드(mock 추출, `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]). 운영(D1)은 공개 자료 프로필 revision 5라 숫자가 다르다. 발표 숫자의 정본은 [[19-DEMO-SCENARIO|19]] §2.2와 [[16-DECISIONS|ADR-059]]다.
+> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 로컬 seed 가상 프로필(revision 2) 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 결정 모델 값은 `mock` 실행 모드(mock 추출, `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]). 운영(D1)은 회사 프로필 revision 6(공개 자료 revision 5 + 회사 확인 자격 3건)이라 숫자가 다르다. 발표 숫자의 정본은 [[19-DEMO-SCENARIO|19]] §2.2와 [[16-DECISIONS|ADR-059]]다.
 
 ### 6.1 프로필 요약 (`org-01`, `company_profiles` revision 2)
 
@@ -426,7 +426,7 @@ ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점�
 
 ## 다기관 공고와 SOL Score 경계
 
-[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.2.0`(ADR-071, 가중치·임계값은 v0.1.0과 같다)·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
+[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.2.1`(ADR-071, 가중치·임계값은 v0.1.0과 같다)·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
 
 새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰 가능한 추천(`BID`)으로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
 

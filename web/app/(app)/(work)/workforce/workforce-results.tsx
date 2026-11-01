@@ -4,6 +4,7 @@ import { formatKst } from "@/components/bids/format";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { PersonAvatar } from "@/components/people/person-avatar";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -16,12 +17,16 @@ import { workRoleLabel } from "@/server/shared";
 import type {
   WorkforceBidResult,
   WorkforceCandidate,
+  WorkforceProposedTeam,
   WorkforceResult,
+  WorkforceTeamMember,
   WorkforceTeamPerson,
   WorkforceTeamSupply,
 } from "@/server/workforce";
 const date = (value: string) => (value.length === 10 ? value : `${formatKst(value)} KST`);
-const fte = (value: number | null) => (value === null ? "—" : String(value));
+// 인력 양은 "명분"(한 사람이 그 기간 업무 시간을 전부 쓰면 1명분), 한 사람의 몫은 %로 적는다. FTE 라는 말은 쓰지 않는다.
+const headcount = (value: number | null) => (value === null ? "—" : `${value}명분`);
+const percent = (value: number) => `${Math.round(value * 100)}%`;
 const reason = (value: string | null) =>
   value === "REQUIRED_FTE_UNKNOWN"
     ? "필요 인력 정보가 부족합니다."
@@ -30,11 +35,11 @@ const reason = (value: string | null) =>
       : value === "VALID_SNAPSHOT_REQUIRED"
         ? "유효한 완료 분석 스냅샷이 필요합니다."
         : value;
-// 이름(직무·등급). 팀 표와 역할별 목록에서 한 줄로 보인다. 분석 당시 가용이 없으면 그렇게 적는다.
+// 이름(직무·등급). 팀 표와 역할별 목록에서 한 줄로 보인다. 분석 당시 투입할 시간이 없으면 그렇게 적는다.
 const personLabel = (person: WorkforceTeamPerson) =>
-  `${person.name}(${[workRoleLabel(person.role), person.grade, person.availableFte > 0 ? null : "가용 0"].filter(Boolean).join("·")})`;
+  `${person.name}(${[workRoleLabel(person.role), person.grade, person.availableFte > 0 ? null : "투입 가능 0%"].filter(Boolean).join("·")})`;
 const teamSummary = (department: string, count: number, availableFte: number) =>
-  `${department} ${count}명 · 가용 ${fte(availableFte)} FTE`;
+  `${department} ${count}명 · 투입 가능 ${headcount(availableFte)}`;
 // 역할마다 팀은 앞의 몇 개만 펼친다. 후보가 많은 공고에서 카드가 끝없이 길어지지 않게 한다.
 const VISIBLE_TEAMS = 3;
 function TeamSupplyItems({ teams }: { teams: WorkforceTeamSupply[] }) {
@@ -66,30 +71,20 @@ function TeamSupplyList({ teams }: { teams: WorkforceTeamSupply[] }) {
     </>
   );
 }
-// 팀 순서대로 사람을 이어 붙여 [from, to) 만 남긴다. 팀 머리글은 원래 인원과 FTE 를 유지한다.
-const sliceTeams = (teams: WorkforceTeamSupply[], from: number, to: number) => {
-  let offset = 0;
-  return teams.flatMap((team) => {
-    const start = offset;
-    offset += team.people.length;
-    const people = team.people.slice(Math.max(0, from - start), Math.max(0, to - start));
-    return people.length ? [{ team, people }] : [];
-  });
-};
 function TeamCandidates({
   teams,
   candidates,
 }: {
-  teams: ReturnType<typeof sliceTeams>;
+  teams: WorkforceTeamSupply[];
   candidates: Map<string, WorkforceCandidate>;
 }) {
-  return teams.map(({ team, people }) => (
+  return teams.map((team) => (
     <div key={team.department} className="mt-3">
       <p className="type-label font-medium tabular-nums">
         {teamSummary(team.department, team.people.length, team.availableFte)}
       </p>
       <ul>
-        {people.map((p) => {
+        {team.people.map((p) => {
           const candidate = candidates.get(p.personId);
           return candidate ? <Candidate key={p.personId} person={candidate} /> : null;
         })}
@@ -150,10 +145,111 @@ function Candidate({ person }: { person: WorkforceCandidate }) {
           {[person.jobTitle, workRoleLabel(person.role), person.grade].filter(Boolean).join(" · ")}
         </p>
         <p className="type-caption">기술: {person.skills.join(", ") || "정보 없음"}</p>
-        <p className="type-caption tabular-nums">분석 당시 가용 {fte(person.availableFte)} FTE</p>
+        <p className="type-caption tabular-nums">
+          분석 당시 투입 가능 {percent(person.availableFte)}
+        </p>
         <p className="type-caption text-muted-foreground">{person.matchReason}</p>
       </div>
     </li>
+  );
+}
+// 추천 팀은 앞의 몇 명만 펼친다. 큰 사업(12명)에서 카드가 끝없이 길어지지 않게 한다.
+const VISIBLE_MEMBERS = 6;
+const fitText = (member: WorkforceTeamMember) =>
+  member.fit === "MATCH"
+    ? `같은 직무 · 요구 기술 일치: ${member.person.matchedSkills.join(", ")}`
+    : member.fit === "ROLE"
+      ? "같은 직무"
+      : member.slotRoleCode === null
+        ? "직무 대응 없음 · 다른 직무에서 대체"
+        : "같은 직무 직원이 없어 다른 직무에서 대체";
+const basisText = (team: WorkforceProposedTeam) => {
+  const { neededCount, slotCount, members } = team;
+  const notes = [
+    team.basis === "STAFFING"
+      ? "공고의 인력 요구조건대로 자리를 나눴습니다."
+      : neededCount === null
+        ? "필요 인력 정보가 없어 기본 구성(PM·개발자·디자이너 등)으로 짰습니다."
+        : `필요 인력 ${neededCount}명분에 맞춰 PM·개발자·디자이너 등으로 자리를 나눴습니다.`,
+    neededCount !== null && neededCount > slotCount
+      ? `필요 인력이 ${neededCount}명분이라 핵심 ${slotCount}자리를 먼저 짰습니다.`
+      : null,
+    members.length < slotCount
+      ? `분석 당시 인력이 모자라 ${slotCount}자리 가운데 ${members.length}자리만 채웠습니다.`
+      : null,
+  ];
+  return notes.filter(Boolean).join(" ");
+};
+function TeamMemberRow({ member }: { member: WorkforceTeamMember }) {
+  const { person } = member;
+  return (
+    <li className="flex min-w-0 items-start gap-3 border-t border-border py-3 wrap-anywhere">
+      <PersonAvatar
+        size="lg"
+        personId={person.personCode}
+        portraitUrl={person.portraitUrl}
+        name={person.name}
+      />
+      <div className="min-w-0 space-y-1">
+        <p className="type-label font-medium">{person.name}</p>
+        <p className="type-caption font-medium">
+          {member.slot} 담당 · {person.department ?? "부서 미지정"}
+        </p>
+        <p className="type-caption text-muted-foreground">
+          {[person.jobTitle, workRoleLabel(person.role), person.grade].filter(Boolean).join(" · ")}
+        </p>
+        <p className={cn("type-caption tabular-nums", person.availableFte <= 0 && "text-warning")}>
+          {person.availableFte > 0
+            ? `분석 당시 투입 가능 ${percent(person.availableFte)}`
+            : "분석 당시 투입 가능 0% · 일정 조정 필요"}
+        </p>
+        <p className="type-caption text-muted-foreground">{fitText(member)}</p>
+      </div>
+    </li>
+  );
+}
+function ProposedTeam({ item, team }: { item: WorkforceBidResult; team: WorkforceProposedTeam }) {
+  const { members } = team;
+  const teamCount = new Set(members.map((member) => member.person.department)).size;
+  return (
+    <>
+      <h4 className="mt-5 mb-2 type-label font-medium">추천 팀 구성 {members.length}명</h4>
+      {members.length === 0 ? (
+        <p className="type-caption text-warning">
+          분석 당시 인력 정보가 없어 팀을 짤 수 없습니다. 공고를 다시 분석하세요.
+        </p>
+      ) : (
+        <>
+          <p className="type-caption text-muted-foreground">
+            {basisText(team)} {teamCount}개 팀에서 골랐으며 확정 배정이 아닌 후보입니다.
+          </p>
+          {(item.candidateBasisMissing || item.candidates.length === 0) && (
+            <p className="mt-1 type-caption text-warning">
+              {item.candidateBasisMissing
+                ? "공고에 역할·기술 요구조건이 없어 직무 기준으로 짰습니다. 적합성은 사람이 확인하세요."
+                : "요구 기술·역할이 맞는 직원이 없어 직무 기준으로 짰습니다."}
+            </p>
+          )}
+          <ul className="mt-2">
+            {members.slice(0, VISIBLE_MEMBERS).map((member) => (
+              <TeamMemberRow key={member.person.personId} member={member} />
+            ))}
+          </ul>
+          {members.length > VISIBLE_MEMBERS && (
+            <details>
+              <summary className="cursor-pointer type-label">
+                나머지 {members.length - VISIBLE_MEMBERS}명 보기
+              </summary>
+              <ul>
+                {members.slice(VISIBLE_MEMBERS).map((member) => (
+                  <TeamMemberRow key={member.person.personId} member={member} />
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+    </>
   );
 }
 function BidCard({ item }: { item: WorkforceBidResult }) {
@@ -172,7 +268,7 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
       {item.analysisId === null ? (
         <>
           <p className="type-label text-warning">분석 필요</p>
-          <p className="mt-2 type-body">필요 — FTE · 가용 — FTE</p>
+          <p className="mt-2 type-body">필요 인력 — · 투입 가능 인력 —</p>
           <p className="mt-2 type-caption text-muted-foreground">{reason(item.missingReason)}</p>
         </>
       ) : (
@@ -215,15 +311,16 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
           <dl className="my-4 grid grid-cols-2 gap-3">
             <div>
               <dt className="type-caption text-muted-foreground">필요 인력</dt>
-              <dd className="type-heading tabular-nums">{fte(item.requiredFte)} FTE</dd>
+              <dd className="type-heading tabular-nums">{headcount(item.requiredFte)}</dd>
             </div>
             <div>
-              <dt className="type-caption text-muted-foreground">분석 당시 가용</dt>
-              <dd className="type-heading tabular-nums">{fte(item.availableFte)} FTE</dd>
+              <dt className="type-caption text-muted-foreground">분석 당시 투입 가능</dt>
+              <dd className="type-heading tabular-nums">{headcount(item.availableFte)}</dd>
             </div>
           </dl>
           <p className="type-caption text-muted-foreground">
-            FTE는 상근 환산 인력이며 실제 인원 수와 다릅니다.
+            1명분은 한 사람이 그 기간 업무 시간을 전부 쓰는 양입니다. 두 사람이 절반씩이면 1명분이라
+            실제 인원 수와 다를 수 있습니다.
           </p>
           <p className="mt-2 type-caption">
             {item.requiredFteSource === "BUDGET_TIER"
@@ -236,32 +333,15 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
             <p className="mt-2 type-caption text-warning">{reason(item.missingReason)}</p>
           )}
           {item.note && <p className="mt-2 type-caption text-muted-foreground">{item.note}</p>}
+          {item.proposedTeam && <ProposedTeam item={item} team={item.proposedTeam} />}
           <RoleNeeds item={item} />
-          <h4 className="mt-5 mb-2 type-label font-medium">팀별 후보 {item.candidates.length}명</h4>
-          {item.candidateBasisMissing && (
-            <p className="mb-2 type-caption text-warning">
-              후보 적합성 확인 필요 · 역할·기술 요구조건이 없습니다.
-            </p>
-          )}
-          {item.candidates.length === 0 ? (
-            <p className="type-caption text-muted-foreground">
-              조건에 맞는 후보가 없습니다. 전체 인력 부족을 뜻하지 않습니다.
-            </p>
-          ) : (
-            <>
-              <TeamCandidates teams={sliceTeams(item.teams, 0, 6)} candidates={candidates} />
-              {item.candidates.length > 6 && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer type-label">
-                    나머지 {item.candidates.length - 6}명 보기
-                  </summary>
-                  <TeamCandidates
-                    teams={sliceTeams(item.teams, 6, Infinity)}
-                    candidates={candidates}
-                  />
-                </details>
-              )}
-            </>
+          {!item.candidateBasisMissing && item.candidates.length > 0 && (
+            <details className="mt-5">
+              <summary className="cursor-pointer type-label font-medium">
+                조건에 맞는 전체 후보 {item.candidates.length}명 보기
+              </summary>
+              <TeamCandidates teams={item.teams} candidates={candidates} />
+            </details>
           )}
         </>
       )}
@@ -361,8 +441,8 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
           팀별 지원 요청
         </h2>
         <p className="type-caption text-muted-foreground">
-          팀마다 어느 공고에 누구를 낼지 분석 당시 후보로 보여 줍니다. 저장되거나 실제 배정에
-          반영되지 않습니다.
+          팀마다 어느 공고의 추천 팀에 누구를 낼지 보여 줍니다. 저장되거나 실제 배정에 반영되지
+          않습니다.
         </p>
         {result.teamPlan.length === 0 ? (
           <p className="type-body text-muted-foreground">팀별로 묶을 후보가 없습니다.</p>
@@ -378,8 +458,8 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
           현재 배정과 기간 충돌
         </h2>
         <p className="type-caption text-muted-foreground">
-          현재 배정 기준 {formatKst(result.currentAssignmentsAsOf)} KST · 분석 당시 FTE와 별도
-          기준입니다.
+          현재 배정 기준 {formatKst(result.currentAssignmentsAsOf)} KST · 분석 당시 투입 가능 인력과
+          별도 기준입니다.
         </p>
         <p className="type-caption text-muted-foreground">
           모든 기간은 시작 포함·종료 제외입니다. 종료와 다음 시작이 같으면 겹치지 않습니다.
@@ -424,9 +504,9 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
                     {date(row.startsAt)} ~ {date(row.endsAt)}
                   </TableCell>
                   <TableCell className="whitespace-normal tabular-nums">
-                    기존 배정 {fte(row.allocatedFte)} FTE
+                    기존 배정 {percent(row.allocatedFte)}
                     <br />
-                    가용 {fte(row.capacityFte)} FTE
+                    가용 {percent(row.capacityFte)}
                   </TableCell>
                 </TableRow>
               ))}
