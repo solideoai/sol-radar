@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-30
+updated: 2026-11-01
 ---
 
 # 기술적 한계·미완성 항목·실행 모드 구분
@@ -21,7 +21,7 @@ updated: 2026-10-30
 |---|---|---|---|
 | 공고 | 실제 공고(나라장터 · LH · KEPCO · K-water 입찰공고, `is_demo=false`) | 가상 fixture 20건(`DEMO` 배지) | 가상 fixture 20건 |
 | 첨부·파싱 | **회사 운영 중**(다운로드·파서·documents worker, ADR-054). 2026-10-28부터 회사 Documents Worker가 돈다([기록](../evidence/company-rollout/20261028/sources-rollout.md), 처리 건수는 [[PROGRESS\|진행 상황]]). 격리 스택에서 HWP·PDF·HWPX 3건 `PARSED`([증거](../evidence/attachment-pipeline/20261027-isolated-run.md)). 처리 범위 밖 첨부는 `PENDING`으로 남는다(ADR-055 채택). 첨부 일부만 반영된 추출이 재사용될 수 있다(ADR-056 A안 채택, 코드 구현·회사 반영 전). KEPCO 첨부 주소는 해커톤 동안 막아 둔다(ADR-068) | fixture 첨부 없음 | fixture 첨부 없음 |
-| 회사 프로필 | **공개 자료 솔리데오**(운영, revision 5, "공개 자료 회사 프로필로 분석" 배지, [[16-DECISIONS\|ADR-052]]) | 가상 솔리데오("가상 회사 프로필로 분석" 배지) | 가상 솔리데오 |
+| 회사 프로필 | **공개 자료 솔리데오**(운영, revision 6. 공개 자료에 회사가 확인한 자격 3건(소프트웨어사업자·직접생산·중소기업)을 더했다, [[16-DECISIONS\|ADR-059]] 2차 개정. "공개 자료 회사 프로필로 분석" 배지, [[16-DECISIONS\|ADR-052]]) | 가상 솔리데오("가상 회사 프로필로 분석" 배지) | 가상 솔리데오 |
 | Qwen 추출 | 회사 API의 Qwen3.8-Flash-Next를 호출하는 어댑터 구현. 엔드포인트 probe 통과(2026-10-21, [증거](../evidence/phase-5/qwen-probe-20261021-2343.json)). 운영 앱 경로 실추론은 DEMO 가상 공고 19건(2026-10-24 FX-02 1건, 10-27 17건, 10-28 FX-03 1건), 실공고 개별 3건과 IT 실공고 371건 일괄 분석(2026-10-29) | 같은 실모델 경로, 앱 경로 실추론 미확인 | 고정 추출 응답 |
 | 설명 | 분석 설명은 템플릿(`fallback=true`). [추천 분석] 버튼을 누르면 Qwen 설명(검증 실패 시 `TEMPLATE`, ADR-066) | 템플릿(`fallback=true`) | 템플릿(`fallback=true`) |
 | 결정 모델(Bosun) | 회사 GPU 서버의 Bosun v3.1 0.6B 실추론(우리 `sol_decision` 서버. 운영 실추론은 DEMO 가상 공고 19건(2026-10-24·27·28), 실공고 개별 3건 중 2건, IT 실공고 일괄 분석(2026-10-29)), 참고 지표만, `UNCALIBRATED` | 실추론 | 고정 응답(`kev-qs/v0.1`, 모델 식별자 `mock`) |
