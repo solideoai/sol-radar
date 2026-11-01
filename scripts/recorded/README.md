@@ -74,7 +74,7 @@ test·dev 배정을 먼저 지켜 사람 라벨이 붙은 공고가 움직이지
 
 `record-program-notices.mjs`는 부처 지원사업 공고 응답을 한 번 부르고, 연락처를 가려 `fixtures/recorded/program-notices/<소스>/`에
 저장한다. 형식은 `web/server/program-notices/recording.ts`의 `sol-program-recorded/v0.1`이고, worker 의 mock·fixture 모드가
-네트워크 대신 이 파일을 재생한다. 파일 이름은 `rss-310.<KST YYYYMMDD>.masked.json`(중기부)·`api.<KST YYYYMMDD>.masked.json`(기업마당)이고,
+네트워크 대신 이 파일을 재생한다. 파일 이름은 `rss-310.<KST YYYYMMDD>.masked.json`(중기부)·`api.<KST YYYYMMDD>.masked.json`(기업마당·과기정통부)이고,
 같은 날 다시 돌리면 그 파일을 덮는다.
 
 ```bash
@@ -87,14 +87,22 @@ pnpm record:program-notices -- --source mss             # 중기부 사업공고
 
 ```bash
 node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/recorded/record-program-notices.mjs --source bizinfo
+node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/recorded/record-program-notices.mjs --source msit
 ```
 
-- 가림: 기업마당 문의처(`refrncNm`)는 통째로 `***`, 다른 칸의 전화·이메일·대표번호(15xx·16xx·18xx)는 같은 길이 `*`. 중기부 RSS 는 원문 글자에서 패턴만 가린다.
-- 저장 전·뒤 두 번 이메일·전화·대표번호·`crtfcKey`·키 네 형태(원문·1회·2회 인코딩·소문자 인코딩)를 세어 0건이 아니면 멈춘다. 녹음 `params`에는 키가 없다.
+과기정통부(`--source msit`)는 `MSIT_ANNOUNCEMENT_API_KEY`(공공데이터포털 15074634 Encoding 키)가 필요하다. 스크립트가 한 번 풀어 `ServiceKey`로 한 번만 인코딩해 보낸다.
+
+- 가림: 기업마당 문의처(`refrncNm`)·과기정통부 담당자(`managerName`·`managerTel`)는 통째로 `***`, 다른 칸의 전화·이메일·대표번호(15xx·16xx·18xx)는 같은 길이 `*`. 중기부 RSS 는 원문 글자에서 패턴만 가린다.
+- 저장 전·뒤 두 번 이메일·전화·대표번호·`crtfcKey`·키 네 형태(원문·1회·2회 인코딩·소문자 인코딩)를 세어 0건이 아니면 멈춘다. 녹음 `params`에는 키가 없다(`crtfcKey`·`ServiceKey` 이름이 있으면 형식 오류).
 - 출력은 파일 경로·상태 코드·크기·항목 수·가린 필드뿐이다. 키·요청 URL·응답 본문은 출력하지 않는다. 요청 예외도 이름만 남긴다.
-- `www.bizinfo.go.kr`·`mss.go.kr`의 https 만 부른다. 리다이렉트는 따르지 않고(3xx 면 멈춘다), 2 MiB·10초 상한이다.
+- `www.bizinfo.go.kr`·`mss.go.kr`·`apis.data.go.kr`의 https 만 부른다. 리다이렉트는 따르지 않고(3xx 면 멈춘다), 2 MiB·10초 상한이다.
 - 기업마당 요청 값(분야 `02`, 최대 100건)은 `infra/sources/program-notices.yaml`의 기본값과 같다.
 - 기업마당 첫 녹음: `fixtures/recorded/program-notices/bizinfo/api.20261028.masked.json`. 2026-10-28 16:05:18 KST 회사 서버 일회용 컨테이너에서 1회 불렀다(사용자 승인). HTTP 200, 100건(분야 02 전체 279건 중 최신 100건). 회사 원본 파일 sha256 `63c5dd87fc3dfc5e4add194acc30af9f6d505125f3a25b705dc772fbcd448fa9`, 저장소 사본은 Prettier 서식만 맞췄다(본문 `body` 문자열은 그대로, sha256 `a11f718421b5baa7ef9b8d4aee31b98523fcb558797132f45d064b1a2578aff9`). `rawSha256`(가리기 전 본문) `4a14443430a69bd24cf855f144bea09ddd8e8d4c92e249d7f62c5febb68c00a7`. 명세와 다른 실제 모양(해시태그 칸 `hashtags`)은 `docs/evidence/program-notices/20261028-bizinfo-schedule.md`에 있다.
+- 과기정통부 첫 녹음: `fixtures/recorded/program-notices/msit/api.20261101.masked.json`. 2026-11-01 20:01:41 KST 사용자 Mac 에서 1회 불렀다(사용자 승인). HTTP 200, `application/json;charset=utf-8`, 10건(`totalCount` 4274). 저장소 사본은 Prettier 서식만 맞췄다(sha256 `0645ff14162227126cd16b2a53398b32e3da9af2967a90efdeb45ae10d34c30e`), `rawSha256` `f4cfc2164fe6bb97cfdda05d94deea722663fb83552a79e5ef976e7303c13e91`. 실제 모양:
+  - 봉투는 배열이다: `{"response":[{"header":{"resultCode":"00","resultMsg":"NORMAL_CODE"}},{"body":{"pageNo","totalCount","numOfRows","items":[{"item":{…}}]}}]}`.
+  - `numOfRows=50`을 보내도 응답은 10건이고 `numOfRows`가 10이다. 한 번에 최신 10건만 받는다.
+  - 최신 등록 순이다. `pressDt`는 `YYYY-MM-DD`, `viewUrl`은 `https://www.msit.go.kr/bbs/view.do?sCode=user&mId=311&mPid=121&bbsSeqNo=100&nttSeqNo=<번호>`, 첨부는 `files[].file.{fileName,fileUrl}`.
+  - 10건 중 제목에 "선정결과" 4건, "수상작" 1건이다(수집 때 뺀다).
 
 ## LH 입찰공고 녹음 (15159012, 2026-10-27)
 

@@ -39,8 +39,8 @@ const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const DEFAULT_OUT = path.join(ROOT, "fixtures", "recorded", "program-notices");
 // infra/sources/program-notices.yaml 의 기본값과 같다(분야 02 기술, 최대 100건).
 const BIZINFO_SETTINGS = { categories: ["02"], maxItems: 100 };
-// infra/sources/program-notices.yaml 의 과기정통부 기본값과 같다(최신 50건, 1쪽).
-const MSIT_SETTINGS = { maxItems: 50 };
+// infra/sources/program-notices.yaml 의 과기정통부 기본값과 같다(1쪽). 50을 보내도 서버가 10건만 준다(2026-11-01 녹음).
+const MSIT_SETTINGS = { maxItems: 10 };
 const SOURCES = ["mss", "bizinfo", "msit"];
 
 class StopRecording extends Error {}
