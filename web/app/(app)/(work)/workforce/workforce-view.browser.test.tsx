@@ -5,10 +5,12 @@ import { page, userEvent } from "vitest/browser";
 import type {
   WorkforceBidResult,
   WorkforceCandidate,
+  WorkforceProposedTeam,
   WorkforceResult,
   WorkforceTeamPerson,
   WorkforceTeamSupply,
 } from "@/server/workforce";
+import type { WorkRoleCode } from "@/server/shared";
 import { WorkforceView } from "./workforce-view";
 
 // 인력 배치 화면의 추천 공고 불러오기와 역할·팀 표시(계획 docs/plans/2026-10-30-team-staffing.md Task 3).
@@ -39,9 +41,16 @@ const CANDIDATE: WorkforceCandidate = {
   portraitUrl: "/demo/people/SOL-P0001.png",
   department: "개발1팀",
   skills: ["Java"],
+  matchedSkills: [],
   matchReason: "요구 역할 일치: 개발",
 };
 const TEAM: WorkforceTeamSupply = { department: "개발1팀", people: [PERSON], availableFte: 1 };
+const PROPOSED: WorkforceProposedTeam = {
+  basis: "STAFFING",
+  neededCount: 3,
+  slotCount: 3,
+  members: [{ slot: "개발", slotRoleCode: "DEVELOPER", fit: "ROLE", person: CANDIDATE }],
+};
 const bid = (
   bidId: string,
   title: string,
@@ -79,6 +88,7 @@ const bid = (
     },
   ],
   teams: [TEAM],
+  proposedTeam: PROPOSED,
   ...overrides,
 });
 const RESULT: WorkforceResult = {
@@ -237,7 +247,7 @@ it("역할마다 팀은 3개까지 보이고 나머지는 접는다", async () =
   expect(details.querySelector("summary")?.textContent).toBe("나머지 1개 팀 보기");
   expect(details.textContent).toContain("개발4팀 1명");
   expect(item.textContent?.replace(details.textContent ?? "", "")).not.toContain("개발4팀");
-  expect(host.textContent).toContain("개발3팀 1명 · 가용 1 FTE");
+  expect(host.textContent).toContain("개발3팀 1명 · 투입 가능 1명분");
 });
 
 it("요구조건 없는 공고 열은 사람이 확인하라고 적고, 가용 0 인 사람을 표시한다", async () => {
@@ -265,7 +275,7 @@ it("요구조건 없는 공고 열은 사람이 확인하라고 적고, 가용 0
   expect(headers[2]).toBe("가상 민원 포털 구축요구조건 없음 · 사람이 확인");
   expect(headers[1]).toBe("가상 행정 시스템 고도화");
   expect(table.element().querySelector("tbody td:nth-child(2)")?.textContent).toContain(
-    "한가람(개발자·중급), 윤바쁨(개발자·중급·가용 0)",
+    "한가람(개발자·중급), 윤바쁨(개발자·중급·투입 가능 0%)",
   );
 });
 
@@ -298,8 +308,9 @@ it("팀별 지원 요청 표는 10개 팀만 보이고 버튼으로 나머지를
   expect(rows()).toHaveLength(10);
 });
 
-it("역할 정보가 없으면 '역할 정보 없음'과 팀 묶음을 보인다", async () => {
+it("역할 정보가 없으면 '역할 정보 없음'과 추정 기준 추천 팀을 보인다", async () => {
   const unassigned = { department: "부서 미지정", people: [PERSON], availableFte: 1 };
+  const loner = { ...CANDIDATE, department: null, matchedSkills: ["Java"] };
   render({
     initialIds: [BID_A],
     initialResult: {
@@ -309,7 +320,13 @@ it("역할 정보가 없으면 '역할 정보 없음'과 팀 묶음을 보인다
           requiredFteSource: "BUDGET_TIER",
           roleNeeds: [],
           teams: [unassigned],
-          candidates: [{ ...CANDIDATE, department: null, matchReason: "요구 기술 일치: Java" }],
+          candidates: [{ ...loner, matchReason: "요구 기술 일치: Java" }],
+          proposedTeam: {
+            basis: "ESTIMATE",
+            neededCount: 3,
+            slotCount: 3,
+            members: [{ slot: "개발자", slotRoleCode: "DEVELOPER", fit: "MATCH", person: loner }],
+          },
         }),
       ],
       teamPlan: [
@@ -323,10 +340,15 @@ it("역할 정보가 없으면 '역할 정보 없음'과 팀 묶음을 보인다
   });
   await expect.element(page.getByText("역할 정보 없음", { exact: true })).toBeVisible();
   await expect.element(page.getByText("필요 인력은 예산 구간 추정입니다.")).toBeVisible();
-  await expect.element(page.getByText("부서 미지정 1명 · 가용 1 FTE").first()).toBeVisible();
+  await expect.element(page.getByText("개발자 담당 · 부서 미지정")).toBeVisible();
+  await expect.element(page.getByText("같은 직무 · 요구 기술 일치: Java")).toBeVisible();
+  await expect
+    .element(page.getByText(/필요 인력 3명분에 맞춰 PM·개발자·디자이너 등으로 자리를 나눴습니다/))
+    .toBeVisible();
+  await expect.element(page.getByText(/3자리 가운데 1자리만 채웠습니다/)).toBeVisible();
 });
 
-it("계산 기준은 접고 기간 가정·추정·FTE 정의와 최근 실패 경고는 노출한다", async () => {
+it("계산 기준은 접고 기간 가정·추정·명분 정의와 최근 실패 경고는 노출한다", async () => {
   const fetch = stubFetch({ items: [] });
   const host = render({
     initialIds: [BID_A],
@@ -352,12 +374,63 @@ it("계산 기준은 접고 기간 가정·추정·FTE 정의와 최근 실패 �
     .element(page.getByText(/기본 기간: 마감·기준일의 1개월 뒤 월초부터 6개월/))
     .toBeVisible();
   await expect.element(page.getByText("필요 인력은 예산 구간 추정입니다.")).toBeVisible();
-  await expect
-    .element(page.getByText("FTE는 상근 환산 인력이며 실제 인원 수와 다릅니다."))
-    .toBeVisible();
+  await expect.element(page.getByText(/1명분은 한 사람이 그 기간 업무 시간을 전부/)).toBeVisible();
   await expect.element(page.getByText(/최근 유효 완료 분석을 표시합니다/)).toBeVisible();
   await userEvent.click(details.querySelector("summary")!);
   await expect.element(analysis).toBeVisible();
   await expect.element(page.getByText("계산 기준일 2026-10-16", { exact: true })).toBeVisible();
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it("조건에 맞는 후보가 0명이어도 여러 팀에서 고른 추천 팀을 보이고 FTE 라는 말을 쓰지 않는다", async () => {
+  const member = (
+    personId: string,
+    name: string,
+    slot: string,
+    role: WorkRoleCode,
+    department: string,
+  ) => ({
+    slot,
+    slotRoleCode: role,
+    fit: "ROLE" as const,
+    person: { ...CANDIDATE, personId, personCode: null, name, role, department },
+  });
+  const members = [
+    member("p-pm", "서누리", "PM", "PM", "사업전략팀"),
+    member("p-dev", "한가람", "개발자", "DEVELOPER", "공공AX1팀"),
+    member("p-ux", "윤슬기", "디자이너", "DESIGNER", "UXUI디자인팀"),
+  ];
+  render({
+    initialIds: [BID_A],
+    initialResult: {
+      ...RESULT,
+      bids: [
+        bid(BID_A, "가상 행정 시스템 고도화", {
+          requiredFte: 3,
+          requiredFteSource: "BUDGET_TIER",
+          roleNeeds: [],
+          candidates: [],
+          teams: [],
+          proposedTeam: { basis: "ESTIMATE", neededCount: 3, slotCount: 3, members },
+        }),
+      ],
+      teamPlan: [],
+    },
+  });
+  await expect.element(page.getByRole("heading", { name: "추천 팀 구성 3명" })).toBeVisible();
+  await expect
+    .element(page.getByText("요구 기술·역할이 맞는 직원이 없어 직무 기준으로 짰습니다."))
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/3개 팀에서 골랐으며 확정 배정이 아닌 후보입니다/))
+    .toBeVisible();
+  for (const line of [
+    "PM 담당 · 사업전략팀",
+    "개발자 담당 · 공공AX1팀",
+    "디자이너 담당 · UXUI디자인팀",
+  ])
+    await expect.element(page.getByText(line, { exact: true })).toBeVisible();
+  await expect.element(page.getByText("3명분", { exact: true })).toBeVisible();
+  expect(document.body.textContent).not.toContain("FTE");
+  expect(document.body.textContent).not.toContain("조건에 맞는 전체 후보");
 });

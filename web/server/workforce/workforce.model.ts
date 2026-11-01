@@ -50,6 +50,8 @@ export type WorkforceCandidate = Omit<CurrentPerson, "availability"> & {
   role: string;
   grade: string | null;
   skills: string[];
+  /** 공고 요구 기술 가운데 이 사람이 가진 것 */
+  matchedSkills: string[];
   availableFte: number;
   matchReason: string;
 };
@@ -72,6 +74,8 @@ export type WorkforceBidResult = WorkforceBid & {
   candidates: WorkforceCandidate[];
   roleNeeds: WorkforceRoleNeed[];
   teams: WorkforceTeamSupply[];
+  /** 추천 팀 구성. 유효한 분석이 없으면 null */
+  proposedTeam: WorkforceProposedTeam | null;
 };
 export type WorkforceOverload = CapacityPeriod & {
   personId: string;
@@ -136,4 +140,22 @@ export type WorkforceTeamPlanRow = {
   department: string;
   personCount: number;
   cells: WorkforceTeamPlanCell[];
+};
+// 공고마다 자리(역할)를 나누고 자리마다 한 사람을 고른 추천 팀. 확정 배정이 아니며 저장하지 않는다.
+export type WorkforceTeamMember = {
+  /** 맡을 자리. 공고 원문 역할이거나 기본 구성의 직무 이름 */
+  slot: string;
+  slotRoleCode: WorkRoleCode | null;
+  /** MATCH 같은 직무·요구 기술 일치, ROLE 같은 직무, SUBSTITUTE 같은 직무 직원이 없어 다른 직무에서 대체 */
+  fit: "MATCH" | "ROLE" | "SUBSTITUTE";
+  person: WorkforceCandidate;
+};
+export type WorkforceProposedTeam = {
+  /** STAFFING 공고 인력 요구조건 기준, ESTIMATE 필요 인력 추정·요구 기술·기본 구성 기준 */
+  basis: "STAFFING" | "ESTIMATE";
+  /** 필요 인력(명분)을 올린 인원. 모르면 null */
+  neededCount: number | null;
+  /** 나눈 자리 수. 인력이 모자라면 members 가 이보다 적다 */
+  slotCount: number;
+  members: WorkforceTeamMember[];
 };

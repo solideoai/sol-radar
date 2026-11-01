@@ -6,12 +6,13 @@ import {
   type WorkforceBidResult,
   type WorkforceCandidate,
   type WorkforceRoleNeed,
+  type WorkforceTeamMember,
   type WorkforceTeamPerson,
   type WorkforceTeamPlanRow,
   type WorkforceTeamSupply,
 } from "./workforce.model";
 
-// 역할별 필요·팀 묶음·팀×공고 표. 분석 스냅샷 후보만 쓰는 순수 계산이며 저장하지 않는다(ADR-021).
+// 역할별 필요·팀 묶음·팀×공고 표. 분석 스냅샷 인력만 쓰는 순수 계산이며 저장하지 않는다(ADR-021).
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const byName = (a: string, b: string) => a.localeCompare(b, "ko");
 const byPerson = (a: WorkforceTeamPerson, b: WorkforceTeamPerson) =>
@@ -71,26 +72,24 @@ export function roleNeedsOf(
   });
 }
 
-// 역할·기술 요구조건이 없는 공고는 후보가 전 직원이라 지원 요청으로 채우지 않는다(그 열은 사람이 확인).
-const supplyOf = (bid: Pick<WorkforceBidResult, "teams" | "candidateBasisMissing">) =>
-  bid.candidateBasisMissing ? [] : bid.teams;
-
+// 팀마다 어느 공고의 추천 팀에 누구를 내는지 모은다. 칸의 roles 는 그 사람들이 맡을 자리 이름이다.
 export function teamPlanOf(
-  bids: Pick<WorkforceBidResult, "bidId" | "teams" | "roleNeeds" | "candidateBasisMissing">[],
+  bids: Pick<WorkforceBidResult, "bidId" | "proposedTeam">[],
 ): WorkforceTeamPlanRow[] {
-  const departments = [...new Set(bids.flatMap((bid) => supplyOf(bid).map((t) => t.department)))];
+  const membersOf = (bid: Pick<WorkforceBidResult, "proposedTeam">) =>
+    bid.proposedTeam?.members ?? [];
+  const departmentOf = (member: WorkforceTeamMember) =>
+    member.person.department ?? UNASSIGNED_DEPARTMENT;
+  const departments = [...new Set(bids.flatMap((bid) => membersOf(bid).map(departmentOf)))];
   return departments
     .map((department) => {
       const cells = bids.map((bid) => {
-        const people = supplyOf(bid).find((t) => t.department === department)?.people ?? [];
-        const roles = [
-          ...new Set(
-            bid.roleNeeds
-              .filter((need) => people.some((p) => p.role === need.roleCode))
-              .map((need) => need.role),
-          ),
-        ];
-        return { bidId: bid.bidId, people, roles };
+        const members = membersOf(bid).filter((member) => departmentOf(member) === department);
+        return {
+          bidId: bid.bidId,
+          people: members.map((member) => toPerson(member.person)),
+          roles: [...new Set(members.map((member) => member.slot))],
+        };
       });
       const personCount = new Set(cells.flatMap((c) => c.people.map((p) => p.personId))).size;
       return { department, personCount, cells };

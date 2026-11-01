@@ -8,6 +8,8 @@ export type {
   WorkforceOverload,
   WorkforceSharedCandidate,
   WorkforceRoleNeed,
+  WorkforceProposedTeam,
+  WorkforceTeamMember,
   WorkforceTeamPerson,
   WorkforceTeamPlanCell,
   WorkforceTeamPlanRow,
