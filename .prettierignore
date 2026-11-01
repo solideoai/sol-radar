@@ -45,5 +45,9 @@ pnpm-lock.yaml
 # Prettier 는 그 파일을 읽지 않아, 다른 세션이 격리 에이전트를 쓰는 동안 루트 format:check(커밋 게이트)가 막힌다
 /.claude/worktrees/
 
+# OMB 가 worktree 마다 복사해 넣는 스킬 사본 — git 밖(.git/info/exclude)이다. post-checkout 훅이 push 전 검사의
+# 임시 worktree 에도 넣어서, 빼지 않으면 저장소에 없는 파일 때문에 루트 format:check 가 막힌다(2026-11-01)
+/.agents/
+
 # 스킬 — 템플릿 자체 스킬은 마크다운뿐이고, 나머지는 `skills add` 로 받은 서드파티 원본이라 고치지 않는다(skills-lock.json)
 /.claude/skills/
