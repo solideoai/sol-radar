@@ -2,7 +2,7 @@
 title: "SOL Score v0.2.1 운영 반영 기록 (2026-10-30)"
 status: active
 tags: [sol-radar, evidence, scoring, deployment]
-updated: 2026-10-31
+updated: 2026-11-01
 ---
 
 # SOL Score v0.2.1 운영 반영 기록 (2026-10-30)
@@ -35,7 +35,30 @@ updated: 2026-10-31
 - 그래서 화면은 아직 `sol-v0.2.0` run을 보인다. 새로 요청하는 분석은 요청 쪽(redis-api·Vercel)이 `sol-v0.2.1`을 적는다.
 - 회사 컨테이너 상태는 10-31에 다시 보지 않았다(회사 망 밖).
 
+## 재채점 쓰기 (2026-11-01)
+
+사용자 승인(2026-11-01 "3번은 지금 실행해")으로 실행서 §11.7 순서를 따랐다. 회사 `sol-radar-deploy`(HEAD `efab8acc`)에서 `ANALYSIS_WORKER_TAG=efab8acc144b`인 일회용 컨테이너(`$A run --rm --no-deps analysis-worker …`)로 돌렸다. 로그 원문은 회사 `/data/www/ai_workspace/rescore-v021-dryrun-20261101.log`·`rescore-v021-write-20261101.log`에 있다.
+
+| 시각(KST) | 단계 | 결과 |
+|---|---|---|
+| 16:0x | `--changed-only --dry-run` | `shown=384 current=0 targets=384 written=0 existing=0 busy=0 unchanged=159 invalid=0 failed=0 recommendation_changed=12`, exit 0, `CHANGED` 225줄. 10-30 dry-run(`shown=385`)보다 1건 적다 |
+| 16:0x | 멈춤 조건 확인(운영 DB SELECT) | `CHANGED` 225건 모두 실공고(`is_demo=false`)의 `sol-v0.2.0` `COMPLETED` 보류 run이다. DEMO 0건 |
+| 16:04~16:06 | `--changed-only` 쓰기 | `written=225 existing=0 busy=0 unchanged=159 invalid=0 failed=0 recommendation_changed=12 before[n=384 min=43 max=95 avg=66.9] after[n=384 min=43 max=95 avg=66.9]`, exit 0. `written` = `targets - unchanged` |
+
+쓰기 뒤 운영 DB 읽기(16:1x):
+
+- `sol-v0.2.1` run 225건, 모두 `COMPLETED`. 30분 안에 생긴 `outbox_events`·`notifications`는 0건이다.
+- 화면에 보이는 run(최신 회사 프로필 revision 6, 공고 최신 revision, 공고마다 최신 1건) 384건:
+  - 실공고 366건: 추천 7(85점, `sol-v0.2.1` 5건 + `sol-v0.2.0` 2건), 보류 349(43~88, 평균 66.2), 비추천 10(49점). 80점 이상은 30건이다.
+  - DEMO 18건: 추천 10(75~94), 보류 8(68~95). 바뀌지 않았다.
+- 권고가 바뀐 12건은 보류 → 추천 5건, 보류 → 비추천 7건이다.
+- 촬영 공고:
+  - FX-01: 최신 run `dfac87db`(92 추천, `sol-v0.2.0`)와 추천 분석 `91b8a6e5` `DONE`이 그대로다.
+  - FX-16: `3eb7809b` 70 보류 그대로다.
+  - FX-02: `6a90acc4` 66 보류(`sol-v0.1.0`) 그대로다.
+  - S-LIVE 동국대: 새 run `ed2e57d4`(`sol-v0.2.1`)가 생겼고 49 보류로 점수·권고는 같다. 바로 전 run은 `c36c9594`다.
+- 실공고 추천 7건은 모두 `kakao_send_claims`·`BID_RECOMMENDED` 이벤트가 0건이다.
+
 ## 남은 것
 
-- 재채점 쓰기(§11.7 `--changed-only`). 사용자 결정(2026-10-31)은 촬영 전 실행이다. 실행 결과는 이 문서에 더한다.
-- 재채점 뒤 실공고 권고 수와 S-LIVE 동국대 run을 다시 읽어 덱 명세에 넘긴다. dry-run 기준으로 DEMO는 바뀌지 않는다.
+- 덱 명세의 실공고 권고 수·알고리즘 버전을 위 값으로 바꾼다.
