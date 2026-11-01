@@ -147,6 +147,22 @@ export function looksLikeXml(text: string): boolean {
   return text.replace(LEADING_WHITESPACE, "").startsWith("<");
 }
 
+// 앞의 공백·XML 선언·주석을 건너뛴다. 세 갈래는 첫 글자가 달라 되돌아가며 다시 맞추지 않는다(본문은 상한 안).
+const MARKUP_PREAMBLE = /^(?:[\s﻿]|<\?[^>]*\?>|<!--[\s\S]*?-->)*/;
+const HTML_START = /^<(?:!doctype\s+html|html)\b/i;
+const ROOT_TAG = /^<([A-Za-z_][\w.:-]{0,39})/;
+
+/**
+ * 해석하지 못한 마크업 본문의 모양(11-01 정기 수집 실패 조사). 점검 페이지(HTML)인지 다른 XML 인지 가리는 데 쓴다.
+ * 본문 값은 싣지 않는다. 최상위 태그 이름만, 글자 모양을 제한해 돌려준다.
+ */
+export function markupShapeOf(text: string): string {
+  const body = text.replace(MARKUP_PREAMBLE, "");
+  if (HTML_START.test(body)) return "HTML";
+  const tag = ROOT_TAG.exec(body)?.[1];
+  return tag === undefined ? "알 수 없는 마크업" : `XML ${tag}`;
+}
+
 export function parseG2bGatewayError(text: string): G2bGatewayError | null {
   if (!looksLikeXml(text)) return null;
   const code = REASON_CODE.exec(text)?.[1]?.trim();

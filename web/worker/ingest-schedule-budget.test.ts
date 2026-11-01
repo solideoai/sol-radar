@@ -103,6 +103,7 @@ const windowOfParams = (params: Record<string, unknown> | null) => {
 function statefulRepo() {
   const runs: FakeRun[] = [];
   const errors: { runId: string; errorCode: string; sourceKey: string }[] = [];
+  const errorDetails: string[] = [];
   let savedRevisions = 0;
   const runOf = (runId: string): FakeRun => {
     const run = runs.find((candidate) => candidate.runId === runId);
@@ -181,6 +182,7 @@ function statefulRepo() {
     },
     recordError: async (runId, error) => {
       errors.push({ runId, errorCode: error.errorCode, sourceKey: error.sourceKey });
+      errorDetails.push(error.redactedDetail);
     },
     saveCheckpoint: async (runId, checkpoint) => {
       const run = runOf(runId);
@@ -198,7 +200,7 @@ function statefulRepo() {
       if (result.completeness !== undefined) run.completeness = result.completeness;
     },
   };
-  return { repo, runs, errors, savedRevisions: () => savedRevisions };
+  return { repo, runs, errors, errorDetails, savedRevisions: () => savedRevisions };
 }
 
 const unusedConnector = async (): Promise<BidSourceConnector> => {
@@ -709,6 +711,29 @@ describe("실패 사유 기록(11-01 정기 수집 실패 조사)", () => {
       },
     ]);
     expect(log.mock.calls.flat().join("\n")).not.toMatch(/test-only-key|apis\.data\.go\.kr/);
+  });
+
+  it("해석하지 못한 마크업 응답은 ingest_errors 상세에 본문 모양(HTML·XML 최상위 태그)만 남긴다", async () => {
+    const detailOf = async (body: string): Promise<string | undefined> => {
+      const { repo, errorDetails } = statefulRepo();
+      const page = () => new Response(body, { status: 200 });
+      await processIngestJob(
+        SCHEDULED_JOB,
+        baseDeps(repo, { quota: quota(), createG2bConnector: g2bReturning(page) }),
+      );
+      return errorDetails[0];
+    };
+    const prefix = "나라장터 getBidPblancListInfoServc 게이트웨이 응답을 해석하지 못했다";
+
+    expect(await detailOf("<!DOCTYPE html><html><body>점검 중</body></html>")).toBe(
+      `${prefix}(HTTP 200, HTML)`,
+    );
+    expect(
+      await detailOf(
+        '<?xml version="1.0"?>\n<!-- x --><response><header><resultCode>99</resultCode></header></response>',
+      ),
+    ).toBe(`${prefix}(HTTP 200, XML response)`);
+    expect(await detailOf("<!DOCTYPE note>")).toBe(`${prefix}(HTTP 200, 알 수 없는 마크업)`);
   });
 
   it("같은 창을 다시 열어 성공하면 실패 사유를 지우고 결과 줄에도 싣지 않는다", async () => {

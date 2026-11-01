@@ -4,6 +4,7 @@ import {
   G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_RESPONSE_MAX_BYTES,
   looksLikeXml,
+  markupShapeOf,
   parseG2bGatewayError,
   type G2bEnvelope,
 } from "./g2b.model";
@@ -154,13 +155,14 @@ export function createG2bHttp(options: {
   }
 
   // 5-A 분류: 코드 22 → 일일 한도, 30·31 → 키 오류, 그 밖 → 결과 코드. 코드를 못 읽으면 HTTP 오류다.
+  // 못 읽었으면 본문 모양(HTML·XML 최상위 태그)만 붙여 다음에 원인을 가릴 수 있게 한다.
   function gatewayFailure(text: string, status: number, operation: string): G2bFailed {
     const gateway = parseG2bGatewayError(text);
     if (gateway === null) {
       return failed(
         operation,
         { kind: "HTTP_ERROR", status },
-        `게이트웨이 응답을 해석하지 못했다(HTTP ${status})`,
+        `게이트웨이 응답을 해석하지 못했다(HTTP ${status}, ${markupShapeOf(text)})`,
       );
     }
     const code = gateway.returnReasonCode;
