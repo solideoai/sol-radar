@@ -12,20 +12,24 @@ import {
 } from "./masking.mjs";
 
 export const PROGRAM_RECORDED_SCHEMA_VERSION = "sol-program-recorded/v0.1";
-export const PROGRAM_NOTICE_HOSTS = ["www.bizinfo.go.kr", "mss.go.kr"];
+export const PROGRAM_NOTICE_HOSTS = ["www.bizinfo.go.kr", "mss.go.kr", "apis.data.go.kr"];
 export const BIZINFO_BASE_URL = "https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do";
 export const MSS_RSS_URL = "https://mss.go.kr/rss/smba/board/310.do";
+// 과학기술정보통신부 사업공고(공공데이터포털 15074634). 공고번호·신청기간은 응답에 없다.
+export const MSIT_BASE_URL =
+  "https://apis.data.go.kr/1721000/msitannouncementinfo/businessAnnouncMentList";
 export const RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-const FILE_STEMS = { bizinfo: "api", mss: "rss-310" };
-// 기업마당 문의처는 담당자 이름·전화가 섞인 칸이다. 통째로 가린다(화면·DB 에도 넣지 않는다).
-const CONTACT_FIELDS = new Set(["refrncNm"]);
+const FILE_STEMS = { bizinfo: "api", mss: "rss-310", msit: "api" };
+// 기업마당 문의처, 과기정통부 담당자 이름·전화는 통째로 가린다(화면·DB 에도 넣지 않는다).
+const CONTACT_FIELDS = new Set(["refrncNm", "managerName", "managerTel"]);
 const BODY_FIELD = "(body)";
 // 대표번호 1588-1234 같은 15xx·16xx·18xx(web/server/program-notices/text.ts 와 같은 규칙).
 export const REPRESENTATIVE_PATTERN =
   /(?<![\d,.-])1[568]\d{2}-\d{4}(?![\d\-만천억원년명개곳회건])/g;
-const KEY_PARAM = "crtfckey";
+// 인증키 파라미터 이름(기업마당 crtfcKey, 공공데이터포털 ServiceKey). 녹음 params 에 있으면 형식 오류다.
+const KEY_PARAMS = ["crtfckey", "servicekey"];
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
@@ -66,8 +70,8 @@ function maskJsonValue(value, key, touched) {
   return value;
 }
 
-/** 기업마당 JSON 본문 가리기. JSON 이 아니면 본문 글자에서 패턴만 가린다. */
-export function maskBizinfoBody(raw) {
+/** JSON 본문(기업마당·과기정통부) 가리기. JSON 이 아니면 본문 글자에서 패턴만 가린다. */
+export function maskJsonBody(raw) {
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -96,6 +100,24 @@ export const bizinfoParams = ({ categories, maxItems }) => ({
 export function bizinfoRequestUrl(key, params) {
   const url = new URL(BIZINFO_BASE_URL);
   url.searchParams.set("crtfcKey", key);
+  for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
+  return url.toString();
+}
+
+/** 과기정통부 요청 파라미터(키 없음). infra/sources/program-notices.yaml 의 maxItems 를 받는다. 회차당 1쪽만 부른다. */
+export const msitParams = ({ maxItems }) => ({
+  pageNo: "1",
+  numOfRows: String(maxItems),
+  returnType: "json",
+});
+
+/**
+ * 실제 요청 URL. env 값은 포털의 Encoding 키다. 한 번 풀어 URLSearchParams 가 한 번만 인코딩하게 한다
+ * (web/worker/env.ts readG2bServiceKey 와 같다). 깨진 퍼센트 열이면 던진다. 키가 실리므로 출력·파일에 쓰지 않는다.
+ */
+export function msitRequestUrl(envValue, params) {
+  const url = new URL(MSIT_BASE_URL);
+  url.searchParams.set("ServiceKey", decodeURIComponent(envValue));
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
   return url.toString();
 }
@@ -168,7 +190,7 @@ export function assertProgramRecordingShape(recording) {
   else
     for (const [name, value] of Object.entries(recording.params)) {
       if (typeof value !== "string") problems.push(`params.${name}: 문자열이 아니다`);
-      if (name.toLowerCase() === KEY_PARAM) problems.push("params: 인증키 파라미터가 있다");
+      if (KEY_PARAMS.includes(name.toLowerCase())) problems.push("params: 인증키 파라미터가 있다");
     }
   if (typeof recording.fetchedAt !== "string" || !ISO_DATETIME.test(recording.fetchedAt))
     problems.push("fetchedAt");
