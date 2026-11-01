@@ -209,6 +209,7 @@ export type {
   StartRunInput,
 } from "./ingestion.port";
 
+export { ingestRunFailureOf, type IngestRunFailure } from "./run-failure";
 export {
   FIXTURE_ANCHOR_PARAM,
   QUOTA_EXCEEDED_ERROR_CODE,

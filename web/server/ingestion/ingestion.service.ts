@@ -38,6 +38,7 @@ import {
   withAuxLookup,
 } from "./normalize-g2b-aux";
 import type { BidSource, NormalizedBidDraft } from "./normalized-bid.model";
+import { connectorRunFailure, ingestRunFailureOf, type IngestRunFailure } from "./run-failure";
 import { quotaKey, quotaState, scopedServiceId, type QuotaState } from "./quota";
 import type { IngestQuota } from "./quota-store";
 import { redactSecrets, redactUrl } from "./redaction";
@@ -109,6 +110,8 @@ export type IngestRunResult = {
   quarantined: QuarantinedRecord[];
   resumedFromCursor: string | null;
   alreadyFinished: boolean;
+  /** 이번 실행이 FAILED 로 닫았을 때만 있다. finishRun 에 넘긴 것과 같은 값이다 */
+  failure?: IngestRunFailure;
 };
 
 /** ingest_runs.params 에서 fixture 날짜 기준을 담는 키 */
@@ -625,10 +628,12 @@ const quotaOf = (context: RunContext, progress: PageResult): { quotaUsed?: numbe
   context.countsCalls ? { quotaUsed: progress.quotaUsed } : {};
 
 // 실패한 cursor 를 남겨 같은 jobKey 재실행이 그 페이지부터 다시 받게 한다(07 §2.6 cursor 보존).
+// 실패 사유는 summary.failure 로도 남긴다(상세는 ingest_errors).
 async function closeFailed(
   context: RunContext,
   cursor: string | null,
   progress: PageResult,
+  failure: IngestRunFailure,
 ): Promise<void> {
   const { repo } = context.input;
   await repo.saveCheckpoint(context.runId, {
@@ -639,6 +644,7 @@ async function closeFailed(
   await repo.finishRun(context.runId, {
     status: "FAILED",
     summary: progress.summary,
+    failure,
     ...quotaOf(context, progress),
   });
 }
@@ -663,17 +669,24 @@ async function recordPageFailure(
 }
 
 // 쪽을 부르기 전에 그날 예산이 소진됐으면(다른 run·앞 쪽이 다 썼다) 호출 없이 FAILED 로 닫는다. revision 은 만들지 않는다.
-async function recordQuotaExhausted(context: RunContext, status: QuotaStatus): Promise<void> {
+async function recordQuotaExhausted(
+  context: RunContext,
+  status: QuotaStatus,
+): Promise<IngestRunFailure> {
   const limit = context.quota?.dailyLimit ?? 0;
   // 실패 유형을 다른 유형의 코드로 남기지 않는다: 저장소 장애는 QUOTA_STORE_UNAVAILABLE, 실제 소진만 QUOTA_EXCEEDED.
+  const errorCode = status.unavailable
+    ? QUOTA_STORE_UNAVAILABLE_ERROR_CODE
+    : QUOTA_EXCEEDED_ERROR_CODE;
   await context.input.repo.recordError(context.runId, {
     sourceKey: QUOTA_SOURCE_KEY,
-    errorCode: status.unavailable ? QUOTA_STORE_UNAVAILABLE_ERROR_CODE : QUOTA_EXCEEDED_ERROR_CODE,
+    errorCode,
     resultCode: null,
     redactedDetail: status.unavailable
       ? `호출 예산을 읽지 못함(저장소 오류, 한도 ${limit}). 남았다고 보지 않고 목록을 부르지 않는다`
       : `일일 호출 한도 소진(${status.used}/${limit}). 목록을 부르지 않는다`,
   });
+  return ingestRunFailureOf(errorCode);
 }
 
 const finishedResult = (started: StartedRun): IngestRunResult => ({
@@ -697,7 +710,8 @@ async function failMissingAnchor(
     resultCode: null,
     redactedDetail: "SEED run 이 없어 LIVE 배치의 날짜 기준이 없다",
   });
-  await repo.finishRun(started.runId, { status: "FAILED", summary: started.summary });
+  const failure = ingestRunFailureOf(SEED_ANCHOR_MISSING);
+  await repo.finishRun(started.runId, { status: "FAILED", summary: started.summary, failure });
   return {
     runId: started.runId,
     status: "FAILED",
@@ -706,6 +720,7 @@ async function failMissingAnchor(
     quarantined: [],
     resumedFromCursor: started.cursor,
     alreadyFinished: false,
+    failure,
   };
 }
 
@@ -721,6 +736,11 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
     resumedFromCursor: started.cursor,
     alreadyFinished: false,
   });
+  // 지금 cursor 에서 FAILED 로 닫는다. 실패 사유는 summary.failure 와 결과에 같이 싣는다.
+  const fail = async (result: PageResult, failure: IngestRunFailure): Promise<IngestRunResult> => {
+    await closeFailed(context, cursor, result, failure);
+    return { ...finish("FAILED", result), failure };
+  };
 
   let completeness: IngestCompleteness = "COMPLETE";
   let cursor = started.cursor;
@@ -735,9 +755,7 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
     const at = now();
     const budget = await quotaStatusOf(context.quota, at);
     if (budget.state === "EXHAUSTED") {
-      await recordQuotaExhausted(context, budget);
-      await closeFailed(context, cursor, progress);
-      return finish("FAILED", progress);
+      return fail(progress, await recordQuotaExhausted(context, budget));
     }
 
     const before = context.budget?.calls ?? 0;
@@ -771,8 +789,7 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
       // 처리한 페이지가 있어도 connector 실패로 멈췄으면 FAILED 다(그 창의 수집을 끝내지 못했다).
       await recordPageFailure(context, cursor, outcome.failure);
       if (isQuotaFailure(outcome.failure)) await exhaustQuota(context, outcome.failure, at);
-      await closeFailed(context, cursor, progress);
-      return finish("FAILED", progress);
+      return fail(progress, connectorRunFailure(outcome.failure));
     }
     if (outcome.page.completeness !== undefined && outcome.page.completeness !== "COMPLETE")
       completeness = outcome.page.completeness;
@@ -780,9 +797,9 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
     if (progress.halted !== null) {
       // 이 쪽을 다 처리하지 못했다. 같은 cursor 를 남겨 이어 가는 run 이 이 쪽부터 다시 받게 한다
       // (저장한 공고는 DUPLICATE 로, 보조를 못 받은 공고는 다시 채우기로 걸러진다).
+      const failure = connectorRunFailure(progress.halted);
       await exhaustQuota(context, progress.halted, at);
-      await closeFailed(context, cursor, progress);
-      return finish("FAILED", progress);
+      return fail(progress, failure);
     }
     // 빠짐없는지 모르는 쪽(PARTIAL)에서 멈춘다. 다만 connector 가 다음 cursor 를 준 경우(KEPCO 의 겹치지 않는 다음 날짜 조각)는
     // 이어 받는다. run 은 끝에 PARTIAL 로 남는다. 같은 cursor 를 다시 주면 끝없이 돌지 않게 멈춘다.

@@ -456,7 +456,7 @@ export function createSupabaseIngestionRepo(
           status: result.status,
           ...(result.completeness === undefined ? {} : { completeness: result.completeness }),
           ...(result.fetchedCount === undefined ? {} : { fetched_count: result.fetchedCount }),
-          summary: toSummaryJson(result.summary),
+          summary: toSummaryJson(result.summary, result.failure),
           finished_at: now().toISOString(),
           ...toQuotaUsedUpdate(result.quotaUsed),
         })
