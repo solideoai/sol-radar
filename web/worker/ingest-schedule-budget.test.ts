@@ -12,6 +12,7 @@ import {
   type IngestCompleteness,
   type IngestionRepo,
   type IngestQuota,
+  type IngestRunFailure,
   type IngestRunStatus,
   type IngestSummary,
   type StartRunInput,
@@ -83,6 +84,8 @@ type FakeRun = {
   cursor: string | null;
   summary: IngestSummary;
   quotaUsed: number;
+  /** 마지막 finishRun 이 남긴 실패 사유(ingest_runs.summary.failure). 성공으로 닫으면 지운다 */
+  failure: IngestRunFailure | null;
 };
 
 type WindowScope = NonNullable<Parameters<IngestionRepo["findLatestRunWindow"]>[2]>;
@@ -100,6 +103,7 @@ const windowOfParams = (params: Record<string, unknown> | null) => {
 function statefulRepo() {
   const runs: FakeRun[] = [];
   const errors: { runId: string; errorCode: string; sourceKey: string }[] = [];
+  const errorDetails: string[] = [];
   let savedRevisions = 0;
   const runOf = (runId: string): FakeRun => {
     const run = runs.find((candidate) => candidate.runId === runId);
@@ -139,6 +143,7 @@ function statefulRepo() {
         cursor: null,
         summary: { ...EMPTY_INGEST_SUMMARY },
         quotaUsed: 0,
+        failure: null,
       };
       runs.push(run);
       return startedOf(run);
@@ -177,6 +182,7 @@ function statefulRepo() {
     },
     recordError: async (runId, error) => {
       errors.push({ runId, errorCode: error.errorCode, sourceKey: error.sourceKey });
+      errorDetails.push(error.redactedDetail);
     },
     saveCheckpoint: async (runId, checkpoint) => {
       const run = runOf(runId);
@@ -189,11 +195,12 @@ function statefulRepo() {
       const run = runOf(runId);
       run.status = result.status;
       run.summary = { ...result.summary };
+      run.failure = result.failure ?? null;
       if (result.quotaUsed !== undefined) run.quotaUsed = result.quotaUsed;
       if (result.completeness !== undefined) run.completeness = result.completeness;
     },
   };
-  return { repo, runs, errors, savedRevisions: () => savedRevisions };
+  return { repo, runs, errors, errorDetails, savedRevisions: () => savedRevisions };
 }
 
 const unusedConnector = async (): Promise<BidSourceConnector> => {
@@ -214,6 +221,12 @@ function baseDeps(repo: IngestionRepo, overrides: Partial<IngestJobDeps>): Inges
     ...overrides,
   };
 }
+
+// deps.log 에 남은 JSON 줄 중 event 가 같은 것만 차례대로 돌려준다
+const logLinesOf = (log: ReturnType<typeof vi.fn<(line: string) => void>>, event: string) =>
+  log.mock.calls
+    .map(([line]) => line)
+    .filter((line) => (JSON.parse(line) as { event?: unknown }).event === event);
 
 const SCHEDULED_JOB = { source: "g2b", trigger: "SCHEDULED", jobKey: "g2b:SCHEDULED" };
 const manualJob = (jobKey: string) => ({
@@ -309,23 +322,19 @@ describe("job 시각(ingest_runs.params.timing)", () => {
       timing,
     );
     expect(runs.map((run) => run.input.params?.timing)).toEqual([timing, timing]);
-    expect(log.mock.calls).toEqual([
-      [
-        JSON.stringify({
-          event: "ingest.job.timing",
-          source: "g2b",
-          trigger: "SCHEDULED",
-          ...timing,
-        }),
-      ],
-      [
-        JSON.stringify({
-          event: "ingest.job.timing",
-          source: "lh",
-          trigger: "SCHEDULED",
-          ...timing,
-        }),
-      ],
+    expect(logLinesOf(log, "ingest.job.timing")).toEqual([
+      JSON.stringify({
+        event: "ingest.job.timing",
+        source: "g2b",
+        trigger: "SCHEDULED",
+        ...timing,
+      }),
+      JSON.stringify({
+        event: "ingest.job.timing",
+        source: "lh",
+        trigger: "SCHEDULED",
+        ...timing,
+      }),
     ]);
   });
 
@@ -357,7 +366,7 @@ describe("job 시각(ingest_runs.params.timing)", () => {
     expect(resumed.status).toBe("SUCCEEDED");
     expect(runs).toHaveLength(1);
     expect(runs[0].input.params).not.toHaveProperty("timing");
-    expect(log).toHaveBeenCalledTimes(1);
+    expect(logLinesOf(log, "ingest.job.timing")).toHaveLength(1);
   });
 });
 
@@ -649,5 +658,143 @@ describe("정기 창 잇기(24시간 상한·실패 창 재사용·cursor 재개
     );
     expect(contiguous).toBe(false);
     expect(runs.some((run) => run.input.params?.windowCap !== undefined)).toBe(true);
+  });
+});
+
+describe("실패 사유 기록(11-01 정기 수집 실패 조사)", () => {
+  // 운영 10-30 21:00~11-01 12:00 회차: 나라장터가 HTTP 200 에 JSON 이 아닌 마크업을 돌려줘 회차마다 FAILED 로 닫혔다.
+  // 사유는 ingest_errors 에만 있었고 ingest_runs.summary 와 worker 로그에는 없었다.
+  const SERVICE_KEY = "test-only-key";
+  const quota = (): IngestQuota => ({
+    store: createMemoryQuotaStore({ dailyLimit: DAILY_LIMIT }),
+    serviceId: SERVICE_ID,
+    dailyLimit: DAILY_LIMIT,
+  });
+  const g2bReturning = (body: () => Response) => async (): Promise<BidSourceConnector> =>
+    createOfficialApiConnector({
+      endpoint: ENDPOINT,
+      serviceKey: SERVICE_KEY,
+      fetch: async () => body(),
+      isInfoBizNotice: () => true,
+    });
+  const maintenancePage = () =>
+    new Response("<!DOCTYPE html><html><body>점검 중</body></html>", { status: 200 });
+  const emptyEnvelope = () =>
+    Response.json({
+      response: { header: { resultCode: "00" }, body: { items: [], totalCount: 0 } },
+    });
+  const HTTP_200_MARKUP = { errorCode: "API_HTTP_ERROR", httpStatus: 200, resultCode: null };
+
+  it("FAILED 로 닫은 run 은 summary 에 실패 사유를 남기고 job 결과 한 줄을 로그에 남긴다(키·URL 없음)", async () => {
+    const { repo, runs } = statefulRepo();
+    const log = vi.fn<(line: string) => void>();
+    const deps = baseDeps(repo, {
+      log,
+      quota: quota(),
+      createG2bConnector: g2bReturning(maintenancePage),
+    });
+
+    const result = await processIngestJob(SCHEDULED_JOB, deps);
+
+    expect(result).toMatchObject({ status: "FAILED", failure: HTTP_200_MARKUP });
+    expect(runs[0].failure).toEqual(HTTP_200_MARKUP);
+    expect(logLinesOf(log, "ingest.run.finished").map((line) => JSON.parse(line))).toEqual([
+      {
+        event: "ingest.run.finished",
+        source: "g2b",
+        trigger: "SCHEDULED",
+        runId: "run-1",
+        status: "FAILED",
+        alreadyFinished: false,
+        summary: { ...EMPTY_INGEST_SUMMARY },
+        failure: HTTP_200_MARKUP,
+      },
+    ]);
+    expect(log.mock.calls.flat().join("\n")).not.toMatch(/test-only-key|apis\.data\.go\.kr/);
+  });
+
+  it("해석하지 못한 마크업 응답은 ingest_errors 상세에 본문 모양(HTML·XML 최상위 태그)만 남긴다", async () => {
+    const detailOf = async (body: string): Promise<string | undefined> => {
+      const { repo, errorDetails } = statefulRepo();
+      const page = () => new Response(body, { status: 200 });
+      await processIngestJob(
+        SCHEDULED_JOB,
+        baseDeps(repo, { quota: quota(), createG2bConnector: g2bReturning(page) }),
+      );
+      return errorDetails[0];
+    };
+    const prefix = "나라장터 getBidPblancListInfoServc 게이트웨이 응답을 해석하지 못했다";
+
+    expect(await detailOf("<!DOCTYPE html><html><body>점검 중</body></html>")).toBe(
+      `${prefix}(HTTP 200, HTML)`,
+    );
+    expect(
+      await detailOf(
+        '<?xml version="1.0"?>\n<!-- x --><response><header><resultCode>99</resultCode></header></response>',
+      ),
+    ).toBe(`${prefix}(HTTP 200, XML response)`);
+    expect(await detailOf("<!DOCTYPE note>")).toBe(`${prefix}(HTTP 200, 알 수 없는 마크업)`);
+  });
+
+  it("같은 창을 다시 열어 성공하면 실패 사유를 지우고 결과 줄에도 싣지 않는다", async () => {
+    const { repo, runs } = statefulRepo();
+    const log = vi.fn<(line: string) => void>();
+    const shared = { log, quota: quota() };
+    await processIngestJob(
+      SCHEDULED_JOB,
+      baseDeps(repo, { ...shared, createG2bConnector: g2bReturning(maintenancePage) }),
+    );
+    const resumed = await processIngestJob(
+      SCHEDULED_JOB,
+      baseDeps(repo, { ...shared, createG2bConnector: g2bReturning(emptyEnvelope) }),
+    );
+
+    expect(resumed.status).toBe("SUCCEEDED");
+    expect(resumed).not.toHaveProperty("failure");
+    expect(runs).toHaveLength(1);
+    expect(runs[0].failure).toBeNull();
+    const finished = logLinesOf(log, "ingest.run.finished").map(
+      (line) => JSON.parse(line) as Record<string, unknown>,
+    );
+    expect(finished.map(({ status }) => status)).toEqual(["FAILED", "SUCCEEDED"]);
+    expect(finished[1]).not.toHaveProperty("failure");
+  });
+
+  it("호출 전에 거절한 job(live 예산 저장소 없음)도 사유를 summary 와 로그에 남긴다", async () => {
+    const { repo, runs } = statefulRepo();
+    const log = vi.fn<(line: string) => void>();
+    const result = await processIngestJob(SCHEDULED_JOB, baseDeps(repo, { log }));
+
+    const failure = { errorCode: "QUOTA_STORE_UNAVAILABLE", httpStatus: null, resultCode: null };
+    expect(result).toMatchObject({ status: "FAILED", failure });
+    expect(runs[0].failure).toEqual(failure);
+    expect(JSON.parse(logLinesOf(log, "ingest.run.finished")[0])).toMatchObject({
+      status: "FAILED",
+      failure,
+    });
+  });
+
+  it("job 이 던지면 오류 이름만 한 줄 남기고 다시 던진다(오류 문구는 접속 주소를 담을 수 있어 싣지 않는다)", async () => {
+    const { repo } = statefulRepo();
+    const log = vi.fn<(line: string) => void>();
+    const broken: IngestionRepo = {
+      ...repo,
+      findLatestRunWindow: async () => {
+        throw new TypeError("fetch failed https://example.supabase.co/rest/v1/ingest_runs");
+      },
+    };
+
+    await expect(processIngestJob(SCHEDULED_JOB, baseDeps(broken, { log }))).rejects.toThrow(
+      TypeError,
+    );
+    expect(logLinesOf(log, "ingest.run.error")).toEqual([
+      JSON.stringify({
+        event: "ingest.run.error",
+        source: "g2b",
+        trigger: "SCHEDULED",
+        error: "TypeError",
+      }),
+    ]);
+    expect(log.mock.calls.flat().join("\n")).not.toContain("supabase.co");
   });
 });

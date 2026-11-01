@@ -3,6 +3,7 @@ import type { IngestCompleteness, PageCapture } from "./connector.model";
 import type { FixtureBatch } from "./fixture.model";
 import type { BidSource, NormalizedBid } from "./normalized-bid.model";
 import type { ChangeDecision, StoredRevision } from "./revision";
+import type { IngestRunFailure } from "./run-failure";
 
 // ── 수집 저장 포트. 수집 흐름(service)이 기대하는 저장 동작만 적는다 ──
 // 구현은 ingestion.repo.ts(Supabase)와 시험용 ingestion.repo.memory.ts 다. 행 ↔ 포트 변환은 ingestion.store.ts(순수)에 둔다.
@@ -168,6 +169,7 @@ export type IngestionRepo = {
       fetchedCount?: number;
     },
   ): Promise<void>;
+  /** failure 는 FAILED 로 닫을 때만 준다. summary jsonb 의 failure 키로 남고, 주지 않으면(성공) 그 키가 없어진다 */
   finishRun(
     runId: string,
     result: {
@@ -176,6 +178,7 @@ export type IngestionRepo = {
       quotaUsed?: number;
       completeness?: IngestCompleteness;
       fetchedCount?: number;
+      failure?: IngestRunFailure;
     },
   ): Promise<void>;
 };

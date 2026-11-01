@@ -4,6 +4,7 @@ import {
   EXTERNAL_SERVICES,
   G2B_BID_NOTICE_LIST_OPERATION,
   type ExternalSourceKey,
+  ingestRunFailureOf,
   runIngest,
   type BidSourceConnector,
   type DocumentsJobData,
@@ -20,6 +21,7 @@ import {
   type StartRunInput,
   INGEST_SCHEDULE_SLOT_HOURS_KST,
 } from "@/server/ingestion";
+import { errorNameOf } from "@/worker/error-name";
 
 // ── ingest job 처리 규칙(6-4). Redis·Supabase·서비스키 연결은 main.ts 가 하고, 여기는 주입받은 것만 쓴다 ──
 
@@ -134,7 +136,10 @@ export type IngestJobDeps = {
    * 수동 수집이 정기 목록 수집 몫을 다 쓰지 못하게 한다. live 에서 없으면 수동 g2b job 은 QUOTA_STORE_UNAVAILABLE 로 거절한다.
    */
   manualQuota?: IngestQuota;
-  /** 주면 job 마다 ingest.job.timing 한 줄을 남긴다(시각·ms·source·trigger 만, 키 값·id 없음) */
+  /**
+   * 주면 job 마다 시작 전 ingest.job.timing(시각·ms·source·trigger 만)과 끝난 뒤 ingest.run.finished(상태·건수·실패 사유),
+   * 던지면 ingest.run.error(오류 이름만) 한 줄을 남긴다. 키 값·URL·jobKey 는 싣지 않는다
+   */
   log?: (line: string) => void;
   /**
    * ingest 전용 worker 만 준다(10-25 live 수집 계획 B1). 창을 정하지 않은 정기 g2b 회차의 시작을 `지금 − maxMs` 보다
@@ -394,23 +399,33 @@ async function rejectRun(
 ): Promise<IngestRunResult> {
   const started = await deps.repo.startRun(run);
   const isFinished = started.status === "SUCCEEDED" || started.status === "PARTIAL";
-  if (!isFinished) {
-    await deps.repo.recordError(started.runId, {
-      sourceKey: reason.sourceKey,
-      errorCode: reason.errorCode,
-      resultCode: null,
-      redactedDetail: reason.detail,
-    });
-    await deps.repo.finishRun(started.runId, { status: "FAILED", summary: started.summary });
-  }
-  return {
+  const common = {
     runId: started.runId,
-    status: isFinished ? started.status : "FAILED",
     summary: started.summary,
     saved: [],
     quarantined: [],
-    resumedFromCursor: isFinished ? null : started.cursor,
-    alreadyFinished: isFinished,
+  };
+  if (isFinished) {
+    return { ...common, status: started.status, resumedFromCursor: null, alreadyFinished: true };
+  }
+  await deps.repo.recordError(started.runId, {
+    sourceKey: reason.sourceKey,
+    errorCode: reason.errorCode,
+    resultCode: null,
+    redactedDetail: reason.detail,
+  });
+  const failure = ingestRunFailureOf(reason.errorCode);
+  await deps.repo.finishRun(started.runId, {
+    status: "FAILED",
+    summary: started.summary,
+    failure,
+  });
+  return {
+    ...common,
+    status: "FAILED",
+    resumedFromCursor: started.cursor,
+    alreadyFinished: false,
+    failure,
   };
 }
 
@@ -447,6 +462,29 @@ const timingLine = (job: IngestJobData, timing: IngestJobTiming): string =>
     ...timing,
   });
 
+// 11-01 정기 수집 실패 조사: FAILED 는 던지지 않고 값으로 돌아와 BullMQ 에선 완료라 로그에 아무것도 남지 않았다.
+// runId 는 ingest_runs 의 id 라 ingest_errors 와 잇는 데 쓴다. 실패 사유는 고정 코드·HTTP 상태·결과 코드뿐이다.
+const resultLine = (job: IngestJobData, result: IngestRunResult): string =>
+  JSON.stringify({
+    event: "ingest.run.finished",
+    source: job.source,
+    trigger: job.trigger,
+    runId: result.runId,
+    status: result.status,
+    alreadyFinished: result.alreadyFinished,
+    summary: result.summary,
+    ...(result.failure === undefined ? {} : { failure: result.failure }),
+  });
+
+// 오류 message 는 접속 주소·URL 을 담을 수 있어 이름만 싣는다.
+const errorLine = (job: IngestJobData, error: unknown): string =>
+  JSON.stringify({
+    event: "ingest.run.error",
+    source: job.source,
+    trigger: job.trigger,
+    error: errorNameOf(error),
+  });
+
 /**
  * timing 은 큐에서 꺼낸 job 의 시각(ingestJobTimingOf)이다. 큐를 거치지 않는 1회 수집(--once)·시험은 주지 않는다.
  * 주면 run params.timing 에 넣고 deps.log 로 한 줄 남긴다.
@@ -458,6 +496,21 @@ export async function processIngestJob(
 ): Promise<IngestRunResult> {
   const job = parseJobData(data, deps.now());
   if (timing !== null) deps.log?.(timingLine(job, timing));
+  try {
+    const result = await runJob(job, deps, timing);
+    deps.log?.(resultLine(job, result));
+    return result;
+  } catch (error) {
+    deps.log?.(errorLine(job, error));
+    throw error;
+  }
+}
+
+async function runJob(
+  job: IngestJobData,
+  deps: IngestJobDeps,
+  timing: IngestJobTiming | null,
+): Promise<IngestRunResult> {
   const run = await runInputOf(job, deps, timing);
   const modeReason = rejectReasonOf(run, deps.runMode);
   const externalReason =

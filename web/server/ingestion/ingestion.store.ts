@@ -10,6 +10,7 @@ import type {
   StartedRun,
   StartRunInput,
 } from "./ingestion.port";
+import type { IngestRunFailure } from "./run-failure";
 import {
   normalizedBidSchema,
   type NormalizedBid,
@@ -214,7 +215,9 @@ export function toIngestRunInsert(input: StartRunInput): TablesInsert<"ingest_ru
   };
 }
 
-export const toSummaryJson = (summary: IngestSummary): Json => jsonCopy(summary);
+// 실패 사유는 summary 의 failure 키로 둔다. 읽는 쪽(summaryOf·대시보드)은 건수 키만 골라 읽어 영향이 없다.
+export const toSummaryJson = (summary: IngestSummary, failure?: IngestRunFailure): Json =>
+  jsonCopy(failure === undefined ? summary : { ...summary, failure });
 
 export const toIngestErrorInsert = (
   runId: string,
