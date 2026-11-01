@@ -56,18 +56,22 @@ function setup() {
     people: [
       {
         personId: "eligible",
+        personCode: "SOL-P0001",
         name: "김가상",
         department: "개발부",
         jobTitle: "선임",
         isDemo: true,
+        portraitUrl: "/demo/people/SOL-P0001.png",
         availability: [{ ...PERIOD, fte: 1 }],
       },
       {
         personId: "not-in-snapshot",
+        personCode: "SOL-P0002",
         name: "다른직원",
         department: "개발부",
         jobTitle: "사원",
         isDemo: true,
+        portraitUrl: null,
         availability: [{ ...PERIOD, fte: 1 }],
       },
     ],
@@ -150,6 +154,10 @@ it("실제 배정 과부하를 반열린 구간으로 찾고 후보 공유와 �
   });
   expect(result.data.sharedCandidates).toHaveLength(1);
   expect(result.data.bids[0].candidates.map((person) => person.personId)).toEqual(["eligible"]);
+  expect(result.data.bids[0].candidates[0]).toMatchObject({
+    personCode: "SOL-P0001",
+    portraitUrl: "/demo/people/SOL-P0001.png",
+  });
 });
 
 it("유효한 완료 스냅샷이 없으면 분석 필요와 빈 FTE를 반환한다", async () => {

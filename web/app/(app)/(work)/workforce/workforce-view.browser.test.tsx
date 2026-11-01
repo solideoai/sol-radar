@@ -35,6 +35,8 @@ const PERSON: WorkforceTeamPerson = {
 };
 const CANDIDATE: WorkforceCandidate = {
   ...PERSON,
+  personCode: "SOL-P0001",
+  portraitUrl: "/demo/people/SOL-P0001.png",
   department: "개발1팀",
   skills: ["Java"],
   matchReason: "요구 역할 일치: 개발",
@@ -190,6 +192,21 @@ it("추천 공고를 불러오면 선택을 바꾸고 팀별 지원 요청 표�
     expect.stringContaining("한가람"),
   ]);
   expect(simulationCalls(fetch)[0]?.[0]).toContain(`bidIds=${BID_A}%2C${BID_B}`);
+});
+
+it("후보 이름 왼쪽에 프로필 사진을 그리고 사람·공고에 DEMO 표시는 붙이지 않는다", async () => {
+  render({ initialIds: [BID_A, BID_B], initialResult: RESULT });
+  const photo = page.getByRole("img", { name: "한가람 프로필 사진" }).first();
+  await expect.element(photo).toHaveAttribute("src", "/demo/people/SOL-P0001.png");
+  const item = photo.element().closest("li");
+  const avatarRight = item?.querySelector('[data-slot="avatar"]')?.getBoundingClientRect().right;
+  const nameLeft = [...(item?.querySelectorAll("p") ?? [])]
+    .find((p) => p.textContent === "한가람")
+    ?.getBoundingClientRect().left;
+  expect(avatarRight).toBeTypeOf("number");
+  expect(nameLeft).toBeTypeOf("number");
+  expect(avatarRight).toBeLessThanOrEqual(nameLeft ?? 0);
+  expect(document.body.textContent).not.toContain("DEMO");
 });
 
 it("역할마다 팀은 3개까지 보이고 나머지는 접는다", async () => {

@@ -54,10 +54,12 @@ function candidatesOf(input: AnalysisInput, period: CapacityPeriod, current: Cur
     return [
       {
         personId: member.personId,
+        personCode: person?.personCode ?? null,
         name: person?.name ?? `스냅샷 인력 ${member.personId.slice(0, 8)}`,
         department: person?.department ?? null,
         jobTitle: person?.jobTitle ?? null,
         isDemo: person?.isDemo ?? false,
+        portraitUrl: person?.portraitUrl ?? null,
         role: member.role,
         grade: member.grade,
         skills: member.skills,

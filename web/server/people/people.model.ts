@@ -202,8 +202,12 @@ export const isPeopleId = (id: string): boolean => z.uuid().safeParse(id).succes
  * 조직도에 그릴 사진(설계 C10). 올린 사진 → 데모 정장 사진 → 연결 계정의 제공자 사진 → null(머리글자).
  * 올린 사진을 서명하지 못하면(지워짐·만료) 다음 순위로 내려간다.
  */
+export type MemberPortraitSource = Pick<
+  MemberRow,
+  "photo_path" | "is_demo" | "person_code" | "portrait_path" | "linked_avatar_url"
+>;
 export function resolveMemberPortrait(
-  row: MemberRow,
+  row: MemberPortraitSource,
   photoUrls: ReadonlyMap<string, string>,
 ): string | null {
   const uploaded = row.photo_path ? photoUrls.get(row.photo_path) : undefined;

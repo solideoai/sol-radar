@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { formatKst } from "@/components/bids/format";
-import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { StatusBadge } from "@/components/bids/status-badge";
+import { PersonAvatar } from "@/components/people/person-avatar";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -136,17 +137,22 @@ function RoleNeeds({ item }: { item: WorkforceBidResult }) {
 }
 function Candidate({ person }: { person: WorkforceCandidate }) {
   return (
-    <li className="min-w-0 space-y-1 border-t border-border py-3 wrap-anywhere">
-      <p className="flex flex-wrap items-center gap-2 type-label font-medium">
-        {person.name}
-        {person.isDemo && <DemoBadge dense />}
-      </p>
-      <p className="type-caption text-muted-foreground">
-        {[person.jobTitle, workRoleLabel(person.role), person.grade].filter(Boolean).join(" · ")}
-      </p>
-      <p className="type-caption">기술: {person.skills.join(", ") || "정보 없음"}</p>
-      <p className="type-caption tabular-nums">분석 당시 가용 {fte(person.availableFte)} FTE</p>
-      <p className="type-caption text-muted-foreground">{person.matchReason}</p>
+    <li className="flex min-w-0 items-start gap-3 border-t border-border py-3 wrap-anywhere">
+      <PersonAvatar
+        size="lg"
+        personId={person.personCode}
+        portraitUrl={person.portraitUrl}
+        name={person.name}
+      />
+      <div className="min-w-0 space-y-1">
+        <p className="type-label font-medium">{person.name}</p>
+        <p className="type-caption text-muted-foreground">
+          {[person.jobTitle, workRoleLabel(person.role), person.grade].filter(Boolean).join(" · ")}
+        </p>
+        <p className="type-caption">기술: {person.skills.join(", ") || "정보 없음"}</p>
+        <p className="type-caption tabular-nums">분석 당시 가용 {fte(person.availableFte)} FTE</p>
+        <p className="type-caption text-muted-foreground">{person.matchReason}</p>
+      </div>
     </li>
   );
 }
@@ -156,7 +162,6 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
     <article className="min-w-0 rounded-lg border border-border p-4 wrap-anywhere">
       <div className="mb-4 space-y-2">
         <h3 className="type-heading">{item.title}</h3>
-        {item.isDemo && <DemoBadge dense />}
         <Link
           href={`/bids/${item.bidId}`}
           className="block type-label underline underline-offset-4"

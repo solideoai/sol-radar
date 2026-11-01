@@ -22,10 +22,14 @@ export type WorkforceSnapshot = {
 };
 export type CurrentPerson = {
   personId: string;
+  /** 사원 코드(SOL-P0001). 정장 사진 경로를 그 사람 것인지 확인할 때 쓴다. */
+  personCode: string | null;
   name: string;
   department: string | null;
   jobTitle: string | null;
   isDemo: boolean;
+  /** 조직도와 같은 순서로 고른 사진(올린 사진 → 정장 사진 → 제공자 사진). 없으면 null. */
+  portraitUrl: string | null;
   availability: AvailabilityWindow[] | null;
 };
 export type CurrentAssignment = CapacityPeriod & {

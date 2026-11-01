@@ -2,7 +2,6 @@
 import { SearchIcon, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { z } from "zod";
-import { DemoBadge } from "@/components/bids/status-badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -224,7 +223,7 @@ export function WorkforceView({
               disabled={locked || optionsBusy || selected.length === 3}
               items={available.map((item) => ({
                 value: item.id,
-                label: `${item.isDemo ? "DEMO · " : ""}${item.title}`,
+                label: item.title,
               }))}
               onValueChange={setOptionId}
             >
@@ -243,7 +242,6 @@ export function WorkforceView({
                     value={option.id}
                     className="whitespace-normal wrap-anywhere"
                   >
-                    {option.isDemo ? "DEMO · " : ""}
                     {option.title}
                   </SelectItem>
                 ))}
@@ -294,7 +292,6 @@ export function WorkforceView({
                 className="flex min-w-0 items-center gap-2 rounded-md border border-border px-3 py-2"
               >
                 <span className="min-w-0 flex-1 type-label wrap-anywhere">{bid.title}</span>
-                {bid.isDemo && <DemoBadge dense />}
                 <Button
                   data-workforce-remove
                   variant="ghost"

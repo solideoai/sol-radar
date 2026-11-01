@@ -1,5 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { resolveMemberPortrait } from "@/server/people";
+import { signPhotoPaths } from "@/server/photos";
 import { getSupabase } from "@/server/supabase";
 import type { WorkforceRepo, CurrentAssignment } from "./workforce.model";
 const windows = z
@@ -67,7 +69,7 @@ export const workforceRepo: WorkforceRepo = {
       db
         .from("team_members")
         .select(
-          "id,name,is_demo,department:departments!team_members_department_id_org_id_fkey(name),job:job_titles!team_members_job_title_id_org_id_fkey(label)",
+          "id,person_code,name,is_demo,portrait_path,photo_path,profile:profiles!team_members_user_id_fkey(avatar_url),department:departments!team_members_department_id_org_id_fkey(name),job:job_titles!team_members_job_title_id_org_id_fkey(label)",
         )
         .eq("org_id", orgId)
         .lte("created_at", asOf),
@@ -101,6 +103,8 @@ export const workforceRepo: WorkforceRepo = {
       );
       if (result.data.length < 1000) break;
     }
+    // 올린 사진은 사용자 JWT 로 서명한다(조직도와 같은 profile_photos_read 정책). 서명하지 못하면 다음 순위 사진.
+    const photoUrls = await signPhotoPaths(people.data.flatMap((p) => p.photo_path ?? []));
     return {
       people: people.data.map((p) => {
         const parsed = windows.safeParse(
@@ -108,8 +112,13 @@ export const workforceRepo: WorkforceRepo = {
         );
         return {
           personId: p.id,
+          personCode: p.person_code,
           name: p.name,
           isDemo: p.is_demo,
+          portraitUrl: resolveMemberPortrait(
+            { ...p, linked_avatar_url: p.profile?.avatar_url ?? null },
+            photoUrls,
+          ),
           department: p.department?.name ?? null,
           jobTitle: p.job?.label ?? null,
           availability: parsed.success ? parsed.data : null,

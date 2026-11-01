@@ -9,10 +9,12 @@ const person = (
   availableFte: number,
 ): WorkforceCandidate => ({
   personId,
+  personCode: null,
   name: `직원 ${personId}`,
   department,
   jobTitle: "선임",
   isDemo: true,
+  portraitUrl: null,
   role,
   grade: "중급",
   skills: [],
