@@ -44,7 +44,7 @@
     "verify:changed": "node scripts/verify-changed.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite": "^0.5.12",
     "exceljs": "4.4.0",
     "husky": "^9",
     "pg": "^8.23.0",
