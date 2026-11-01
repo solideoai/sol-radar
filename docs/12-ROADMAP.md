@@ -117,7 +117,7 @@ updated: 2026-11-01
 |X5|확장 컷(위 표 순서)|—|위 해커톤 컷 표 "확장 컷" 행|
 |X6|Bosun LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-034]]): 평가셋 v0.1(P0-9) → 학습셋 번들·학습 요청서(P0-11) → 회사 F1·F2·F3 → E4·E1' 채점|평가 / P0-9·P0-11|발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]]). 회사 서버에서 돈 기록은 없다. 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]]|
 |BOOST-2|데모 강화 컷 가정 재계산(`whatIf`·`POST /api/v1/analyses/{id}/what-if`·상세 스위치·띠)|데모 강화 ([[16-DECISIONS\|ADR-037]])|완료|
-|KAKAO|카카오톡 추천 공고 알림(나에게 보내기). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md)|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|main 병합, 운영 migration 적용. 카카오 간편 로그인·나에게 보내기 실발송 완료는 사용자 보고(2026-10-30), 증거 기록 경로 미확인. 실수신 녹화는 남음(알림 Worker는 2026-10-30 카카오 발송 꺼짐으로 기동했고, 켠 기록은 미확인)|
+|KAKAO|카카오톡 추천 공고 알림(나에게 보내기). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md)|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|main 병합, 운영 migration 적용. 2026-10-30 운영 연결(`kakao_notify_links` CONNECTED)·시험 발송 2통·`BID_RECOMMENDED` 실발송 23통(되돌린 22통 + 15:12 1통). 알림 Worker `memo`는 14:05~15:47만 켰고 지금은 꺼짐, 연결 행은 `enabled=false`([실발송 기록](evidence/kakao-notify/20261030-prod-live-send.md)). 카카오 간편 로그인 완료는 사용자 보고(2026-10-30). 실수신 녹화는 남음|
 |P1|ADR-021 P1 다섯 화면(N3·N5·N6·N7·N4b, [[16-DECISIONS\|ADR-042]]). 완료 기준은 [설계 §3.2](plans/2026-10-16-sidebar-ia-design.md) 표|3·6 / P1|완료(main 병합·운영 배포)|
 
 C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 정기 수집은 BullMQ cron `0 */3 * * *`(`Asia/Seoul`, KST 00·03·…·21시)이고 옛 `G2B_INGEST_INTERVAL_MINUTES`는 무시한다([[07-DATA-PIPELINE|07 수집]] §2.2).
