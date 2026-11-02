@@ -169,7 +169,7 @@ export const GAPS_BUDGET_NOTICE =
 export const GAPS_ASSUMPTION_NOTICE = "가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다.";
 /** 데이터 출처 표시(§4) */
 export const GAPS_SOURCE_NOTICE =
-  "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터는 수집하지 않습니다 · 발주계획·사전규격 미포함";
+  "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터 미포함 · 발주계획·사전규격 미포함";
 
 /** searchParams → GapQuery. 모르는 값은 기본값(가정 없음)으로 둔다. */
 export function parseGapQuery(params: { assume?: string | string[] }): GapQuery {

@@ -62,7 +62,7 @@ const COPY: GapsCopy = {
   budgetNotice: BUDGET_NOTICE,
   assumptionNotice: ASSUMPTION_NOTICE,
   sourceNotice:
-    "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터는 수집하지 않습니다 · 발주계획·사전규격 미포함",
+    "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터 미포함 · 발주계획·사전규격 미포함",
   dictionaryNames: {
     SW_BUSINESS_REG: "소프트웨어사업자 신고확인서",
     DEFENSE_CONTRACTOR: "방산업체 지정",
