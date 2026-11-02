@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 # SOL RADAR — 구현 문서 인덱스
@@ -59,7 +59,7 @@ updated: 2026-11-01
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
 | 10 | [[10-DEPLOYMENT]] | 운영 현황·발표 경로 D1 / Vercel web 단독 + 회사 Compose(redis-api·AI gateway·Worker, ADR-049) / 로컬 Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local)·대체 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
-| 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path 상태·남은 일정 제안(제출 11-03·발표 11-04, ADR-054) |
+| 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path 상태·남은 일정 제안(제출 11-03·발표 11-05, ADR-054·076) |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 기본 `mock`. 운영 실발송은 2026-10-30 추천 23통·2026-11-01 녹화 1통이고, 지금은 연결 행 `enabled=false`·알림 Worker 카카오 발송 꺼짐)·알림톡 P1 / 메일(ADR-041, 해커톤 제외) |
 | 14 | [[14-OBSERVABILITY]] | 모니터링·운영·데모 지표 |
 | 15 | [[15-DATA-CONTRACTS]] | `EvidenceRef`·`FieldState`·`NormalizedBid` 정식 정의 / 인용 검증 알고리즘 / 격리 규칙 / registry 키 |

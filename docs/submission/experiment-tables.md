@@ -6,12 +6,12 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-29
+updated: 2026-11-02
 ---
 
 # 실험 결과 표 (빈 틀)
 
-세 표 모두 **측정 전. 값 없음.** X1(E0~E3)·X6(E1'·E4)·X2는 발표(2026-11-04) 뒤 진행 예정이라 세 표는 발표 뒤 측정이다([[16-DECISIONS|ADR-067]]). 발표 뒤 날짜는 정하지 않았다. 회사 서버에서 학습·채점을 돌린 기록과 평가 리포트는 없다. 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다. 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)이고, 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 Qwen3.8-Flash-Next(served id `Qwen3.8-Flash-Next-AWQ-INT4`)다([[16-DECISIONS|ADR-034]]). 그래서 기준선은 E1(퇴역한 옛 결정 모델, 미측정)이 아니라 E1'(공개 Bosun zero-shot)이다(21 §4.2).
+세 표 모두 **측정 전. 값 없음.** X1(E0~E3)·X6(E1'·E4)·X2는 발표(2026-11-05) 뒤 진행 예정이라 세 표는 발표 뒤 측정이다([[16-DECISIONS|ADR-067]]). 발표 뒤 날짜는 정하지 않았다. 회사 서버에서 학습·채점을 돌린 기록과 평가 리포트는 없다. 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다. 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)이고, 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 Qwen3.8-Flash-Next(served id `Qwen3.8-Flash-Next-AWQ-INT4`)다([[16-DECISIONS|ADR-034]]). 그래서 기준선은 E1(퇴역한 옛 결정 모델, 미측정)이 아니라 E1'(공개 Bosun zero-shot)이다(21 §4.2).
 
 ## (a) E0 · E1' · E2 · E3 비교 (X1)
 
