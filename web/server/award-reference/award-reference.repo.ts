@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabase } from "@/server/supabase";
 import {
   AWARD_TARGET_RAW_KEYS,
+  AWARD_TARGET_SOURCE,
   awardTargetOf,
   type AwardCandidateQuery,
   type AwardReferenceRepo,
@@ -73,6 +74,8 @@ export const awardReferenceRepo: AwardReferenceRepo = {
       .maybeSingle();
     if (notice.error) throw new Error("공고를 읽지 못했습니다", { cause: notice.error });
     if (notice.data === null) return null;
+    // 원문을 읽기 전에 거른다. 데모·다른 출처 공고는 원문 조회 한 번을 아낀다(규칙 자체는 awardTargetOf 에 있다).
+    if (notice.data.source !== AWARD_TARGET_SOURCE || notice.data.is_demo) return null;
     const revision = await db
       .from("bid_revisions")
       .select(RAW_SELECT)

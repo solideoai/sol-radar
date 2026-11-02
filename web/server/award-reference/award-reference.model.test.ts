@@ -120,6 +120,27 @@ describe("selectSample — 5건이 될 때까지 한 단계씩 넓힌다", () =>
     ).toBeNull();
   });
 
+  it("3단계는 같은 분류인데 중분류가 다르거나 빈 행도 센다(넓히기가 표본을 줄이지 않는다)", () => {
+    const otherMid = { ...row(2.5), midClassName: "SW 개발" };
+    const noMid = { ...row(2.5), midClassName: null };
+    const rows = [...rowsOf(2, 1, "MID_ONLY"), otherMid, noMid, row(0.4)];
+    expect(selectSample(TARGET, rows)).toEqual({ step: 3, rows });
+  });
+
+  it("이번 공고 중분류가 없으면 3단계는 같은 분류·1/3~3배와 같다", () => {
+    const target = { ...TARGET, midClassName: null };
+    expect(selectSample(target, [...rowsOf(4, 1), ...rowsOf(3, 1, "MID_ONLY")])).toBeNull();
+    const reference = buildAwardReference(target, [...rowsOf(4, 1)], {
+      dataAsOf: "2026-11-02T09:00:00.000Z",
+      periodMonths: 12,
+    });
+    expect(reference).toMatchObject({
+      kind: "TOO_FEW",
+      sampleSize: 4,
+      scopeLabel: "소프트웨어유지및지원서비스",
+    });
+  });
+
   it("이번 공고와 같은 번호의 행(재공고·다른 차수)은 어느 단계에서도 세지 않는다", () => {
     const self = [
       row(1, "CLASS", 0.9, TARGET.bidNoticeNo),

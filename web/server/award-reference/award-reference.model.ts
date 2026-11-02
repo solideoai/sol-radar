@@ -137,7 +137,7 @@ export const AWARD_TARGET_RAW_KEYS = [
 export type AwardTargetRaw = Partial<Record<(typeof AWARD_TARGET_RAW_KEYS)[number], string | null>>;
 
 // 카드는 실제 나라장터 입찰공고에만 그린다(스펙 §2). LH·K-water·KEPCO·부처·데모 공고는 대상이 아니다.
-const G2B_BID_NOTICE_SOURCE = "g2b-bid-notice";
+export const AWARD_TARGET_SOURCE = "g2b-bid-notice";
 
 const textOf = (value: string | null | undefined): string | null => {
   const text = value?.trim() ?? "";
@@ -157,7 +157,7 @@ export function awardTargetOf(
   notice: { source: string; isDemo: boolean },
   raw: AwardTargetRaw | null,
 ): AwardTarget | null {
-  if (notice.source !== G2B_BID_NOTICE_SOURCE || notice.isDemo || raw === null) return null;
+  if (notice.source !== AWARD_TARGET_SOURCE || notice.isDemo || raw === null) return null;
   const group = methodGroupOf(raw.sucsfbidMthdNm);
   const bidNoticeNo = textOf(raw.bidNtceNo);
   const classNo = textOf(raw.pubPrcrmntClsfcNo);
