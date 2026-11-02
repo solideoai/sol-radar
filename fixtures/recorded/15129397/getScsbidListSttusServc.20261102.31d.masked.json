@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129397",
+  "operation": "getScsbidListSttusServc",
+  "params": {
+    "pageNo": "1",
+    "numOfRows": "1",
+    "inqryDiv": "1",
+    "inqryBgnDt": "202610021709",
+    "inqryEndDt": "202611021709"
+  },
+  "fetchedAt": "2026-11-02T08:09:38.596Z",
+  "httpStatus": 200,
+  "envelope": "response",
+  "resultCode": "00",
+  "resultMsg": "정상",
+  "totalCount": 6583,
+  "items": [
+    {
+      "bidNtceNo": "R26BK01740881",
+      "bidNtceOrd": "000",
+      "bidClsfcNo": "0",
+      "rbidNo": "001",
+      "ntceDivCd": "통050001",
+      "bidNtceNm": "청라의료복합타운 북측 생활폐기물 자동집하시설 이송관로 설치공사 폐기물처리 용역",
+      "prtcptCnum": "8",
+      "bidwinnrNm": "***",
+      "bidwinnrBizno": "***",
+      "bidwinnrCeoNm": "***",
+      "bidwinnrAdrs": "***",
+      "bidwinnrTelNo": "***",
+      "sucsfbidAmt": "33157300",
+      "sucsfbidRate": "88.582",
+      "rlOpengDt": "2026-09-30 16:05:54",
+      "dminsttCd": "3561000",
+      "dminsttNm": "인천광역시 서해구",
+      "rgstDt": "2026-10-02 17:10:10",
+      "fnlSucsfDate": "2026-10-02",
+      "fnlSucsfCorpOfcl": ""
+    }
+  ],
+  "masked": true,
+  "maskedFields": ["bidwinnrAdrs", "bidwinnrBizno", "bidwinnrCeoNm", "bidwinnrNm", "bidwinnrTelNo"],
+  "maskedFieldsNote": "낙찰업체·담당자 칸. 값이 있으면 *** 로 가렸다",
+  "note": "31일 기간 조회(inqryDiv=1)가 된다는 기록. 같은 날 40일 기간은 response 봉투 없는 응답이었다(봉투는 저장하지 못했다)."
+}
