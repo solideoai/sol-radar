@@ -17,6 +17,7 @@ import {
   type AnalysisView,
   type BidDetail,
 } from "@/server/bids";
+import { getAwardReference } from "@/server/award-reference";
 import { getInsight, INSIGHT_POLL_LIMIT_MS, INSIGHT_REQUEST_ROLES } from "@/server/insight";
 import { getWatchSummary } from "@/server/watchlist";
 import { getMembersPage } from "@/server/organization";
@@ -42,28 +43,41 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage, watch, projectEntry, relatedStages, changedAt] =
-    await Promise.all([
-      getBid(work.orgId, id, { repo: deps.bids }),
-      listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
-        repo: deps.bids,
-      }),
-      getMembersPage({ org: work.org, userId: work.userId }),
-      getWatchSummary({ orgId: work.orgId, userId: work.userId }, id).catch(() => {
-        console.error(JSON.stringify({ event: "bid_detail_watch_failed", bidId: id }));
-        return null;
-      }),
-      getProjectEntry(work, id, projectDeps()),
-      getStageLinks(id, { repo: stageLinksRepo }).catch(() => {
-        console.error(JSON.stringify({ event: "bid_detail_stage_links_failed", bidId: id }));
-        return null;
-      }),
-      // "마지막 변경"은 요약 줄의 보조 값이다. 읽지 못하면 그 칸만 빼고 화면은 그린다.
-      loadOpportunityChangedAt(work.orgId, id).catch(() => {
-        console.error(JSON.stringify({ event: "bid_detail_changed_at_failed", bidId: id }));
-        return null;
-      }),
-    ]);
+  const [
+    detail,
+    history,
+    membersPage,
+    watch,
+    projectEntry,
+    relatedStages,
+    changedAt,
+    awardReference,
+  ] = await Promise.all([
+    getBid(work.orgId, id, { repo: deps.bids }),
+    listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
+      repo: deps.bids,
+    }),
+    getMembersPage({ org: work.org, userId: work.userId }),
+    getWatchSummary({ orgId: work.orgId, userId: work.userId }, id).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_watch_failed", bidId: id }));
+      return null;
+    }),
+    getProjectEntry(work, id, projectDeps()),
+    getStageLinks(id, { repo: stageLinksRepo }).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_stage_links_failed", bidId: id }));
+      return null;
+    }),
+    // "마지막 변경"은 요약 줄의 보조 값이다. 읽지 못하면 그 칸만 빼고 화면은 그린다.
+    loadOpportunityChangedAt(work.orgId, id).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_changed_at_failed", bidId: id }));
+      return null;
+    }),
+    // 참고 낙찰가 범위(ADR-077)는 보조 카드다. 읽지 못하면 카드만 빼고 화면은 그린다.
+    getAwardReference(id).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_award_reference_failed", bidId: id }));
+      return null;
+    }),
+  ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
     // 예상한 실패도 화면에서는 읽기 실패라 오류 경계(error.tsx)로 던진다. message 는 서비스의 한국어 문장이다.
@@ -122,6 +136,7 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       watch={watch}
       projectEntry={projectEntry.ok ? projectEntry.data : null}
       changedAt={changedAt}
+      awardReference={awardReference}
       insight={{
         initial: initialInsight,
         pollLimitMs: INSIGHT_POLL_LIMIT_MS,

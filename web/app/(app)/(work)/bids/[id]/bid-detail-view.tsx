@@ -1,4 +1,5 @@
 "use client";
+import type { AwardReference } from "@/server/award-reference";
 import type { StageLinksView } from "@/server/bids";
 import { StageLinks } from "@/components/bids/stage-links";
 
@@ -81,10 +82,12 @@ import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { DETAIL_CONTENT_CLASS } from "./detail-copy";
 import { requestWhatIf, type WhatIfResult } from "./request-what-if";
 import { recheckTopbarAfterReview, submitReview } from "./submit-review";
+import { AwardReferenceCard } from "./award-reference-card";
 import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-run";
 
 // /bids/[id] 본문(스펙 §5.4). 정보 위계는 06 §6 순서로 고정이다:
-// ① 상단 요약 → ② 분석 요약 띠(+배너) → ②' 가정 시나리오 띠(BOOST-2, 켠 가정이 있을 때만) → ③ 단계 이력 → ④ 필수자격
+// ① 상단 요약 → ② 분석 요약 띠(+배너) → ②' 가정 시나리오 띠(BOOST-2, 켠 가정이 있을 때만)
+// → ②" 참고 낙찰가 범위(ADR-077, 대상 공고만) → ③ 단계 이력 → ④ 필수자격
 // → ⑤ SOL Score 분해 → ⑥ 결정 모델 참고 지표 → ⑦ 근거 인용.
 // 오른쪽 레일은 결정 패널이다. 분석 실행 상태를 머리(버튼)와 본문(skeleton)이 함께 써서 한 클라이언트 부품으로 그린다.
 
@@ -133,6 +136,8 @@ type BidDetailViewProps = {
   changedAt?: string | null;
   /** 추천 분석 패널(ADR-066)의 첫 값. 넘기지 않으면 패널을 그리지 않는다. */
   insight?: InsightPanelInput | null;
+  /** 참고 낙찰가 범위(ADR-077). 카드 대상이 아니거나 읽지 못했으면 null 이고 카드를 그리지 않는다. */
+  awardReference?: AwardReference | null;
 };
 
 /** 추천 분석 패널에 서버가 넘기는 값. 상수·역할 판단은 서버 전용 모듈(@/server/insight)에 있어 서버 화면이 정한다. */
@@ -927,6 +932,7 @@ export function BidDetailView({
   projectEntry = null,
   changedAt = null,
   insight = null,
+  awardReference = null,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -1043,6 +1049,7 @@ export function BidDetailView({
                 onRetry={whatIf.retry}
               />
             )}
+            {awardReference !== null && <AwardReferenceCard reference={awardReference} />}
             <section
               aria-labelledby="stage-history-title"
               className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-6"
