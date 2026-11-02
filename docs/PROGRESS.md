@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 # 진행 상황
@@ -34,7 +34,7 @@ updated: 2026-11-01
 | `/health/ready` | ok(운영 웹 `6604d975` 배포 직후). `ai`는 회사 AI gateway가 보고한 provider 값이고 마지막 기록은 `ai: local`(10-31 16:54)이다. [기록](evidence/kakao-notify/20261101-recording.md) | 2026-11-01 17:36 KST |
 | 운영 DB | migration 73개, 마지막 `20261030001100`(가상 직원 등급·수행 이력 직급 정합). 저장소에는 구글 캘린더 `20261030002000`이 더 있다(운영 미적용). [기록](evidence/ingestion/20261101-ops-reads.md) | 2026-11-01 20:1x KST |
 | 회사 반영 | Analysis Worker·redis-api는 `efab8acc144b`(`deploy/sv021-20261030` = `3aeaff92` + 회사 carry, 10-30 16:15). AI gateway는 `384e469857f0` 그대로이고 같은 호스트 Bosun `127.0.0.1:8009`를 부른다. 알림 Worker는 `7b5a79dc9054`(11-01 17:16 `memo` → 18:15:48 카카오 꺼짐으로 재생성, `SITE_URL` `https://www.solideos-radar.com`). `sol-radar-app` checkout은 `cbb3831e86da` 그대로다(redis-api 빌드 context만 배포 checkout). 나라장터 실패 사유 기록 수정(main `e2223bdc`)은 회사에 반영하지 않았다. 되돌리기 태그 `sol-radar-gateway-redis-api:rollback-20261030b`. [기록](evidence/kakao-notify/20261101-recording.md) | 2026-11-01 18:15 KST |
-| 나라장터 정기 수집 | KST 3시간 정각. ingest Worker `cbb3831e86da`. 10-30 21:00~11-01 12:00 회차 7번 `FAILED`(원인 미확인), 11-01 15:00부터 성공. 빈 구간 10-30 18:00~10-31 15:00은 11-01 16:17 수동 수집이 받았다(52건). 보조 조회(면허·지역·첨부)는 기능별 한도 각 1,000회다. [기록](evidence/ingestion/20261101-ops-reads.md) | 2026-11-01 20:1x KST |
+| 나라장터 정기 수집 | KST 3시간 정각. ingest Worker `cbb3831e86da`. 10-30 21:00 회차가 10-31 18:00까지 21시간 열린 채 `FAILED`로 닫혔고 그동안 나라장터 회차가 생기지 않았다. 이어 10-31 21:00~11-01 12:00 6회가 0초 만에 `FAILED`(원인 미확인, 사유 기록 없음). 11-01 15·18·21시는 `SUCCEEDED` 0건(일요일). 빈 구간 10-30 18:00~10-31 15:00은 11-01 16:17 수동 수집이 받았다(52건). 보조 조회(면허·지역·첨부)는 기능별 한도 각 1,000회다. [기록](evidence/demo-day/20261102-preflight.md) | 2026-11-01 22:4x KST |
 | 외부 입찰공고(LH·KEPCO·K-water) | 같은 ingest Worker가 3시간 정각에 받는다. 10-30 18:00 이후 LH `SUCCEEDED`, K-water는 11-01 00:00까지 `PARTIAL`이고 03:00부터 `SUCCEEDED`, KEPCO는 `PARTIAL`(첨부 주소는 해커톤 동안 막아 둔다, [[16-DECISIONS\|ADR-068]] 3번). 남은 외부 3종(K-water 발주계획·LH 사전규격·조달요청)은 꺼짐. [기록](evidence/ingestion/20261101-ops-reads.md) | 2026-11-01 20:1x KST |
 | 부처 공고(기업마당) | 전용 Worker가 3시간 정각에 받는다. 10-30 18:00 이후 `SUCCEEDED` 17회, `program_notices` 124행. `/bids` "부처 지원사업" 탭 화면은 아직 보지 않았다. [기록](evidence/ingestion/20261101-ops-reads.md) | 2026-11-01 20:2x KST |
 | 첨부 처리(Documents Worker) | 운영 중. 처리 상태 `PARSED` 7,708·`PARTIAL` 122·`UNSUPPORTED` 56·`FAILED` 4·`PENDING` 30, 다운로드 `PENDING` 3,462. [기록](evidence/ingestion/20261101-ops-reads.md) | 2026-11-01 20:2x KST |
@@ -60,7 +60,7 @@ updated: 2026-11-01
 - 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 59(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]).
 - 덱 pptx(`docs/submission/deck/`, git 밖. `sol-radar-deck.pptx`·`sol-radar-deck-mac.pptx`·`sol-radar-deck-win.pptx` 3개, 파일 수정 11-01 17:50)는 [[slides-spec|덱 제작 명세]]의 11-01 19:46 개정(`sol-v0.2.1` 권고 수·카카오 녹화)보다 앞선다. 루트 `sol-radar-deck.pptx`는 10-21 옛 초안이다. 그림·포스터는 촬영 뒤 바꾼다. 10-30에는 덱 글꼴(Apple SD Gothic Neo)과 캡션 크기(11~13pt)가 명세와 달랐다. 명세가 정본이다([[submission/README|제출물 색인]]).
 - 화면 동결 뒤 덱 클립을 찍는다([[16-DECISIONS|ADR-061]]). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인하고, 연결 안 된 곳의 로고를 뺄지 사용자가 정한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md)).
-- 나라장터 정기 수집 실패(10-30 21:00~11-01 12:00)의 원인을 아직 모른다. 실패 사유 기록 수정이 회사에 들어가면 다음 실패 때 `summary.failure`에 남는다([기록](evidence/ingestion/20261101-ops-reads.md)).
+- 나라장터 정기 수집 실패(10-30 21:00~11-01 12:00)의 원인을 아직 모른다. 10-30 21:00 회차가 21시간 열려 있는 동안 다음 회차가 생기지 않았고, 닫힌 뒤 6회는 0초 만에 실패했다. 평일 첫 확인은 11-02 09:00·12:00 회차의 받은 건수다. 실패 사유 기록 수정이 회사에 들어가면 다음 실패 때 `summary.failure`에 남는다([기록](evidence/demo-day/20261102-preflight.md)).
 - 열린 확인: 운영 로그인 화면(`/gaps`·`/market`·`/calendar` 실숫자, 부처 지원사업 탭, `/workforce` 사진), 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`, Compose 필요), 배포 뒤 사진 1장 올리기·지우기([릴리스 실행서](evidence/integration/20261025-release-runbook.md) §4), 나라장터 보조 정보 다시 채우기(10-30 22:15 회차는 보조 조회 `API_HTTP_ERROR`로 채운 공고 0건이었다고 11-01 회사 실행 로그에서 확인했다. 증거 파일 없음. 다음 회차는 사용자 확인 뒤).
 
 **16에서 넘어온 할 일**(번호는 [[16-DECISIONS|16]]의 미결정·닫힌 미결정 번호):
@@ -144,6 +144,7 @@ updated: 2026-11-01
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-11-02 · 촬영 전 확인(사용자 지시): main 전체 검증, 운영 DB 읽기로 D1 촬영 값 확인(FX-01 92 추천·추천 분석 `DONE`, FX-16 70 보류, FX-02는 66 run 하나뿐, DEMO 추천 10·보류 8, 동국대 `ed2e57d4` 49 보류. 모두 19 §2.2와 같음), 나라장터 실패 회차 모양 정리(10-30 21:00 회차 21시간 열림 → 그동안 회차 없음 → 6회 0초 실패), 클립 4·6용 격리 로컬 스택(`sol-radar-film`, mock) 기동·S5·S6 리허설(변경 3·취소 1·중복 1, FX-07 diff, FX-01 PARTIAL 94) 뒤 시작 상태로 되돌림 · 새 worktree(origin/main `fbe42d5b`)에서 `pnpm verify` exit 0(루트 316·web 138파일 1,115·`next build`·AI 264·결정 57), 운영 DB SELECT만([기록](evidence/demo-day/20261102-preflight.md))
 - 2026-11-01 · 문서 전체 점검(사용자 지시 "지금 기준으로 docs 다 검토해서 틀린 부분 수정"): git·Vercel·운영 DB 읽기로 지금 사실을 확정하고 00~21·PROGRESS·submission 5개를 고침. 고친 것은 카카오 "연결 0건·사용자 보고뿐" 서술(실발송 24통·11-01 녹화·지금 꺼짐), 운영 프로필 revision 5 → 6, 옛 가정 재계산 대본(FX-01 → FX-16), `sol-v0.2.0` → `sol-v0.2.1`, 결정 모델 반영 버전 `sol-v0.2.x` → `sol-v0.3.0` 이후, "회사 프로필은 모든 모드에서 가상"(ADR-052), 구글 캘린더 반영 상태(운영 배포·env 없어 버튼 숨김·migration 미적용), 나라장터 수집 장애·수동 수집, 04 표·함수·migration 목록, 05 IT 범위·정렬 5종, 06 로그인·`/gaps`·`/market`·`/calendar` 문구, 14 수집 정상 기준(60분 → 210분), 코드 줄 번호·깨진 증거 경로. ADR 결정 본문·상태는 바꾸지 않음. 22·`docs/CLAUDE.md`·`experiment-tables.md`는 맞아서 그대로 · 고친 파일 `prettier --check` 통과, 위키링크·증거 경로 검사, 운영 DB·Vercel 읽기만([기록](evidence/ingestion/20261101-ops-reads.md))
 - 2026-11-01 · 인력 배치 공고별 추천 팀 구성(사용자 요청, 다른 세션): 요구 기술·역할이 맞는 직원이 0명이어도 분석 스냅샷 인력에서 직무 기준으로 3~12자리 추천 팀을 짜고, 팀별 지원 요청 표를 추천 팀 구성원의 소속 팀으로 묶음. FTE 표기를 "N명분"·"투입 가능 N%"로 바꿈. 코드 `f9dd9e4d`, 20:47 운영 배포 · web `verify:quick` 통과(단위 시험 1,115), 인력 배치 브라우저 시험 9/9. 루트 `verify:changed`는 이번 작업 밖 미커밋 파일의 서식 경고로 멈춤. 운영 로그인 화면 확인 미실행([기록](evidence/workforce/20261101-team-proposal/README.md))
 - 2026-11-01 · 나라장터 정기 수집 실패(10-30 21:00~11-01 12:00, 7회) 조사: 실패로 닫을 때 `summary.failure`에 오류 코드를 남기고 Worker 로그 한 줄을 쓰며, 해석 못 한 응답은 본문 모양(HTML·XML 최상위 태그)을 남기게 고침. main 병합 `e2223bdc`, 회사 ingest Worker 미반영. 빈 구간은 16:17 수동 수집이 받음 · `vitest run worker/ingest-schedule-budget.test.ts` 34/34(문서 점검 때 다시 실행), 운영 DB `ingest_runs` 읽기([기록](evidence/ingestion/20261101-ops-reads.md))
@@ -153,7 +154,6 @@ updated: 2026-11-01
 - 2026-11-01 · 인력 배치 시뮬레이션 화면 정리(사용자 지시): 후보 이름 옆과 공고 선택·선택 목록·결과 카드의 DEMO 표시를 지우고, 후보 이름 왼쪽에 프로필 사진을 그림. 사진은 조직도와 같은 순서(올린 사진 → 정장 사진 → 간편 로그인 사진 → 머리글자)로 서버가 고르며, workforce 조회가 `person_code`·사진 경로를 읽고 올린 사진은 사용자 JWT로 서명. 코드 `a27ab727`(main 로컬) · web `pnpm verify:quick` exit 0(135파일·1,097시험, 타입·린트·lodestar·토큰·색), 커밋 게이트 통과, 인력 배치 브라우저 시험 8/8(새 시험 1), 부품 화면 390·1440px 확인(임시 시험, 커밋 안 함). 운영 로그인 화면 확인은 미실행
 - 2026-10-31 · 구글 캘린더 연동([[16-DECISIONS|ADR-073]]): 작업 트리에 남은 WIP를 stash로 `feat/google-calendar-sync` worktree에 옮겨 마무리. `/calendar` 툴바 [구글 캘린더 연동]·[구글 캘린더에 넣기]·[다시 연결]과 결과 띠, `.ics` 라우트·버튼·시험 삭제, `check:env` 구글 키 짝 검사, `audit_logs` 대신 서버 JSON 로그. 독립 보안 리뷰(높음 0·중간 1·낮음 7) 반영: DEMO 표시, 토큰 봉인 AAD `google:`, 한 번 500건 한도, `<`·`>` 제거, 일정 ID `..` 거부 등. 받아들인 위험 5개는 ADR-073에 적음. 코드 `5f306f62`·문서 `c3fd609c`, main 로컬 병합 `652741e2`(push 전) · 전체 `pnpm verify` exit 0(루트 316·web 135파일 1,097시험·`next build`·AI 264·결정 57), 커밋 게이트 통과. 실계정 왕복·운영 반영 미실행
 - 2026-10-31 · 운영 기록 정리(읽기만): `sol-v0.2.1` 회사·Vercel 반영(10-30 16:15~16:20)과 카카오 운영 실발송(10-30 14:13~15:12)을 그 세션들의 보고 원문과 운영 DB SELECT로 증거에 옮김. `sol-v0.2.1` run 0건(재채점 미실행), 카카오 연결 CONNECTED·`enabled=false`, 발송 claim 25행 · Vercel production `7a772753` READY, `/health/ready` 200, 운영 DB SELECT만([v0.2.1](evidence/sol-score-v02/20261030/v021-rollout.md), [카카오](evidence/kakao-notify/20261030-prod-live-send.md))
-- 2026-10-30 · 발표 전 문서 모순 정리(심사 기준 4항목 대조): 실공고 분석 "3건" 서술 9곳을 "개별 3건 + IT 일괄 371건(v0.2 재채점 뒤 372 = 369 + 3)"으로 통일(18 §7·§8, submission 5개 문서, 00), 모바일 "범위 외" 잔재 6곳을 ADR-072에 맞춤(루트 README·18·limitations·slides-spec), 옛 대본(S4 FX-02 가정 → 비추천 43) 3곳을 ADR-059 10-30 개정(S3 FX-01 → 추천 92)으로(01 FR-22·12 BOOST-2·slides-spec 부록 D), 화면 동결 11-01 잔재(docs/CLAUDE·ADR-070), ADR-073 본문·색인 행 추가(색인 표의 ADR-072 행 앞 빈 줄 제거), migration 66→73·C8 촬영 공고(동국대 49)·역할 4종→5종(slides-spec·01)·Worker 5종(README·slides-spec)·심사자 5인→사장·부사장·CFO(18·01)·시험 수 갱신(slides-spec 슬라이드 14·11), 카카오 "연결 0건" 단정 6곳을 "사용자 보고 + 마지막 측정 증거 0건"으로, 루트 README 과장 2건(발주계획·사전규격 정기 수집, 공고 변경 알림) 정정, 06 §5.15 `.ics`에 ADR-073 경고, `infra/company/README.md` AI gateway mock 서술 정정, 덱 pptx 2개(루트 10-21·deck 10-28)와 옛 값 목록 기록 · `pnpm format:check` 통과. 코드 변경 없음
 
 ## 관련 문서
 
