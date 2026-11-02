@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - ops
-updated: 2026-10-29
+updated: 2026-11-02
 ---
 
 # 22. 회사 GPU 파인튜닝 실행서: Bosun v3.1 0.6B LoRA (Qwen 은 회사 API, 학습 없음)
@@ -15,7 +15,7 @@ updated: 2026-10-29
 > [[21-MODEL-TRAINING|21 모델 학습]]은 **무엇을 왜** 학습하는지(데이터셋·라벨·평가 지표·착수 판단)를 정한다. 이 문서는 **어떻게** 하는지를 적는다. 모델을 어디서 받는지, GPU 서버 환경을 어떻게 만드는지, 학습 데이터를 무엇으로 만드는지, 어떤 명령을 돌리고 무엇을 돌려받는지다. 회사 GPU 서버 셸에서 회사 담당자가 그대로 따라 할 수 있게 쓴다([[16-DECISIONS|ADR-025]]: 학습 실행은 회사).
 
 > [!note] 상태
-> - X6 파인튜닝(회사 GPU 학습 F1~F3과 E1'·E4 채점)은 발표(11-04) 뒤 진행 예정이다([[16-DECISIONS|ADR-067]]). 날짜는 정하지 않았다(일정은 [[12-ROADMAP|12 로드맵]] "해커톤 이후" 컷, 사용자 확인). 해커톤 전에는 재학습·교체하지 않는다([[16-DECISIONS|ADR-066]] 6번). 이 문서는 그때 회사에 넘기는 명령서다.
+> - X6 파인튜닝(회사 GPU 학습 F1~F3과 E1'·E4 채점)은 발표(11-05) 뒤 진행 예정이다([[16-DECISIONS|ADR-067]]). 날짜는 정하지 않았다(일정은 [[12-ROADMAP|12 로드맵]] "해커톤 이후" 컷, 사용자 확인). 해커톤 전에는 재학습·교체하지 않는다([[16-DECISIONS|ADR-066]] 6번). 이 문서는 그때 회사에 넘기는 명령서다.
 > - 단계 이름 B2(회사 서버 준비·확인)·B3(번들 확정·요청서)·B4~B5(F1~F3 실행·채점)는 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §9 의 이름이다.
 > - **B2 의 결정 서버는 끝났다.** `sol_decision.serve` 가 회사 호스트 `127.0.0.1:8009` 에서 공개 Bosun v3.1 0.6B 를 서빙한다. 운영 gateway 는 루프백(`KEV_BASE_URL=http://127.0.0.1:8009`)으로 붙고 `/health` 가 `registryMatch: true` 다([운영 기록](evidence/company-public-profile/20261027/prod-rollout.md), [gateway 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 포트 8080 모델 라우터는 미확인이고 회사 nginx `/sol-radar` 경로는 등록되지 않았다([[10-DEPLOYMENT|10]] "회사 GPU 추론 엔드포인트").
 > - B2 의 나머지 기록(백본 shard sha256, `nvidia-smi`, `.venv-bosun` `pip list`, `bosun-preflight.sh` 로그)은 없다. F1-A(§4.2) 때 남긴다. B3 이후는 회사 서버에서 돈 기록이 없다.
@@ -216,7 +216,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"   # 값
 
 ## 4. Bosun v3.1 0.6B LoRA 이어 학습 ([[16-DECISIONS|ADR-034]] 7번)
 
-순서: B3 평가셋·학습셋 번들·요청서 → **F1** 메모리·step 시간 smoke → **F2** 학습 → **F3** 보정·E4·E1' 평가 → 결과 반영. 발표(11-04) 뒤 진행 예정이고 날짜는 정하지 않았다(X6, [[16-DECISIONS|ADR-067]]. 일정은 [[12-ROADMAP|12 로드맵]] "해커톤 이후" 컷, 사용자 확인).
+순서: B3 평가셋·학습셋 번들·요청서 → **F1** 메모리·step 시간 smoke → **F2** 학습 → **F3** 보정·E4·E1' 평가 → 결과 반영. 발표(11-05) 뒤 진행 예정이고 날짜는 정하지 않았다(X6, [[16-DECISIONS|ADR-067]]. 일정은 [[12-ROADMAP|12 로드맵]] "해커톤 이후" 컷, 사용자 확인).
 
 ### 4.1 학습 데이터: 무엇을 학습하나
 

@@ -11,15 +11,15 @@ updated: 2026-11-02
 
 # 12. 구현 순서와 해커톤 컷
 
-> [!success] 새 마감 (2026-10-27 사용자 결정, [[16-DECISIONS|ADR-054]])
-> 공식 제출 **2026-11-03(화)**, 발표 **2026-11-04(수)**. 사용자 원문: "새 마감일은 11월 3일. 발표일은 11월 4일." 사용자가 정한 날짜는 이 둘뿐이다. 남은 날의 세부 일정은 아래 "남은 일정 제안" 표 한 곳에만 두고, 사용자 확인 전이다. 이전 일정은 ADR-054로 바뀌었다(이력은 [[16-DECISIONS|16 ADR]] ADR-042·054).
+> [!success] 새 마감 (2026-10-27 사용자 결정, [[16-DECISIONS|ADR-054]]. 발표일은 2026-11-02 개정, [[16-DECISIONS|ADR-076]])
+> 공식 제출 **2026-11-03(화)**, 발표 **2026-11-05(목)**. 사용자 원문: "새 마감일은 11월 3일. 발표일은 11월 4일."(2026-10-27) → "발표 날짜 11월 5일", "발표일만 바뀌었어"(2026-11-02). 사용자가 정한 날짜는 이 둘뿐이다. 남은 날의 세부 일정은 아래 "남은 일정 제안" 표 한 곳에만 두고, 사용자 확인 전이다. 이전 일정은 ADR-054로 바뀌었다(이력은 [[16-DECISIONS|16 ADR]] ADR-042·054).
 
 [[16-DECISIONS|ADR-020]]으로 해커톤 MVP의 목표가 "fixture 20건 + mock AI"에서 **실제 나라장터 공고를 대상으로 끝까지 동작하는 MVP**로 바뀌었다(사용자 원문: "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP"). 실수집·실추론·평가 트랙(P0-0~P0-11)은 별도 트랙이 아니라 아래 Phase 0~7 안에 들어간다. fixture 경로와 live 경로는 같은 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 함께 만든다. 시험과 CI는 `SOL_RUN_MODE=mock`으로 돈다.
 
 ## 남은 일정 제안 (2026-11-02 갱신, 사용자 확인 전)
 
 > [!todo] 제안(사용자 확인 전)
-> 마스터 세션의 제안이다. 사용자가 확인하기 전에는 확정 일정으로 쓰지 않는다. 확정된 것은 11-03 제출·11-04 발표와 발표 형식(덱 20분 + 녹화 클립)이다([[16-DECISIONS|ADR-054]]). 화면 동결은 **2026-11-03(화)**다(2026-10-30 사용자 결정으로 11-01에서 연기. [[16-DECISIONS|ADR-073]]). 화면 개편 스펙 §6의 11-01은 당시 기록이다([스펙](../polaris/specs/done/2026-10-28-ui-refresh.md)). 구글 캘린더 연동(ADR-073) 코드는 main에 들어가 운영 web에 배포됐다(`652741e2`). 운영 연결(Vercel 구글 env·운영 DB 마이그레이션·실계정 왕복)은 사용자 결정(2026-11-02)으로 발표 뒤로 미뤄 아래 해커톤 컷 표 "해커톤 이후" 행에 있다.
+> 마스터 세션의 제안이다. 사용자가 확인하기 전에는 확정 일정으로 쓰지 않는다. 확정된 것은 11-03 제출·11-05 발표([[16-DECISIONS|ADR-076]])와 발표 형식(덱 20분 + 녹화 클립)이다([[16-DECISIONS|ADR-054]]). 화면 동결은 **2026-11-03(화)**다(2026-10-30 사용자 결정으로 11-01에서 연기. [[16-DECISIONS|ADR-073]]). 화면 개편 스펙 §6의 11-01은 당시 기록이다([스펙](../polaris/specs/done/2026-10-28-ui-refresh.md)). 구글 캘린더 연동(ADR-073) 코드는 main에 들어가 운영 web에 배포됐다(`652741e2`). 운영 연결(Vercel 구글 env·운영 DB 마이그레이션·실계정 왕복)은 사용자 결정(2026-11-02)으로 발표 뒤로 미뤄 아래 해커톤 컷 표 "해커톤 이후" 행에 있다.
 
 |날짜|할 일|조건·상태|
 |---|---|---|
@@ -33,7 +33,7 @@ updated: 2026-11-02
 |11-02(월)|발표 덱(20분)·녹화 클립 완성, 리허설 2|로컬 전체 `pnpm verify` 1회(GitHub Actions가 돌지 않는다). 사용자 승인 뒤 운영 읽기로 랜딩 출처 9곳 수집을 확인한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md))|
 |11-03(화)|화면 동결|2026-10-30 사용자 결정(11-01에서 연기, [[16-DECISIONS\|ADR-073]]). D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함|
 |11-03(화)|공식 제출|확정(사용자)|
-|11-04(수)|발표: 덱 20분 + 녹화 클립. D1 운영 사이트(`?origin=demo`)는 질의응답 라이브|확정(사용자). `demo:reset` 안 함|
+|11-05(목)|발표: 덱 20분 + 녹화 클립. D1 운영 사이트(`?origin=demo`)는 질의응답 라이브|확정(사용자, 2026-11-02 11-04에서 연기, [[16-DECISIONS\|ADR-076]]). `demo:reset` 안 함|
 
 - 끝난 것: 첨부 처리(Documents Worker 회사 운영, [기록](evidence/company-rollout/20261028/sources-rollout.md)), 실공고 분석(위 기록), 새 메뉴 3개([[16-DECISIONS|ADR-060]]), 화면 개편([[16-DECISIONS|ADR-061]]), 추천 분석 운영 반영([[16-DECISIONS|ADR-066]], [기록](evidence/company-rollout/20261029/rec-insight-rollout.md)), DEMO 공고 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)), 카카오 운영 연결·실발송(10-30, [기록](evidence/kakao-notify/20261030-prod-live-send.md)), 카카오 실수신 녹화(11-01, `docs/evidence/kakao-notify/20261101-recording.md`), `sol-v0.2.1` 재채점(11-01, [기록](evidence/sol-score-v02/20261030/v021-rollout.md)).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다(ADR-054 2번). 이 표에 넣지 않는다.
@@ -58,7 +58,7 @@ updated: 2026-11-02
 
 ## 해커톤 우선순위 (P0)
 
-공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 아래 순서가 곧 잘라낼 순서다. 시간이 모자라도 범위를 임의로 줄이지 않고 선택지를 보고한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). `E0`~`E2`는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상이며 데모 장면 번호(`S0`~`S7`)와 다르다.
+공식 제출은 2026-11-03, 발표는 2026-11-05다([[16-DECISIONS|ADR-054]]·[[16-DECISIONS|ADR-076]]). 아래 순서가 곧 잘라낼 순서다. 시간이 모자라도 범위를 임의로 줄이지 않고 선택지를 보고한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). `E0`~`E2`는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상이며 데모 장면 번호(`S0`~`S7`)와 다르다.
 
 |순서|항목|Phase|완료 기준|
 |---|---|---|---|
@@ -85,7 +85,7 @@ updated: 2026-11-02
 
 |구분|포함|이유|
 |---|---|---|
-|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 근거·결정 모델 상충·가정 재계산(D1 회사 프로필 revision 6은 FX-01 92 추천이고 가정 재계산은 FX-16 70 보류. 로컬 `mock`은 94 추천(`BID`)과 FX-03 비추천), S4 FX-02 분석·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·상단바 DEMO 배지·수집 신선도)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**(ADR-067로 발표 뒤 진행). 인력 200명 전원·고정 기간 95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|공식 제출 2026-11-03·발표 2026-11-04(ADR-054), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
+|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 근거·결정 모델 상충·가정 재계산(D1 회사 프로필 revision 6은 FX-01 92 추천이고 가정 재계산은 FX-16 70 보류. 로컬 `mock`은 94 추천(`BID`)과 FX-03 비추천), S4 FX-02 분석·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·상단바 DEMO 배지·수집 신선도)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**(ADR-067로 발표 뒤 진행). 인력 200명 전원·고정 기간 95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|공식 제출 2026-11-03·발표 2026-11-05(ADR-054·076), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
 |**파인튜닝 트랙 X6**([[16-DECISIONS\|ADR-034]]. 발표 뒤 진행, [[16-DECISIONS\|ADR-067]])|평가셋 v0.1(test 20·dev 10, P0-9), 학습셋 번들 내보내기·학습 요청서(P0-11), Bosun LoRA F1·F2·F3(회사 측 실행), E4 = Bosun+LoRA를 E1'(공개 Bosun zero-shot)과 같은 test 분할에서 짝 부트스트랩 95% CI로 비교. 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로|사용자 결정(2026-10-19). 발표 뒤 진행 예정이다(ADR-067, "해커톤 이후" 행). 회사 측 학습 결과를 못 받으면 "회사 측 미실행"으로 적는다. 핵심 컷 green 판정은 학습 결과를 기다리지 않는다|
 |**데모 강화 컷**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-037]])|BOOST-2 가정 재계산: 공고 상세의 미보유 필수 자격에 "보유 가정" 스위치 → 저장된 입력 스냅샷으로 점수·권고·자격 판정을 다시 계산해 원래 → 가정 띠로 보인다(저장 없음, 결정 모델 재호출 없음). 데모는 S3 끝 `FX-16`(70 보류)에서 방산업체 지정 스위치(보류 → 보류, 70 그대로, 필수 자격 확인 필요 → 충족). revision 6에서 FX-01·FX-02는 필수 자격이 모두 충족이라 스위치가 없다(ADR-059 2026-10-30 2차 개정)|main 병합, 데모 S3에 포함. 조건: 핵심 컷 코드 경로·계약을 바꾸지 않는 추가형, 확률·승률 표시 금지(ADR-007)|
 |**확장 컷**(예외: 카카오 ADR-038, 4건 ADR-039, 부처 지원사업 공고 ADR-040)|**카카오톡 추천 공고 알림**(나에게 보내기, [[16-DECISIONS\|ADR-038]]) → S5 변경 감지(FX-06·07·09·10 LIVE 배치, revision diff, `BID_CHANGED`) → `/people`·`/org-chart` 메뉴 → `/admin/ingestion` 화면 → 설정 조직 탭 → ADR-021 앱 셸 나머지·대시보드 카드 5개 → P0-8 사전규격·발주계획 단계 연결 → 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) → E0·E2·E3 전체 평가셋(test 20) 리포트(발표 뒤, ADR-067) → `/admin/ai/eval-runs`(코드 없음)|평가 리포트·`/admin/ai/eval-runs` 밖의 항목은 main에 들어갔다([통합 기록](evidence/committed-integrations/integration.md)). 카카오 간편 로그인 완료는 사용자 보고(2026-10-30)다. 나에게 보내기 실발송은 2026-10-30 23통([실발송 기록](evidence/kakao-notify/20261030-prod-live-send.md))과 2026-11-01 녹화 1통이다. 실수신 녹화는 2026-11-01에 했다(위 남은 일정 제안 표). 메일 알림([[16-DECISIONS\|ADR-041]])은 해커톤에서 뺐다(코드 없음)|
@@ -141,7 +141,7 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 - [[01-PRD|01 PRD]] — FR별 P0·P1·P2
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
-- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-034(결정 모델 Bosun·추출 Qwen3.8-Flash-Next), ADR-037(데모 강화 컷), ADR-054(마감 11-03·발표 11-04)
+- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-034(결정 모델 Bosun·추출 Qwen3.8-Flash-Next), ADR-037(데모 강화 컷), ADR-054(마감 11-03)·ADR-076(발표 11-05)
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[18-HACKATHON|18 해커톤]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
