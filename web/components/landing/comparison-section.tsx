@@ -66,11 +66,12 @@ const GROUPS: { name: string; rows: Row[] }[] = [
   {
     name: "가격",
     rows: [
+      // SOL RADAR 칸은 공고 상세의 참고 낙찰가 범위다(ADR-077). 행 정의를 넓혔고 타사 칸은 그대로다(증거 파일 4절 끝).
       {
         label: "투찰 가격 분석",
-        hint: "사정율 · 낙찰예측가",
+        hint: "지난 낙찰가 · 사정율",
         others: ["yes", "yes", "yes", "partial"],
-        sol: "no",
+        sol: "yes",
       },
     ],
   },

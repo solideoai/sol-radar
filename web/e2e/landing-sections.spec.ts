@@ -68,12 +68,13 @@ test("서비스 소개는 공고 수집 서비스 네 곳과 SOL RADAR 의 기�
   await expect(
     about.getByRole("row", { name: /^추천 · 보류 · 비추천 권고/ }).getByRole("cell"),
   ).toHaveText([notFound, notFound, notFound, notFound, /제공$/]);
+  // 가격 줄 SOL RADAR 칸은 공고 상세 참고 낙찰가 범위로 "제공"이다(ADR-077).
   await expect(about.getByRole("row", { name: /^투찰 가격 분석/ }).getByRole("cell")).toHaveText([
     /공개 페이지에서 확인$/,
     /공개 페이지에서 확인$/,
     /공개 페이지에서 확인$/,
     /일부만 확인$/,
-    /제공하지 않음$/,
+    /제공$/,
   ]);
   await expect(about.getByText(/2026년 10월 29일 각 서비스 공개 웹페이지 기준/)).toBeVisible();
   await expect(about.getByText("서비스 소개", { exact: true })).toHaveCount(0);
