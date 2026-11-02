@@ -10,9 +10,12 @@ export {
   baseAmountOf,
   methodGroupOf,
 } from "./award-reference.model";
+export { getAwardReference } from "./award-reference.service";
 export type {
+  AwardCandidateQuery,
   AwardMethodGroup,
   AwardReference,
+  AwardReferenceRepo,
   AwardSampleRow,
   AwardTarget,
   BaseAmount,

@@ -4160,3 +4160,52 @@ describe("구글 캘린더 연동 — 본인 행·매핑 (20261030002000)", () =
     );
   });
 });
+
+describe("낙찰 이력 — 읽기 전용 (20261102000100)", () => {
+  const [member, suspended] = users;
+  // 운영자 CLI(service role)가 쓰는 행 하나. 시험 DB 의 기본 역할(관리 작업)로 넣는다.
+  const insertRow = (db) =>
+    db.query(
+      `insert into public.procurement_award_history
+         (bid_notice_no, bid_notice_ord, title, procurement_class_no, procurement_class_name,
+          award_method_name, award_method_group, base_amount_krw, base_amount_kind,
+          award_amount_krw, award_ratio, opened_at)
+       values ('R25BK00000001', '000', '시험 유지관리 용역', '81112299', '소프트웨어유지및지원서비스',
+          '협상에의한계약-협상에 의한 낙찰자 결정', 'NEGOTIATION', 796011720, 'ASSIGNED_BUDGET',
+          711634478, 0.894, '2026-06-01T00:00:00Z')`,
+    );
+  const countRows = async (db) =>
+    (await db.query("select count(*)::int as n from public.procurement_award_history")).rows[0].n;
+  const PERMISSION = /permission denied for table procurement_award_history/;
+
+  it("활동 중 회원은 읽고, 정지된 회원은 0행이다", async (t) => {
+    const db = await migratedDb(t);
+    await insertRow(db);
+    await db.query("update public.profiles set status = 'suspended' where id = $1", [suspended]);
+    await actAs(db, member);
+    assert.equal(await countRows(db), 1);
+    await actAs(db, suspended);
+    assert.equal(await countRows(db), 0);
+  });
+
+  it("로그인하지 않은 사람(anon)은 읽지 못한다(권한 오류)", async (t) => {
+    const db = await migratedDb(t);
+    await insertRow(db);
+    await actAs(db, null, "anon");
+    await assert.rejects(countRows(db), PERMISSION);
+  });
+
+  it("활동 중 회원도 넣기·고치기·지우기는 권한 오류다", async (t) => {
+    const db = await migratedDb(t);
+    await insertRow(db);
+    await actAs(db, member);
+    await assert.rejects(insertRow(db), PERMISSION);
+    await assert.rejects(
+      db.query("update public.procurement_award_history set title = '바꾼 이름'"),
+      PERMISSION,
+    );
+    await assert.rejects(db.query("delete from public.procurement_award_history"), PERMISSION);
+    await db.exec("reset role");
+    assert.equal(await countRows(db), 1);
+  });
+});
