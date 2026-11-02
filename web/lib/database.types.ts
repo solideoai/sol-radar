@@ -2039,6 +2039,66 @@ export type Database = {
         }
         Relationships: []
       }
+      procurement_award_history: {
+        Row: {
+          award_amount_krw: number
+          award_method_group: string
+          award_method_name: string
+          award_ratio: number
+          base_amount_kind: string
+          base_amount_krw: number
+          bid_notice_no: string
+          bid_notice_ord: string
+          demand_agency: string | null
+          fetched_at: string
+          id: string
+          opened_at: string
+          participant_count: number | null
+          procurement_class_name: string
+          procurement_class_no: string
+          procurement_mid_class_name: string | null
+          title: string
+        }
+        Insert: {
+          award_amount_krw: number
+          award_method_group: string
+          award_method_name: string
+          award_ratio: number
+          base_amount_kind: string
+          base_amount_krw: number
+          bid_notice_no: string
+          bid_notice_ord: string
+          demand_agency?: string | null
+          fetched_at?: string
+          id?: string
+          opened_at: string
+          participant_count?: number | null
+          procurement_class_name: string
+          procurement_class_no: string
+          procurement_mid_class_name?: string | null
+          title: string
+        }
+        Update: {
+          award_amount_krw?: number
+          award_method_group?: string
+          award_method_name?: string
+          award_ratio?: number
+          base_amount_kind?: string
+          base_amount_krw?: number
+          bid_notice_no?: string
+          bid_notice_ord?: string
+          demand_agency?: string | null
+          fetched_at?: string
+          id?: string
+          opened_at?: string
+          participant_count?: number | null
+          procurement_class_name?: string
+          procurement_class_no?: string
+          procurement_mid_class_name?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       profile_photo_folders: {
         Row: {
           folder: string
