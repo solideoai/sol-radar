@@ -308,6 +308,9 @@ export {
 } from "./normalize-g2b";
 export { createOfficialApiConnector } from "./official-api-connector";
 export type { FetchLike, OfficialApiConnectorOptions } from "./official-api-connector";
+// 요청 한 번의 공통 처리(키 가리기·응답 크기 상한). 낙찰 이력 채우기 CLI(award-history)도 쓴다
+export { createG2bHttp } from "./g2b-http";
+export type { G2bEnvelopeResult, G2bHttp } from "./g2b-http";
 
 // ── Stage 4: 녹음 응답 재생(시험·개발 스크립트 전용. worker 의 실행 모드 선택에는 넣지 않는다) ──
 export {
