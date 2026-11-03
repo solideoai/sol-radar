@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - ops
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 13. 알림 설계
@@ -91,7 +91,7 @@ sequenceDiagram
 
 - **언제**: `finish_score_run`이 사람이 요청한 run(`requested_by` 있음)을 `COMPLETED`·`PARTIAL`로 마감하고 권고가 추천·보류면, 같은 트랜잭션에서 outbox `BID_RECOMMENDED` 1건을 쓴다(`20261023000701`). 키 `<orgId>:<bidId>:BID_RECOMMENDED`라 조직·공고마다 처음 한 번만 생기고, 다시 분석해도 늘지 않는다. `aggregate_type` `score_run`, payload `{scoreRunId, bidId, orgId, recommendation, status}`. 데모 사전 분석(`requested_by` null)·비추천(`NO_BID`)·FAILED는 쓰지 않는다.
 - **누구에게**: 그 조직 구성원 가운데 카카오톡 알림을 켰고(`enabled`) 연결이 `CONNECTED`이며 활성 계정(`profiles.status = 'active'`)인 사람 전원이다. 역할은 가리지 않고 분석 요청자도 받는다. 받는 사람은 보낼 때 다시 고른다(그 사이 끄거나 연결을 해제하면 보내지 않는다). 사람마다 알림 행 1개(`channel=KAKAO`, `type=BID_RECOMMENDED`, 키 `<outboxEventId>:<userId>:KAKAO`)다. 같은 공고를 이미 받은 사람은 다른 조직의 이벤트라도 건너뛴다. `SENT`와 결과 불분명 `DEAD`(`TIMEOUT_UNKNOWN`)를 받은 것으로 보고(최대 한 번), 분명히 못 보낸 `DEAD`는 받은 것으로 보지 않는다. 받는 사람이 0명이면 알림 0건으로 outbox를 `PROCESSED`로 닫는다. 이 이벤트로 인앱 알림은 만들지 않는다.
-- **메시지**: 피드형 한 통이다. 제목은 공고명, 설명은 `추천 권고 · <사유 한 줄>`(PARTIAL이면 뒤에 ` · AI 없이 규칙만으로 분석`), 항목은 발주처·마감·추정금액·점수, 버튼은 [분석 보기]·[공고 원문]이다. [분석 보기] 주소는 알림 Worker env `SITE_URL` + `/bids/<bidId>`다(`web/server/kakao-notify/feed.model.ts` `toFeedTemplate`). 로그인하지 않은 채 열면 `/auth/login?next=/bids/<bidId>`를 거쳐 그 공고로 돌아온다(`92ca1882`). 2026-11-01 녹화 때 운영 Worker `SITE_URL`이 회사 홈페이지(`https://www.solideos.com`)여서 10-30 23통·11-01 1통의 [분석 보기]가 회사 홈페이지로 갔다. 같은 날 `https://www.solideos-radar.com`으로 고쳤고, 고친 링크로 받은 카톡을 눌러 보는 확인과 카카오 개발자 콘솔 Web 도메인 등록 확인은 남았다([녹화 기록](evidence/kakao-notify/20261101-recording.md)). 사유 한 줄은 규칙 결과에서만 만들고 AI 자유 서술은 싣지 않는다. 여러 건이면 건마다 따로 보내고, 한 사람에게 1초에 1통을 넘지 않는다.
+- **메시지**: 피드형 한 통이다. 제목은 공고명, 설명은 `추천 권고 · <사유 한 줄>`(PARTIAL이면 뒤에 ` · AI 없이 규칙만으로 분석`), 항목은 발주처·마감·추정금액·점수, 버튼은 [분석 보기]·[공고 원문]이다. [분석 보기] 주소는 알림 Worker env `SITE_URL` + `/bids/<bidId>`다(`web/server/kakao-notify/feed.model.ts` `toFeedTemplate`). 로그인하지 않은 채 열면 `/auth/login?next=/bids/<bidId>`를 거쳐 그 공고로 돌아온다(`92ca1882`). 카카오톡 안 창은 휴대폰 브라우저와 로그인을 나누지 않으므로, 로그인 없는 카톡 창이면 로그인 화면 대신 `/auth/open-in-browser`가 `kakaotalk://web/openExternal`로 같은 주소를 기본 브라우저(아이폰 Safari, 안드로이드 기본 브라우저)에 넘긴다. 이 스킴은 공식 문서가 아닌 방법이라 실기기 확인 전이다([[16-DECISIONS|ADR-079]]). 2026-11-01 녹화 때 운영 Worker `SITE_URL`이 회사 홈페이지(`https://www.solideos.com`)여서 10-30 23통·11-01 1통의 [분석 보기]가 회사 홈페이지로 갔다. 같은 날 `https://www.solideos-radar.com`으로 고쳤고, 고친 링크로 받은 카톡을 눌러 보는 확인과 카카오 개발자 콘솔 Web 도메인 등록 확인은 남았다([녹화 기록](evidence/kakao-notify/20261101-recording.md)). 사유 한 줄은 규칙 결과에서만 만들고 AI 자유 서술은 싣지 않는다. 여러 건이면 건마다 따로 보내고, 한 사람에게 1초에 1통을 넘지 않는다.
 - **발송 수단**: `NOTIFY_KAKAO_PROVIDER` — `mock`(외부 호출 없이 즉시 성공)·`memo`(`POST https://kapi.kakao.com/v2/api/talk/memo/default/send`). 시험·CI는 `mock`이고, 실발송은 사용자가 env를 `memo`로 바꿀 때만 일어난다([[10-DEPLOYMENT|10 배포]]). 운영 알림 전용 Worker는 빈 값(live에서 카카오 발송 꺼짐, 아래)이 기본이고, 녹화·시연 때만 사용자 승인으로 `memo`로 바꾼 뒤 빈 값으로 되돌린다([회사 실행서](../infra/company/README.md) §9.6).
 - **live에서 발송 수단이 비었을 때**(근거 [live 가드 검증](evidence/live-guards/20261027.md)): `SOL_RUN_MODE=live`에서 값이 비면 mock이 아니라 발송을 끈다.
   - live + 빈 값: 카카오 발송을 끈다(`disabled`). Worker는 그대로 기동하고 경고 한 줄(`notify.kakao.disabled`)을 남긴다. 카카오 이벤트(`BID_RECOMMENDED`·`KAKAO_TEST`)는 `KAKAO_CHANNEL_NOT_CONFIGURED`로 5·10·20·40초 뒤 다시 하고 다섯 번째에 `DEAD`가 된다. `kakao_send_claims`·KAKAO 알림 행·`kakao_notify_links.last_result`가 생기지 않는다. 인앱 알림은 영향이 없다.
