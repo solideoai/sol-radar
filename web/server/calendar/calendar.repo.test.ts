@@ -48,7 +48,19 @@ const SCOPE = { orgId: "org-1", userId: "user-me" };
 // 오늘 10-28 에 2026년 10월을 볼 때의 범위(relevantDeadlineWindow): 10-14 00:00 KST 부터 12-26 00:00 KST 전까지
 const WINDOW = { from: "2026-10-13T15:00:00.000Z", to: "2026-12-25T15:00:00.000Z" };
 
-const revision = (number: number, opening: string | null = "2026-11-10 11:00:00") => ({
+type StoredAssessment = { categories: string[]; created_at: string; id: string };
+
+const revision = (
+  number: number,
+  opening: string | null = "2026-11-10 11:00:00",
+  {
+    procurementClass = null,
+    relevance = [],
+  }: {
+    procurementClass?: string | null;
+    relevance?: StoredAssessment[];
+  } = {},
+) => ({
   revision: number,
   BID_BEGIN: null,
   QUALIFICATION_DUE: null,
@@ -56,6 +68,8 @@ const revision = (number: number, opening: string | null = "2026-11-10 11:00:00"
   SITE_BRIEFING: null,
   OPENING: opening,
   sitePlace: null,
+  procurementClass,
+  relevance,
 });
 
 const notice = (
@@ -165,6 +179,48 @@ describe("calendarRepo — IT 공고", () => {
       ["OPENING:it", "2026-11-10T02:00:00.000Z"],
       ["OPENING:watched", "2026-11-10T02:00:00.000Z"],
     ]);
+  });
+
+  it("공고 분야: 최신 revision 의 가장 최근 관련성 평가로 대표 분야를 정한다", async () => {
+    pages.bid_notices = [
+      [
+        notice("n1", [
+          revision(1, undefined, {
+            relevance: [{ categories: ["AI_AX"], created_at: "2026-10-03T00:00:00Z", id: "c" }],
+          }),
+          revision(2, undefined, {
+            relevance: [
+              { categories: ["SI_SW"], created_at: "2026-10-01T00:00:00Z", id: "a" },
+              { categories: ["SECURITY", "SI_SW"], created_at: "2026-10-02T00:00:00Z", id: "b" },
+            ],
+          }),
+        ]),
+      ],
+    ];
+    const { events } = await getCalendarEvents(SCOPE, "org", { window: WINDOW });
+    expect(events.length).toBeGreaterThan(0); // 공고 마감 + 개찰
+    expect(events.every((event) => event.bid.field === "SECURITY")).toBe(true);
+  });
+
+  it("공고 분야: 평가가 없으면 공공조달분류명으로 SI·SW, 둘 다 없으면 분야 없음", async () => {
+    pages.bid_notices = [
+      [
+        notice("classified", [revision(2, null, { procurementClass: "정보시스템유지관리서비스" })]),
+        notice("none", [revision(2, null)]),
+      ],
+    ];
+    const { events } = await getCalendarEvents(SCOPE, "org", { window: WINDOW });
+    expect(Object.fromEntries(events.map((event) => [event.bid.id, event.bid.field]))).toEqual({
+      classified: "SI_SW",
+      none: null,
+    });
+  });
+
+  it("revision 임베드는 공공조달분류명과 관련성 평가를 함께 고른다", async () => {
+    await getCalendarEvents(SCOPE, "org", { window: WINDOW });
+    const select = String(noticeRequests()[0]?.find(([method]) => method === "select")?.[1]);
+    expect(select).toContain("procurementClass:raw_payload->>pubPrcrmntClsfcNm");
+    expect(select).toContain("relevance:bid_relevance_assessments(categories,created_at,id)");
   });
 
   it("내 일정 보기는 관련 공고를 읽지 않는다", async () => {

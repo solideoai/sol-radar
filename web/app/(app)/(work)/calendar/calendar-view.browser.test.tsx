@@ -62,6 +62,7 @@ const event = (
     agency: "조달청",
     isDemo: false,
     cancelled: false,
+    field: null,
   },
   watched: true,
   project: null,
@@ -77,6 +78,14 @@ const EVENTS: Record<string, CalendarEvent[]> = {
   [TODAY]: [
     event("today", "2026-10-28T06:00:00.000Z", TODAY, {
       kind: "SUBMISSION_DUE",
+      bid: {
+        id: "today",
+        title: "today 차세대 정보시스템 구축 사업",
+        agency: "조달청",
+        isDemo: false,
+        cancelled: false,
+        field: "AI_AX",
+      },
       project: PROJECT,
       href: "/projects/p1",
     }),
@@ -89,11 +98,23 @@ const EVENTS: Record<string, CalendarEvent[]> = {
         agency: "한국수자원공사",
         isDemo: true,
         cancelled: false,
+        field: "DIGITAL_TWIN",
       },
       href: "/bids/busy-1?origin=demo",
     }),
     event("busy-2", "2026-10-30T01:00:00.000Z", BUSY_DAY),
-    event("busy-3", "2026-10-30T02:00:00.000Z", BUSY_DAY, { watched: false, project: PROJECT }),
+    event("busy-3", "2026-10-30T02:00:00.000Z", BUSY_DAY, {
+      bid: {
+        id: "busy-3",
+        title: "busy-3 차세대 정보시스템 구축 사업",
+        agency: "조달청",
+        isDemo: false,
+        cancelled: false,
+        field: "SECURITY",
+      },
+      watched: false,
+      project: PROJECT,
+    }),
     event("busy-4", "2026-10-30T08:00:00.000Z", BUSY_DAY),
   ],
 };
@@ -126,6 +147,20 @@ afterEach(() => {
 });
 
 type Props = React.ComponentProps<typeof BidCalendar>;
+
+// 화면에 실제로 보이는 폭. 요소 상자를 overflow 로 자르는 조상 상자들과 겹친 넓이다(다 가려지면 0).
+const shownWidth = (element: Element) => {
+  let { left, right, top, bottom } = element.getBoundingClientRect();
+  for (let node = element.parentElement; node !== null; node = node.parentElement) {
+    if (getComputedStyle(node).overflow === "visible") continue;
+    const clip = node.getBoundingClientRect();
+    left = Math.max(left, clip.left);
+    right = Math.min(right, clip.right);
+    top = Math.max(top, clip.top);
+    bottom = Math.min(bottom, clip.bottom);
+  }
+  return right > left && bottom > top ? right - left : 0;
+};
 
 function show(overrides: Partial<Props> = {}) {
   const root = createRoot(document.body.appendChild(document.createElement("div")));
@@ -190,7 +225,10 @@ describe("입찰 일정 화면", () => {
         .element()
         .getBoundingClientRect().height,
     ).toBeGreaterThanOrEqual(44);
+    // 모바일 일정 목록도 분야 이름을 보인다.
+    await expect.element(agenda.getByText("AI·AX", { exact: true })).toBeVisible();
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+    await page.screenshot({ path: "../../../../test-results/vitest-screenshots/calendar-390.png" });
   });
 
   for (const width of [1440, 1280]) {
@@ -208,7 +246,10 @@ describe("입찰 일정 화면", () => {
       await expect
         .element(calendar.getByRole("link", { name: /^제출 마감 15:00 today/ }))
         .toHaveAttribute("href", "/projects/p1");
-      const demoChip = calendar.getByRole("link", { name: /스마트 물관리.*내 관심 DEMO$/ });
+      // 분야 이름은 제목 뒤, 표시 앞이다.
+      const demoChip = calendar.getByRole("link", {
+        name: /스마트 물관리.*디지털트윈 내 관심 DEMO$/,
+      });
       await expect.element(demoChip).toHaveAttribute("href", "/bids/busy-1?origin=demo");
       // DEMO 는 칩에 글자로도 보인다(색·아이콘만으로 알리지 않는다). DEMO 가 아닌 칩에는 없다.
       await expect.element(demoChip.getByText("DEMO", { exact: true })).toBeVisible();
@@ -219,13 +260,57 @@ describe("입찰 일정 화면", () => {
             .getByText("DEMO", { exact: true }),
         )
         .not.toBeInTheDocument();
-      // 제목 줄은 칩 폭을 다 쓴다(아이콘·표시 옆에 끼어 서너 글자만 남지 않게).
+      // 공고 분야는 왼쪽 색 띠와 분야 이름 글자다(색만으로 알리지 않는다). 분야 없는 칩은 회색(input) 띠만 있다.
+      // 관심 공고라도 분야 이름은 잘리지 않는다(★ 는 제목 줄 앞에 있어 윗줄 자리를 쓰지 않는다).
+      const todayChip = calendar.getByRole("link", { name: /^제출 마감 15:00 today/ });
+      const todayField = todayChip.getByText("AI·AX", { exact: true });
+      await expect.element(todayField).toBeVisible();
+      expect(todayField.element().scrollWidth).toBeLessThanOrEqual(
+        todayField.element().clientWidth,
+      );
+      const todayTitle = todayChip.getByText("today 차세대 정보시스템 구축 사업").element();
+      const star = todayTitle.parentElement?.querySelector("svg");
+      expect(star).toBeTruthy();
+      expect(star?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+        todayField.element().getBoundingClientRect().bottom - 1,
+      );
+      expect(star?.getBoundingClientRect().right).toBeLessThanOrEqual(
+        todayTitle.getBoundingClientRect().left,
+      );
+      const fieldLabel = demoChip.getByText("디지털트윈", { exact: true });
+      const demoStyle = getComputedStyle(demoChip.element());
+      expect(demoStyle.borderLeftWidth).toBe("4px");
+      expect(demoStyle.borderLeftColor).toBe("rgb(4, 120, 87)");
+      const plainChip = calendar.getByRole("link", { name: /^공고 마감 10:00 busy-2/ });
+      expect(getComputedStyle(plainChip.element()).borderLeftColor).toBe("rgb(209, 214, 219)");
+      expect(plainChip.element().textContent).not.toMatch(
+        /AI·AX|SI·SW|클라우드|데이터|보안|디지털트윈 /,
+      );
+      // 좁은 칩에 가장 긴 분야 이름·DEMO 가 함께 있으면 DEMO 가 온전히 남고, 분야 이름은 말줄임되거나 가려진다.
+      // 어느 쪽도 칩 밖으로 넘치지 않는다(분야는 띠 색·title·접근 이름에 남는다).
+      // 자리가 모자라도 글자 조각(몇 px·"제…")만 남지 않는다. 분야 이름 상자는 두 글자 폭 아래로 눌리지 않고
+      // (폭 0 상자도 경계에서 글자 한 줄이 그려진다) 그만큼 보이거나 통째로 가려진다. 짧은 종류 이름은 다 보이거나 가려진다.
+      expect(fieldLabel.element().getBoundingClientRect().width).toBeGreaterThanOrEqual(20);
+      const fieldShown = shownWidth(fieldLabel.element());
+      expect(fieldShown === 0 || fieldShown >= 20).toBe(true);
+      const todayKind = todayChip.getByText("제출 마감", { exact: true }).element();
+      const kindShown = shownWidth(todayKind);
+      expect(kindShown === 0 || kindShown >= todayKind.getBoundingClientRect().width - 0.5).toBe(
+        true,
+      );
+      const chipRight = demoChip.element().getBoundingClientRect().right;
+      expect(fieldLabel.element().getBoundingClientRect().right).toBeLessThanOrEqual(chipRight);
+      const demoBadge = demoChip.getByText("DEMO", { exact: true }).element();
+      expect(demoBadge.getBoundingClientRect().right).toBeLessThanOrEqual(chipRight);
+      expect(shownWidth(demoBadge)).toBeGreaterThanOrEqual(
+        demoBadge.getBoundingClientRect().width - 0.5,
+      );
+      // 제목 줄은 칩 폭을 다 쓴다(아이콘·표시 옆에 끼어 서너 글자만 남지 않게). 관심 ★ 만 제목 앞에 붙는다.
       const chipWidth = demoChip.element().clientWidth;
-      const titleWidth = demoChip
+      const titleLine = demoChip
         .getByText("스마트 물관리 디지털트윈 플랫폼 고도화 (가상)")
-        .element()
-        .getBoundingClientRect().width;
-      expect(titleWidth).toBeGreaterThanOrEqual(chipWidth - 12);
+        .element().parentElement;
+      expect(titleLine?.getBoundingClientRect().width).toBeGreaterThanOrEqual(chipWidth - 12);
 
       // 메뉴를 열기 전에 찍는다(닫히는 메뉴가 사진에 남지 않게). 앞 시험의 마우스 자리에 걸린 링크 hover 도 치운다.
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
@@ -237,9 +322,9 @@ describe("입찰 일정 화면", () => {
       // 4건인 날은 겹침 건수를 보이고 칩 둘 뒤 나머지는 메뉴로 연다.
       await expect.element(calendar.getByText("4건")).toBeVisible();
       await userEvent.click(page.getByRole("button", { name: /\+2건 더/ }));
-      await expect
-        .element(page.getByRole("menuitem", { name: /busy-3/ }))
-        .toHaveAttribute("href", "/bids/busy-3?origin=live");
+      const busy3 = page.getByRole("menuitem", { name: /busy-3/ });
+      await expect.element(busy3).toHaveAttribute("href", "/bids/busy-3?origin=live");
+      await expect.element(busy3.getByText("보안", { exact: true })).toBeVisible();
       const busy4 = page.getByRole("menuitem", { name: /busy-4/ });
       await expect.element(busy4).toHaveAttribute("href", "/bids/busy-4?origin=live");
       // 날짜는 메뉴 머리에만 있다. 항목은 시각·제목만 보여 제목이 날짜에 밀려 잘리지 않는다.
@@ -254,6 +339,7 @@ describe("입찰 일정 화면", () => {
       const upcoming = page.getByRole("region", { name: "다가오는 14일" });
       await expect.element(upcoming.getByText("D-Day")).toBeVisible();
       await expect.element(upcoming.getByText("D-2").first()).toBeVisible();
+      await expect.element(upcoming.getByText("AI·AX", { exact: true })).toBeVisible();
     });
   }
 
@@ -327,6 +413,11 @@ describe("입찰 일정 화면", () => {
     const legend = page.getByRole("list", { name: "표시 설명" });
     await expect.element(legend.getByText("내 관심")).toBeVisible();
     expect(legend.element().textContent).not.toContain("공고 마감");
+    // 범례에는 공고 분야 색을 두고 DEMO 설명은 두지 않는다(2026-11-03 사용자 결정).
+    await expect.element(legend.getByText("AI·AX", { exact: true })).toBeVisible();
+    await expect.element(legend.getByText("분야 없음", { exact: true })).toBeVisible();
+    expect(legend.element().textContent).not.toContain("데모용 가상 공고");
+    expect(legend.element().textContent).not.toContain("DEMO");
 
     // 거른 결과가 0건이면 빈 달 문구 대신 거르기 문구와 전체 보기 링크다(거르기 전에는 일정이 있다).
     const month = page.getByRole("region", { name: "2026년 10월 달력" });

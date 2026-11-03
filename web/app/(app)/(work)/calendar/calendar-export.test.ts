@@ -23,7 +23,7 @@ const event = ({
   kind: "BID_DEADLINE",
   at: "2026-11-03T01:00:00.000Z",
   date: "2026-11-03",
-  bid: { id: "b1", title, agency, isDemo, cancelled },
+  bid: { id: "b1", title, agency, isDemo, cancelled, field: null },
   watched: false,
   project: null,
   dueOverridden: false,

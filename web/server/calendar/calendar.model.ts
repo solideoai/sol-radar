@@ -50,6 +50,50 @@ export const EMPTY_RAW_SCHEDULE: RawSchedule = {
   sitePlace: null,
 };
 
+// ── 공고 분야(칩 색). 새로 저장하지 않고 목록 뷰(opportunity_list_items.categories)와 같은 규칙으로 계산한다 ──
+// 규칙 출처: supabase/migrations/20261029000300_it_bid_scope.sql 목록 뷰의 cls·eff·cat, 정규식은 20261030000100_inline_it_scope.sql.
+// 순서는 대표 분야 우선순위다. 분야가 여럿이면 앞의 것 하나로 칠한다(드문 분야가 SI·SW 에 묻히지 않게, 2026-11-03 사용자 결정).
+export const CALENDAR_FIELDS = [
+  "AI_AX",
+  "SECURITY",
+  "CLOUD",
+  "DATA",
+  "DIGITAL_TWIN",
+  "SI_SW",
+] as const;
+export type CalendarField = (typeof CALENDAR_FIELDS)[number];
+
+// it_scope_ai_title: 영문 단어 경계의 AI·AX·LLM·RAG 와 한국어 AI 단어("지능형"은 넣지 않는다, 실측 오탐).
+const AI_TITLE =
+  /(^|[^a-z0-9_])(ai|ax|llm|rag)([^a-z0-9_]|$)|인공지능|생성형|챗봇|머신러닝|딥러닝|초거대/i;
+// it_scope_it_class: 공식 IT 공공조달분류명.
+const IT_CLASS =
+  /정보시스템|소프트웨어|데이터|정보인프라|클라우드|공간정보DB|정보통신|네트워크|전산|정보화/;
+
+const isCalendarField = (value: string): value is CalendarField =>
+  (CALENDAR_FIELDS as readonly string[]).includes(value);
+
+/**
+ * 공고의 대표 분야. categories 는 최신 revision 의 가장 최근 관련성 평가 분야, procurementClass 는 공공조달분류명이다.
+ * 1) 평가 분야 가운데 아는 값(OTHER·모르는 값 제외) 2) 제목 AI 단어면 AI_AX 3) 1이 비었고 공식 IT 분류면 SI_SW.
+ * 셋을 합친 것에서 CALENDAR_FIELDS 순서로 처음 것, 없으면 null(분야 없음)이다.
+ */
+export function primaryFieldOf({
+  categories,
+  title,
+  procurementClass,
+}: {
+  categories: readonly string[];
+  title: string;
+  procurementClass: string | null;
+}): CalendarField | null {
+  const found = categories.filter(isCalendarField);
+  const fields = new Set<CalendarField>(found);
+  if (AI_TITLE.test(title)) fields.add("AI_AX");
+  if (found.length === 0 && IT_CLASS.test(procurementClass ?? "")) fields.add("SI_SW");
+  return CALENDAR_FIELDS.find((field) => fields.has(field)) ?? null;
+}
+
 export type CalendarBid = {
   id: string;
   title: string;
@@ -57,6 +101,8 @@ export type CalendarBid = {
   deadlineAt: string | null;
   isDemo: boolean;
   cancelled: boolean;
+  // 대표 분야(primaryFieldOf). 분야가 없으면 null 이다.
+  field: CalendarField | null;
   // 최신 revision 원본의 일정. 나라장터 입찰공고가 아니면(데모·다른 출처) 비어 있다.
   rawSchedule: RawSchedule;
 };
@@ -177,6 +223,7 @@ function eventOf(
       agency: bid.agency,
       isDemo: bid.isDemo,
       cancelled: bid.cancelled,
+      field: bid.field,
     },
     watched,
     project,

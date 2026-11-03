@@ -9,6 +9,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { AppPage } from "@/components/app-page";
 import { dDay, formatKst } from "@/components/bids/format";
 import { DemoBadge } from "@/components/bids/status-badge";
@@ -26,6 +27,7 @@ import type {
   CalendarDay,
   CalendarEvent,
   CalendarEventKind,
+  CalendarField,
   CalendarView,
 } from "@/server/calendar";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
@@ -33,6 +35,9 @@ import {
   CALENDAR_CAPTION,
   CALENDAR_DESCRIPTION,
   CALENDAR_TITLE,
+  FIELD_LABELS,
+  FIELD_LEGEND_ORDER,
+  FIELD_NONE,
   GOOGLE_ADD,
   KIND_FILTER_ALL,
   KIND_FILTER_EMPTY,
@@ -57,6 +62,7 @@ import {
   WEEKDAYS,
 } from "./calendar-copy";
 import { googleCalendarUrl } from "./calendar-export";
+import { FIELD_BAND, FIELD_SWATCH, FIELD_TEXT, fieldKeyOf } from "./calendar-fields";
 import { CalendarKindFilter } from "./calendar-kind-filter";
 import { KIND_ICON } from "./calendar-kinds";
 import {
@@ -67,7 +73,8 @@ import {
 } from "./google-connect";
 
 // 서버 모듈을 값으로 부르지 않는다(브라우저 시험이 그대로 그린다). 날짜 계산은 page 가 끝내서 넘긴다.
-// 일정 종류는 색이 아니라 아이콘과 글자로 구분한다. 칩의 접근 이름(aria-label)에 종류·시각·관심·DEMO 를 모두 글자로 싣는다.
+// 일정 종류는 색이 아니라 아이콘과 글자로 구분한다. 공고 분야는 왼쪽 색 띠와 분야 이름 글자로 함께 보인다(2026-11-03).
+// 칩의 접근 이름(aria-label)에 종류·시각·분야·관심·DEMO 를 모두 글자로 싣는다.
 
 // 칩은 두 줄(종류·시각·표시 줄 + 제목 줄)이라 칸에 두 개까지 그리고 나머지는 "+n건" 메뉴로 연다(칸 높이를 주마다 같게).
 export const MAX_CHIPS = 2;
@@ -107,12 +114,16 @@ const markersOf = (event: CalendarEvent) =>
     event.bid.isDemo ? "DEMO" : null,
   ].filter((marker) => marker !== null);
 
+const fieldText = (event: CalendarEvent) =>
+  event.bid.field === null ? null : FIELD_LABELS[event.bid.field];
+
 // 칩은 좁아 제목이 잘린다. 마우스를 올리면 날짜까지 다 보이고(title), 접근 이름은 같은 내용을 시각만으로 읽는다.
 const chipTitle = (event: CalendarEvent) =>
   [
     `${fullKindText(event)} ${formatKst(event.at)}`,
     placeText(event),
     event.bid.title,
+    fieldText(event),
     ...markersOf(event),
   ]
     .filter((part) => part !== null)
@@ -123,10 +134,36 @@ const chipName = (event: CalendarEvent) =>
     `${fullKindText(event)} ${timeOf(event.at)}`,
     placeText(event),
     event.bid.title,
+    fieldText(event),
     ...markersOf(event),
   ]
     .filter((part) => part !== null)
     .join(" ");
+
+// 분야 이름 글자(분야 색). 분야가 없으면 그리지 않는다(띠만 회색이다).
+// 칩은 좁아(1440px·사이드바 펼침에서 약 100px) 분야 이름이 칩 밖으로 밀리지 않게 말줄임한다(className).
+// 전체 이름은 칩의 title·접근 이름에 있다.
+function FieldLabel({ field, className }: { field: CalendarField | null; className?: string }) {
+  if (field === null) return null;
+  return (
+    <span className={cn("shrink-0 font-semibold", FIELD_TEXT[field], className)}>
+      {FIELD_LABELS[field]}
+    </span>
+  );
+}
+
+// 자리가 모자라면 글자를 조각("제…", 몇 px)으로 남기지 않고 통째로 숨긴다. 폭 0 으로 눌린 상자도 경계에서
+// 글자 한 줄이 그려진다. 한 줄 높이로 자른 flex-wrap 상자라, 폭 0·높이 한 줄인 첫 칸 뒤의 글자가 첫 줄에
+// 들어가지 않으면 둘째 줄로 내려가 가려진다(첫 칸 높이가 0 이면 첫 줄도 0 이라 둘째 줄이 맨 위에 그려진다).
+// 글자에 최소 폭(min-w)을 주면 그 폭까지는 말줄임으로 보이고 그보다 좁으면 숨는다.
+function FitOrHide({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <span className={cn("flex h-[1lh] min-w-0 flex-wrap overflow-hidden", className)}>
+      <span aria-hidden className="h-[1lh]" />
+      {children}
+    </span>
+  );
+}
 
 function KindIcon({ kind, className }: { kind: CalendarEventKind; className?: string }) {
   const Icon = KIND_ICON[kind];
@@ -134,9 +171,13 @@ function KindIcon({ kind, className }: { kind: CalendarEventKind; className?: st
 }
 
 // 칸이 좁아(1440px 에서 안쪽 약 100px) 아이콘·표시를 제목 옆에 두면 제목이 서너 글자만 남는다.
-// 윗줄에 종류 아이콘·시각·짧은 종류 이름·관심·DEMO 글자를 모으고, 아랫줄은 제목만 칩 폭을 다 쓴다.
-// 종류 이름은 칩이 넓을 때(사이드바를 편 1280px·접은 1440px)만 보인다. 1440px 에서 사이드바를 펴면 칩이 약 100px 라
-// 한두 글자로 잘려 뜻이 없어 아이콘만 남긴다(정식 이름은 title·접근 이름에 있고, 아이콘 뜻은 거르기 칩이 보인다).
+// 윗줄에 종류 아이콘·시각·짧은 종류 이름·분야 이름·DEMO 글자를 모으고, 아랫줄은 관심 ★ 와 제목이 칩 폭을 다 쓴다.
+// 공고 분야는 칩 왼쪽 4px 띠(분야 색, 분야 없음은 회색)와 윗줄 오른쪽 분야 이름 글자다.
+// 1440px·사이드바 편 칩은 윗줄 오른쪽에 약 40px 만 남아 ★ 까지 두면 분야 이름이 잘린다. 그래서 ★ 는 제목 앞에 둔다.
+// 분야 이름과 DEMO 가 함께 들어가지 않으면 DEMO 가 온전히 남고, 분야 이름은 두 글자 폭까지 말줄임되다가 그보다
+// 좁으면 가려진다(분야는 띠·title·접근 이름에 남는다).
+// 짧은 종류 이름은 분야 이름·DEMO 가 쓰고 남은 자리에 다 들어갈 때만 보인다. 한두 글자로 잘린 이름은 뜻이 없어
+// 아이콘만 남긴다(정식 이름은 title·접근 이름에 있고, 아이콘 뜻은 거르기 칩이 보인다).
 function EventChip({ event }: { event: CalendarEvent }) {
   return (
     <li>
@@ -144,24 +185,44 @@ function EventChip({ event }: { event: CalendarEvent }) {
         href={event.href}
         title={chipTitle(event)}
         aria-label={chipName(event)}
-        className="@container block min-w-0 rounded-md border border-border bg-background px-1 py-px type-caption hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+        className={cn(
+          "@container block min-w-0 rounded-md border border-l-4 border-border bg-background px-1 py-px type-caption hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring",
+          FIELD_BAND[fieldKeyOf(event.bid.field)],
+        )}
       >
-        <span className="flex items-center gap-1 text-muted-foreground">
+        {/* 간격은 gap 이 아니라 각 글자의 여백이다. 가려진 글자 몫의 간격이 남아 DEMO 를 밀어내지 않게 한다. */}
+        <span className="flex items-center overflow-hidden text-muted-foreground">
           <KindIcon kind={event.kind} className="size-3" />
-          <span className="shrink-0 tabular-nums">{timeOf(event.at)}</span>
-          <span className="hidden min-w-0 truncate @min-[7rem]:block">{kindText(event)}</span>
-          <span className="ml-auto flex shrink-0 items-center gap-1">
-            {event.watched ? <StarIcon aria-hidden className="size-3" /> : null}
-            {event.bid.isDemo ? <span className="font-semibold text-demo">DEMO</span> : null}
+          <span className="ml-1 shrink-0 tabular-nums">{timeOf(event.at)}</span>
+          <FitOrHide className="flex-1 basis-0">
+            <span className="ml-1 whitespace-nowrap">{kindText(event)}</span>
+          </FitOrHide>
+          <span className="ml-auto flex min-w-0 items-center pl-1">
+            {event.bid.field === null ? null : (
+              <FitOrHide>
+                <FieldLabel
+                  field={event.bid.field}
+                  className={cn("max-w-full min-w-[2em] truncate", event.bid.isDemo && "pr-1")}
+                />
+              </FitOrHide>
+            )}
+            {event.bid.isDemo ? (
+              <span className="shrink-0 font-semibold text-demo">DEMO</span>
+            ) : null}
           </span>
         </span>
-        <span
-          className={cn(
-            "block truncate font-medium text-foreground",
-            event.bid.cancelled && "text-muted-foreground line-through",
-          )}
-        >
-          {event.bid.title}
+        <span className="flex min-w-0 items-center gap-1">
+          {event.watched ? (
+            <StarIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+          ) : null}
+          <span
+            className={cn(
+              "min-w-0 truncate font-medium text-foreground",
+              event.bid.cancelled && "text-muted-foreground line-through",
+            )}
+          >
+            {event.bid.title}
+          </span>
         </span>
       </Link>
     </li>
@@ -188,13 +249,22 @@ function MoreEvents({ dateLabel, events }: { dateLabel: string; events: Calendar
               render={<Link href={event.href} />}
               title={chipTitle(event)}
               aria-label={chipName(event)}
-              className="items-start"
+              className={cn(
+                "items-start rounded-l-none border-l-4",
+                FIELD_BAND[fieldKeyOf(event.bid.field)],
+              )}
             >
               <KindIcon kind={event.kind} className="mt-0.5" />
               <span className="min-w-0 flex-1">
                 <span className="block type-caption text-muted-foreground wrap-anywhere">
                   <span className="tabular-nums">{timeOf(event.at)}</span> {fullKindText(event)}
                   {event.place === null ? null : ` · ${placeText(event)}`}
+                  {event.bid.field === null ? null : (
+                    <>
+                      {" · "}
+                      <FieldLabel field={event.bid.field} />
+                    </>
+                  )}
                 </span>
                 <span
                   className={cn(
@@ -294,7 +364,7 @@ function UpcomingItem({
 }) {
   const due = dDay(event.at, now);
   return (
-    <li className="flex gap-3 py-3">
+    <li className={cn("flex gap-3 border-l-4 py-3 pl-3", FIELD_BAND[fieldKeyOf(event.bid.field)])}>
       <span className="w-14 shrink-0 type-label font-semibold tabular-nums">
         {due?.label ?? "—"}
       </span>
@@ -313,6 +383,7 @@ function UpcomingItem({
           {event.bid.title}
         </Link>
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 type-caption text-muted-foreground">
+          <FieldLabel field={event.bid.field} />
           <span className="wrap-anywhere">{event.bid.agency ?? "기관 미정"}</span>
           {event.project ? <span>담당 {event.project.ownerName ?? "없음"}</span> : null}
           {event.watched ? (
@@ -339,7 +410,8 @@ function UpcomingItem({
   );
 }
 
-// 종류 아이콘·이름은 거르기 칩(CalendarKindFilter)이 보인다. 여기는 종류가 아닌 표시만 둔다.
+// 종류 아이콘·이름은 거르기 칩(CalendarKindFilter)이 보인다. 여기는 종류가 아닌 표시와 공고 분야 색만 둔다.
+// DEMO 설명은 두지 않는다(2026-11-03 사용자 결정). 칩·목록의 DEMO 글자·배지는 그대로다.
 function Legend() {
   const item = "inline-flex items-center gap-1";
   return (
@@ -350,9 +422,15 @@ function Legend() {
       <li className={item}>
         <StarIcon aria-hidden className="size-3.5" />내 관심
       </li>
+      {FIELD_LEGEND_ORDER.map((field) => (
+        <li key={field} className={item}>
+          <span aria-hidden className={cn("size-2.5 rounded-xs", FIELD_SWATCH[field])} />
+          {FIELD_LABELS[field]}
+        </li>
+      ))}
       <li className={item}>
-        <span className="font-semibold text-demo">DEMO</span>
-        데모용 가상 공고
+        <span aria-hidden className={cn("size-2.5 rounded-xs", FIELD_SWATCH.NONE)} />
+        {FIELD_NONE}
       </li>
       <li className={item}>
         <LayersIcon aria-hidden className="size-3.5" />

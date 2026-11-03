@@ -3,6 +3,7 @@ import "server-only";
 // ── 배럴: calendar 도메인의 공개 API. 바깥(app·components)은 @/server/calendar 만 부른다 ──
 export {
   CALENDAR_EVENT_KINDS,
+  CALENDAR_FIELDS,
   CALENDAR_VIEWS,
   DEFAULT_CALENDAR_VIEW,
   SCHEDULE_KINDS,
@@ -17,6 +18,7 @@ export {
   parseKinds,
   parseMonth,
   parseView,
+  primaryFieldOf,
   relevantDeadlineWindow,
   shiftMonth,
   toggleKind,
@@ -26,6 +28,7 @@ export type {
   CalendarDay,
   CalendarEvent,
   CalendarEventKind,
+  CalendarField,
   CalendarMonth,
   CalendarRepo,
   CalendarResult,

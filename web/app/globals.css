@@ -41,6 +41,12 @@
   --success: #15803D;
   --warning: #B45309;
   --demo: #7C3AED;
+  --field-ai: #1D4ED8;
+  --field-si: #5B6B7F;
+  --field-cloud: #0E7490;
+  --field-data: #94600A;
+  --field-security: #BE123C;
+  --field-twin: #047857;
   --border: #E5E8EB;
   --input: #D1D6DB;
   --ring: #1B64DA;
@@ -92,6 +98,12 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-demo: var(--demo);
+  --color-field-ai: var(--field-ai);
+  --color-field-si: var(--field-si);
+  --color-field-cloud: var(--field-cloud);
+  --color-field-data: var(--field-data);
+  --color-field-security: var(--field-security);
+  --color-field-twin: var(--field-twin);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

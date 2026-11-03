@@ -1,4 +1,4 @@
-import type { CalendarEventKind, CalendarView } from "@/server/calendar";
+import type { CalendarEventKind, CalendarField, CalendarView } from "@/server/calendar";
 import type { GoogleConnectOutcome } from "@/server/google-calendar";
 
 // /calendar 문구. page·loading·error 가 같은 제목과 설명을 쓴다(읽는 동안과 읽은 뒤 제목 줄이 튀지 않게).
@@ -63,6 +63,26 @@ export const KIND_FILTER_EMPTY = "이 달에는 고른 종류의 일정이 없�
 export const KIND_SHOWN = "보는 중";
 export const KIND_HIDDEN = "숨김";
 export const LEGEND_LABEL = "표시 설명";
+
+// 공고 분야(칩 왼쪽 띠·분야 이름 글자). 글자는 /bids 분야 이름(components/work/opportunities-copy.ts OPPORTUNITY_CATEGORIES)과 같다.
+export const FIELD_LABELS: Record<CalendarField, string> = {
+  AI_AX: "AI·AX",
+  SI_SW: "SI·SW",
+  CLOUD: "클라우드",
+  DATA: "데이터",
+  SECURITY: "보안",
+  DIGITAL_TWIN: "디지털트윈",
+};
+// 범례 순서는 /bids 분야 칩 순서다(대표 분야 우선순위 CALENDAR_FIELDS 와 다르다).
+export const FIELD_LEGEND_ORDER: readonly CalendarField[] = [
+  "AI_AX",
+  "SI_SW",
+  "CLOUD",
+  "DATA",
+  "SECURITY",
+  "DIGITAL_TWIN",
+];
+export const FIELD_NONE = "분야 없음";
 
 export const UPCOMING_TITLE = "다가오는 14일";
 export const UPCOMING_EMPTY = "다가오는 14일 안에 일정이 없습니다.";
