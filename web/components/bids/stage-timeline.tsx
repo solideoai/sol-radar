@@ -3,11 +3,11 @@ import { cn } from "cn";
 import { STAGE_LABEL } from "@/components/bids/labels";
 import type { BidStage } from "@/server/bids";
 
-// 단계 이력 한 줄(§5.4.3). 지금 단계는 채운 원, 나머지는 빈 원. 누를 수 있는 것은 없다.
+// 단계 이력 한 줄(§5.4.3). 지금 단계는 채운 원, 나머지는 빈 원. 지금 단계 옆에는 변경 이력 링크만 둔다.
+// 수집 번호("r1")는 내부 기록 번호라 보이지 않는다(2026-11-03 사용자 지시).
 type StageTimelineProps = {
   stage: BidStage;
   stageLinks: { planRef: string | null; preSpecRef: string | null };
-  latestRevision: number;
   revisionsHref?: string | null;
 };
 
@@ -21,12 +21,7 @@ const STEPS = [
   "CONTRACT",
 ] as const satisfies readonly BidStage[];
 
-function StageTimeline({
-  stage,
-  stageLinks,
-  latestRevision,
-  revisionsHref = null,
-}: StageTimelineProps) {
+function StageTimeline({ stage, stageLinks, revisionsHref = null }: StageTimelineProps) {
   const refs: Record<BidStage, string | null> = {
     PLAN: stageLinks.planRef,
     PROCUREMENT_REQUEST: null,
@@ -62,14 +57,11 @@ function StageTimeline({
                 {current && revisionsHref !== null ? (
                   <Link
                     href={revisionsHref}
-                    aria-label={`현재 r${latestRevision}, 변경 이력 보기`}
                     className="rounded-sm underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
-                    r{latestRevision}
+                    변경 이력
                   </Link>
-                ) : current ? (
-                  `r${latestRevision}`
-                ) : (
+                ) : current ? null : (
                   (refs[step] ?? "—")
                 )}
               </span>

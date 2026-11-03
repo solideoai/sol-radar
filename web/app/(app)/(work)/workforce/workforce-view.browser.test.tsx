@@ -368,7 +368,9 @@ it("계산 기준은 접고 기간 가정·추정·명분 정의와 최근 실�
     (item) => item.querySelector("summary")?.textContent === "계산 기준",
   )!;
   expect(details.open).toBe(false);
-  const analysis = page.getByText("분석 aaaaaaaa · 공고 revision 1", { exact: true });
+  // 분석 id 앞자리·수집 번호·시간대 표기는 보이지 않는다(2026-11-03 사용자 지시).
+  expect(host.textContent).not.toMatch(/aaaaaaaa|revision|KST/);
+  const analysis = page.getByText("계산 기준일 2026-10-16", { exact: true });
   await expect.element(analysis).not.toBeVisible();
   await expect
     .element(page.getByText(/기본 기간: 마감·기준일의 1개월 뒤 월초부터 6개월/))
@@ -376,9 +378,9 @@ it("계산 기준은 접고 기간 가정·추정·명분 정의와 최근 실�
   await expect.element(page.getByText("필요 인력은 예산 구간 추정입니다.")).toBeVisible();
   await expect.element(page.getByText(/1명분은 한 사람이 그 기간 업무 시간을 전부/)).toBeVisible();
   await expect.element(page.getByText(/최근 유효 완료 분석을 표시합니다/)).toBeVisible();
+  expect(host.textContent).toContain("최근 시도 실패 · ");
   await userEvent.click(details.querySelector("summary")!);
   await expect.element(analysis).toBeVisible();
-  await expect.element(page.getByText("계산 기준일 2026-10-16", { exact: true })).toBeVisible();
   expect(fetch).not.toHaveBeenCalled();
 });
 

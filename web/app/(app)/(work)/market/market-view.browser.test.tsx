@@ -291,7 +291,8 @@ describe("발주 현황 화면", () => {
     // 범위가 /gaps(게시 기간 무관 마감 전 전부)와 다르다는 것을 1단계 카드와 같은 말로 밝힌다
     expect(note?.textContent).toContain("기간 내 공고 중 지금 마감이 남은 것(마감 전 공고) 기준");
     expect(note?.textContent).toContain("게시 기간과 무관하게 마감 전 공고 전부");
-    expect(note?.textContent).toContain("회사 프로필 r9(가상)");
+    expect(note?.textContent).toContain("가상 회사 프로필과 대조");
+    expect(note?.textContent).not.toMatch(/\br9\b/);
     expect(note?.textContent).toContain("판정을 찾지 못한 2건은 묶음에서 뺌");
     expect(
       page

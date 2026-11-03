@@ -414,7 +414,7 @@ describe("공공조달 업무 화면", () => {
     await expect
       .element(page.getByRole("link", { name: "발주 현황 보기", exact: true }))
       .toHaveAttribute("href", "/market");
-    // 실수집 지표(B3): 시각은 KST 절대 시각, 다음 수집은 "예정"으로 적는다.
+    // 실수집 지표(B3): 시각은 한국 시각 절대 시각(시간대 표기 없음), 다음 수집은 "예정"으로 적는다.
     const stat = (label: string) => {
       const element = page
         .getByRole("region", { name: "수집 지표" })
@@ -425,8 +425,8 @@ describe("공공조달 업무 화면", () => {
     };
     expect(stat("수집된 IT 공고").textContent).toContain("1");
     expect(stat("진행 중 보류").textContent).toContain("2");
-    expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21 KST");
-    expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 KST · 예정");
+    expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21");
+    expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 · 예정");
     const section = (name: string) => {
       const element = page.getByRole("heading", { name, exact: true }).element().closest("section");
       if (element === null) throw new Error(`${name} 구역이 없습니다`);

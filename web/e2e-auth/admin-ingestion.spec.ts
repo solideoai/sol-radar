@@ -37,6 +37,8 @@ const TITLE = "데이터 수집 관리";
 const DESCRIPTION =
   "공고 수집 실행 기록과 격리·재시도를 봅니다. 수집은 분석을 자동으로 시작하지 않습니다.";
 const FORBIDDEN_TITLE = "이 화면을 볼 권한이 없습니다";
+// 업무 역할의 화면 이름(web/server/shared/sol-role-label.ts 와 같은 글자). 권한 안내는 영문 코드를 쓰지 않는다.
+const SOL_ROLE_NAME = { ADMIN: "관리자", SALES: "영업", ANALYST: "분석", VIEWER: "열람" } as const;
 const G2B_REASON = "실행 모드 fixture에서는 쓸 수 없습니다. live 모드에서만 됩니다.";
 const BUSY_HINT = "실행 중인 수집이 끝나면 다시 실행할 수 있습니다";
 
@@ -180,7 +182,7 @@ async function expectForbiddenScreen(page: Page, role: IngestionRole) {
   };
   await expectNoticeOnly();
   await expect(notice).toContainText(
-    `데이터 수집 관리는 업무 역할이 ADMIN인 구성원만 볼 수 있습니다. 지금 역할: ${ROLE_SOL_ROLE[role]}`,
+    `데이터 수집 관리는 업무 역할이 관리자인 구성원만 볼 수 있습니다. 지금 역할: ${SOL_ROLE_NAME[ROLE_SOL_ROLE[role]]}`,
   );
   await expect(notice.getByRole("link", { name: "대시보드로", exact: true })).toHaveAttribute(
     "href",

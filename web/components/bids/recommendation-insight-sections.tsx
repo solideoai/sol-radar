@@ -6,6 +6,7 @@ import { cn } from "cn";
 import { formatKst, formatPoints } from "@/components/bids/format";
 import { MOCK_MODEL_TEXT } from "@/components/bids/kev-opinion";
 import { FACTOR_LABEL, FACTOR_ORDER } from "@/components/bids/labels";
+import { readableCheck } from "@/components/bids/qualification-reason";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { Button } from "@/components/ui/button";
 import type { QualificationCheckView, Recommendation, ScoreFactorView } from "@/server/bids";
@@ -25,6 +26,11 @@ import type {
 // 옛 형식(v0.1) 결과에는 판단 이유·강점과 보완할 점·근거 원문만 있다(계획 "계획이 정하는 것").
 
 export const INSIGHT_NOTICE = "판정은 규칙 엔진이 하고, 최종 참여 결정은 사람이 합니다.";
+
+// 판단 이유는 gateway 가 만든 저장 글이라 모델 이름(Bosun)이 들어 있을 수 있다(규칙만으로 쓴 대체 문장 포함).
+// 저장 값은 그대로 두고 화면에서만 "결정 모델"로 읽게 한다(2026-11-03 사용자 지시: 화면에 모델 이름을 보이지 않는다).
+export const readableSummary = (summary: string): string =>
+  summary.replaceAll("Bosun", "결정 모델");
 
 // TEMPLATE 대체 안내. INJECTION_SUSPECTED 는 입력이 의심스러워 모델을 일부러 부르지 않은 경우라 문구를 나누고,
 // 같은 입력이면 다시 요청해도 같은 결과라 [다시 요청]을 두지 않는다(보안 리뷰 중-2). 문구는 검토 표시 "문서 지시문 의심"과 맞춘다.
@@ -64,8 +70,6 @@ export function authorshipText(view: InsightView): string {
   if (view.modelName === MOCK_INSIGHT_MODEL) return `${MOCK_MODEL_TEXT} · ${madeAt} 작성`;
   return `${madeAt} 작성`;
 }
-
-const modelText = (modelName: string | null): string => `모델 ${modelName ?? "—"}`;
 
 type NoticeAction = { label: string; onClick: () => void };
 
@@ -143,7 +147,7 @@ export function InsightResult({
       {lines.length > 0 && <InsightNotice lines={lines} action={action} />}
       <div className="divide-y divide-border">
         <Section title="판단 이유">
-          <p className="type-body text-foreground">{payload.summary}</p>
+          <p className="type-body text-foreground">{readableSummary(payload.summary)}</p>
         </Section>
         {!oldFormat && (
           <Section title="점수 요소별 해설">
@@ -197,20 +201,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// 작성 줄과 생성 정보. 대체 결과·mock 응답에는 모델 정보를 두지 않는다.
+// 작성 줄. 모델명은 화면에 두지 않는다(2026-11-03 사용자 지시). 대체 결과·mock 응답은 작성 줄이 밝힌다.
 function InsightMeta({ view }: { view: InsightView }) {
-  const showModel = view.source !== "TEMPLATE" && view.modelName !== MOCK_INSIGHT_MODEL;
   return (
     <div className="flex flex-col gap-1 border-t border-border pt-4">
       <p className="type-caption text-muted-foreground">{authorshipText(view)}</p>
-      {showModel && (
-        <details className="type-caption text-muted-foreground">
-          <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            생성 정보
-          </summary>
-          <p className="mt-2 wrap-anywhere">{modelText(view.modelName)}</p>
-        </details>
-      )}
     </div>
   );
 }
@@ -339,6 +334,8 @@ function CheckNotes({
     <ul className="flex flex-col gap-4">
       {notes.map((note, index) => {
         const pair = pairs[index] ?? null;
+        // 자격 목록과 같은 화면 문장(코드·버전 꼬리표를 뺀 이름·사유)을 쓴다.
+        const readable = pair === null ? null : readableCheck(pair);
         return (
           <li
             key={`${index}-${note.label}`}
@@ -347,7 +344,7 @@ function CheckNotes({
           >
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="min-w-0 type-label font-semibold text-foreground wrap-anywhere">
-                {pair?.requirementName ?? note.label}
+                {readable?.name ?? note.label}
               </span>
               {pair !== null && (
                 <StatusBadge
@@ -359,7 +356,7 @@ function CheckNotes({
               )}
             </div>
             <dl className="flex flex-col gap-1.5">
-              {pair !== null && <NoteRow term="걸린 것" detail={pair.reason} />}
+              {readable !== null && <NoteRow term="걸린 것" detail={readable.reason} />}
               <NoteRow term="확인할 것" detail={note.text} />
             </dl>
             <RefChips refIds={note.refIds} refs={refs} />

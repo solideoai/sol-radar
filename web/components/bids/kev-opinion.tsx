@@ -17,15 +17,14 @@ import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } f
 import { recommendationWithObject } from "@/server/shared";
 
 // 결정 모델 참고 지표(§5.4.7, ADR-034 로 "Kev" 문구를 모델 중립으로 개정). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
-// 고지 3줄은 09 고정이고 셋째 줄만 {kev.model}·{kev.questionSetVersion}·{kev.provider} 로 바뀐다.
-// provider 가 mock 이면 실제 모델처럼 보이면 안 되므로(ADR-034 15번) 모델명 대신 "Mock 응답(데모 데이터)" 를 쓴다.
+// 고지 3줄은 09 고정이다. 모델명·질문 세트·공급자는 화면에 두지 않는다(2026-11-03 사용자 지시, 09 개정). 분석 기록에 남는다.
+// provider 가 mock 이면 실제 모델처럼 보이면 안 되므로(ADR-034 15번) "Mock 응답(데모 데이터)" 한 줄을 더한다.
 // 식별자(KevView·kev 필드·KEV_* 플래그·파일명)는 API·DB 호환 레이어라 바꾸지 않는다.
 type KevOpinionProps = {
   kev: KevView;
   reviewFlags: ReviewFlag[];
   recommendation: Recommendation | null;
   ruleReason: string | null;
-  errorCode: string | null;
   // 항목 라벨은 화면이 extraction 의 itemId 경로로 풀어 넘긴다. 부품은 경로 조회를 하지 않는다.
   assessments?: { assessment: RequirementAssessmentView; label: string }[];
   // 결정 모델을 썼는데 저장된 결과가 없는 run(kevRecordMissing). 꺼진 것과 구분해 "기록 없음"이라고 쓴다.
@@ -36,12 +35,6 @@ const SIGNAL_THRESHOLD = 0.7;
 const OPTIONS = ["BID", "WATCH", "NO_BID"] as const satisfies readonly Recommendation[];
 const MOCK_MODEL_TEXT = "Mock 응답(데모 데이터)";
 
-// 고지 셋째 줄의 모델 정보. mock 은 모델명을 쓰지 않고, 실모델은 받은 식별자(레지스트리 run 값)를 그대로 보인다.
-function modelInfoText(kev: Pick<KevView, "provider" | "model" | "questionSetVersion">): string {
-  const modelPart = kev.provider === "mock" ? MOCK_MODEL_TEXT : `모델: ${kev.model ?? "—"}`;
-  return `${modelPart} · 질문 세트: ${kev.questionSetVersion ?? "—"} · 공급자: ${kev.provider ?? "—"}`;
-}
-
 // 받침 없음 또는 ㄹ 받침이면 "로", 그 밖의 받침이면 "으로".
 function withRo(word: string): string {
   const last = word.charCodeAt(word.length - 1) - 0xac00;
@@ -50,21 +43,9 @@ function withRo(word: string): string {
   return jong === 0 || jong === 8 ? `${word}로` : `${word}으로`;
 }
 
-function Fallback({
-  children,
-  errorCode,
-}: {
-  children: React.ReactNode;
-  errorCode: string | null;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="type-body text-foreground">{children}</p>
-      {errorCode !== null && (
-        <p className="font-mono type-caption text-muted-foreground">{errorCode}</p>
-      )}
-    </div>
-  );
+// 결정 모델을 쓰지 못한 run 의 상태 한 줄. 오류 코드는 공고 상세의 분석 배너 "오류 상세"가 보인다.
+function Fallback({ children }: { children: React.ReactNode }) {
+  return <p className="type-body text-foreground">{children}</p>;
 }
 
 function Signal({ label, value, threshold }: { label: string; value: number; threshold: number }) {
@@ -156,12 +137,6 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
         <p>최종 결정은 담당자가 기록합니다.</p>
         {kev.provider === "mock" && <p>{MOCK_MODEL_TEXT}</p>}
-        <details>
-          <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            모델 상세 정보
-          </summary>
-          <p className="mt-2 wrap-anywhere">{modelInfoText(kev)}</p>
-        </details>
         <p>{"결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."}</p>
       </div>
     </div>
@@ -285,7 +260,7 @@ function V02({ kev, assessments }: { kev: KevView; assessments?: KevOpinionProps
 }
 
 function KevOpinion(props: KevOpinionProps) {
-  const { kev, reviewFlags, errorCode, notRecorded = false } = props;
+  const { kev, reviewFlags, notRecorded = false } = props;
   const headingId = useId();
   const unavailableFlag = reviewFlags.includes("AI_UNAVAILABLE");
   return (
@@ -299,7 +274,7 @@ function KevOpinion(props: KevOpinionProps) {
       {kev.enabled ? (
         <Body {...props} />
       ) : unavailableFlag ? (
-        <Fallback errorCode={errorCode}>사용 불가</Fallback>
+        <Fallback>사용 불가</Fallback>
       ) : reviewFlags.includes("KEV_UNAVAILABLE") ? (
         <div className="flex flex-col gap-1">
           {/* KEV_UNAVAILABLE 은 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9).
@@ -308,17 +283,14 @@ function KevOpinion(props: KevOpinionProps) {
           <p className="type-label text-muted-foreground">
             결정 모델 응답을 받지 못했거나 응답을 쓸 수 없습니다.
           </p>
-          <p className="font-mono type-caption text-muted-foreground">
-            recommendationBasis: RULES_ONLY
-          </p>
           <p className="type-label text-muted-foreground">
             결정 모델 없이 규칙만으로 판정했습니다.
           </p>
         </div>
       ) : notRecorded ? (
-        <Fallback errorCode={null}>기록 없음</Fallback>
+        <Fallback>기록 없음</Fallback>
       ) : (
-        <Fallback errorCode={null}>사용 안 함</Fallback>
+        <Fallback>사용 안 함</Fallback>
       )}
     </section>
   );

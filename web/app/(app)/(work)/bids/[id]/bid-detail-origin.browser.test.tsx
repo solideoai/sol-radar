@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 import { BID_LIST, FX01_VIEW } from "@/components/bids/test-data";
 import { BidDetailView, type DetailBid } from "./bid-detail-view";
 
@@ -114,7 +114,10 @@ describe("공고 상세 출처 표시", () => {
     expect(host.textContent).toContain(
       "수요기관 서울특별시 강남구 · 공고기관 조달청 서울지방조달청",
     );
-    expect(host.textContent).toContain("마지막 변경 2026-10-25 11:10 KST");
+    expect(host.textContent).toContain("마지막 변경 2026-10-25 11:10");
+    // 시간대 표기·내부 수집 번호·출처 키는 보이지 않는다(2026-11-03 사용자 지시).
+    expect(host.textContent).not.toMatch(/KST|UTC|revision|g2b-bid-notice/);
+    expect(host.textContent).toContain("출처 나라장터 입찰공고");
     const link = page.getByRole("link", { name: "원문 보기 (새 탭)" });
     await expect
       .element(link)
@@ -171,21 +174,16 @@ describe("공고 상세 회사 프로필 배지", () => {
   });
 });
 
-describe("분석 상세 정보 접기", () => {
-  it("모의 응답과 프로필 고지는 남기고 실행 정보는 펼쳐야 보인다", async () => {
-    render(detail({ latestAnalysis: { ...FX01_VIEW, runMode: "mock", profileIsDemo: true } }));
+describe("분석 요약 띠의 기술 정보", () => {
+  it("모의 응답과 프로필 고지는 남기고 실행 모드·모델명·버전은 화면 어디에도 없다", async () => {
+    const host = render(
+      detail({ latestAnalysis: { ...FX01_VIEW, runMode: "mock", profileIsDemo: true } }),
+    );
     const band = page.getByRole("region", { name: "분석 요약", exact: true });
     await expect.element(band.getByText("Mock 응답(데모 데이터)", { exact: true })).toBeVisible();
     await expect.element(band.getByText("가상 회사 프로필로 분석", { exact: true })).toBeVisible();
-    expect(
-      band.getByText("분석 상세 정보", { exact: true }).element().closest("details")?.open,
-    ).toBe(false);
-    await userEvent.click(band.getByText("분석 상세 정보", { exact: true }));
-    await expect.element(band.getByText("분석 실행 모드: mock", { exact: true })).toBeVisible();
-    await expect.element(band.getByText("AI: mock", { exact: true })).toBeVisible();
-    await userEvent.click(band.getByText("분석 상세 정보", { exact: true }));
-    expect(
-      band.getByText("분석 상세 정보", { exact: true }).element().closest("details")?.open,
-    ).toBe(false);
+    expect(host.textContent).not.toMatch(
+      /분석 상세 정보|실행 모드|AI: |알고리즘|sol-v\d|프로필 rev|질문 세트|공급자|kev-qs|Qwen/,
+    );
   });
 });

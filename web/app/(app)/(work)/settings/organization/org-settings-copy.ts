@@ -1,4 +1,5 @@
 import { formatKst } from "@/components/bids/format";
+import { SOL_ROLE_LABEL } from "@/components/bids/labels";
 import type {
   OrgInvitationCancelResult,
   OrgInvitationMailStatus,
@@ -212,7 +213,7 @@ export const cancelledToast = (email: string) => `${email} 초대를 취소했�
 export const FORBIDDEN_COPY = {
   title: "이 화면을 볼 권한이 없습니다",
   body: (role: SolRole) =>
-    `설정의 조직 탭은 업무 역할이 ADMIN인 구성원만 볼 수 있습니다. 지금 역할: ${role}`,
+    `설정의 조직 탭은 업무 역할이 ${SOL_ROLE_LABEL.ADMIN}인 구성원만 볼 수 있습니다. 지금 역할: ${SOL_ROLE_LABEL[role]}`,
   back: "대시보드로",
 } as const;
 

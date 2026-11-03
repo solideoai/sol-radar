@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "cn";
 import { AppPage } from "@/components/app-page";
+import { SOL_ROLE_LABEL } from "@/components/bids/labels";
 import { buttonVariants } from "@/components/ui/button";
 import type { SolRole } from "@/server/organization";
 import { INGESTION_TITLE } from "./ingestion-copy";
@@ -19,7 +20,8 @@ export function IngestionForbidden({ role }: { role: SolRole }) {
           이 화면을 볼 권한이 없습니다
         </h2>
         <p className="type-body text-muted-foreground">
-          데이터 수집 관리는 업무 역할이 ADMIN인 구성원만 볼 수 있습니다. 지금 역할: {role}
+          데이터 수집 관리는 업무 역할이 {SOL_ROLE_LABEL.ADMIN}인 구성원만 볼 수 있습니다. 지금
+          역할: {SOL_ROLE_LABEL[role]}
         </p>
         <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }))}>
           대시보드로

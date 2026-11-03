@@ -157,7 +157,9 @@ export function AnalysisHistoryView({
               const item = items.find((value) => value.id === id);
               return (
                 <li key={id} className="min-w-0 max-w-80 wrap-anywhere">
-                  {item ? `${item.bidTitle} · revision ${item.revision}` : "선택한 분석"}
+                  {item
+                    ? `${item.bidTitle} · ${formatKst(item.finishedAt ?? item.queuedAt)}`
+                    : "선택한 분석"}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -213,13 +215,11 @@ export function AnalysisHistoryView({
             </colgroup>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {["선택", "공고명", "분석 상태", "SOL Score", "권고", "분석 시각 (KST)"].map(
-                  (label) => (
-                    <TableHead key={label} scope="col" className="h-auto px-2 py-3">
-                      {label}
-                    </TableHead>
-                  ),
-                )}
+                {["선택", "공고명", "분석 상태", "SOL Score", "권고", "분석 시각"].map((label) => (
+                  <TableHead key={label} scope="col" className="h-auto px-2 py-3">
+                    {label}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,7 +237,7 @@ export function AnalysisHistoryView({
                             ? "analysis-selection-max"
                             : undefined
                         }
-                        aria-label={`${item.bidTitle} revision ${item.revision} 비교 선택`}
+                        aria-label={`${item.bidTitle} ${formatKst(item.finishedAt ?? item.queuedAt)} 분석 비교 선택`}
                         className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-ring/50"
                         onChange={() =>
                           select(
@@ -264,23 +264,11 @@ export function AnalysisHistoryView({
                         {item.runMode === "fixture" && (
                           <p className="type-caption text-warning">저장 공고 기반 분석</p>
                         )}
-                        {item.errorCode && (
-                          <p className="type-caption text-destructive">{item.errorCode}</p>
-                        )}
                         {item.reviewFlags.map((flag) => (
                           <p key={flag} className="type-caption text-warning">
                             {REVIEW_FLAG_LABEL[flag]}
                           </p>
                         ))}
-                        <details>
-                          <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-caption text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                            분석 상세 정보
-                          </summary>
-                          <p className="type-caption">실행 모드 {item.runMode}</p>
-                          <p className="type-caption">공고 revision {item.revision}</p>
-                          <p className="type-caption">프로필 revision {item.profileRevision}</p>
-                          <p className="type-caption">알고리즘 {item.model.algorithmVersion}</p>
-                        </details>
                       </div>
                     </TableCell>
                     <TableCell className="p-2 align-top">

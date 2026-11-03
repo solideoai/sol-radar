@@ -198,8 +198,8 @@ function GapOverlayNote({ overlay, copy }: { overlay: MarketGapOverlay; copy: Ma
       <InfoIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
       <span>
         기관·분야 행 아래 자격 판정 묶음은 기간 내 공고 중 지금 마감이 남은 것(마감 전 공고)
-        기준입니다 · 자격 갭 레이더는 게시 기간과 무관하게 마감 전 공고 전부를 봅니다 · 회사 프로필
-        r{overlay.profile.revision}({overlay.profile.isDemo ? "가상" : "공개 자료"})과 대조
+        기준입니다 · 자격 갭 레이더는 게시 기간과 무관하게 마감 전 공고 전부를 봅니다 ·{" "}
+        {overlay.profile.isDemo ? "가상" : "공개 자료"} 회사 프로필과 대조
         {overlay.unmatched > 0
           ? ` · 판정을 찾지 못한 ${count(overlay.unmatched)}건은 묶음에서 뺌`
           : ""}
@@ -327,11 +327,11 @@ function WeeklyTrend({ overview }: { overview: MarketOverview }) {
       <SectionHeader
         id="market-weekly"
         title="주별 게시 추이"
-        description={`최근 ${overview.weekly.length}주 · 월요일 시작(KST) · 기간 선택과 별개 · 이번 주는 진행 중`}
+        description={`최근 ${overview.weekly.length}주 · 월요일 시작 · 기간 선택과 별개 · 이번 주는 진행 중`}
       />
       <BarChart
         className="mt-4"
-        caption="주별 게시 입찰공고 수(주 시작 월요일, KST)"
+        caption="주별 게시 입찰공고 수(주 시작 월요일)"
         valueHeader="게시 공고 수"
         unit="건"
         days={overview.weekly.map((week) => ({
@@ -467,7 +467,7 @@ function figuresOf(overview: MarketOverview, reference: MarketReference): Figure
             "수집 성공 기록 없음"
           )
         ) : (
-          <time dateTime={reference.at}>{day} KST · 마지막 수집 성공</time>
+          <time dateTime={reference.at}>{day} · 마지막 수집 성공</time>
         ),
     },
   ];

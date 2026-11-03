@@ -410,9 +410,8 @@ describe("팝업 내용", () => {
     await expect.element(chip).toHaveAttribute("aria-expanded", "true");
     expect(quoteBox()?.textContent).toContain(PAYLOAD.refs[0]!.quotedText);
 
-    await expect.element(popup.getByText(/Qwen3\.8-Flash-Next-AWQ-INT4/)).not.toBeVisible();
-    await userEvent.click(popup.getByText("생성 정보", { exact: true }));
-    await expect.element(popup.getByText(/Qwen3\.8-Flash-Next-AWQ-INT4/)).toBeVisible();
+    // 모델명은 펼쳐도 볼 수 없다(2026-11-03 사용자 지시).
+    expect(dialogElement()?.textContent).not.toMatch(/Qwen|생성 정보/);
     // 새 형식 모델 결과에는 요청 버튼이 없다. 처음부터 끝난 행이라 읽지도 않는다.
     expect(dialogElement()?.textContent).not.toMatch(/다시 요청|새 형식으로 다시 분석/);
     expect(calls).toHaveLength(0);
@@ -553,6 +552,21 @@ describe("팝업 내용", () => {
     await userEvent.click(dialog().getByRole("button", { name: "다시 요청" }));
     await waitCalls(1);
     expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("판단 이유의 모델 이름(Bosun)은 구역·팝업 모두 '결정 모델'로 보인다", async () => {
+    // gateway 대체 문장(BASIS_TEXT)이 저장한 글 그대로다. 저장 값은 두고 화면에서만 바꾼다(2026-11-03 사용자 지시).
+    const summary = "Bosun 참고 지표를 함께 봤습니다. SOL Score 94점.";
+    const host = renderPanel({
+      initialInsight: { ...DONE_TEMPLATE, payload: { ...PAYLOAD, summary } },
+    });
+    await expect.element(panel().getByText("결정 모델 참고 지표를 함께 봤습니다.")).toBeVisible();
+    expect(host.textContent).not.toContain("Bosun");
+    await openWith("추천 분석 보기");
+    await expect
+      .element(dialog().getByText("결정 모델 참고 지표를 함께 봤습니다. SOL Score 94점."))
+      .toBeVisible();
+    expect(dialogElement()?.textContent).not.toContain("Bosun");
   });
 
   it("TEMPLATE·INJECTION_SUSPECTED 면 지시문 의심 안내를 보이고 [다시 요청] 이 없다", async () => {

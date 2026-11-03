@@ -92,7 +92,7 @@ function ProfileMeta({ profile }: { profile: CompanyProfile }) {
       )}
       <span className="type-body font-medium text-foreground">{profile.name}</span>
       <span className="type-body tabular-nums text-muted-foreground">
-        rev {profile.revision} · {kstDate(profile.effectiveAt)} 적용
+        {kstDate(profile.effectiveAt)} 적용
       </span>
       {profile.note ? (
         <span className="type-body wrap-anywhere text-muted-foreground">{profile.note}</span>

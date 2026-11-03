@@ -28,6 +28,7 @@ import {
   FACTOR_LABEL as SHARED_FACTOR_LABEL,
   NEEDS_REVIEW_REASON_LABEL as SHARED_NEEDS_REVIEW_REASON_LABEL,
   RECOMMENDATION_LABEL as SHARED_RECOMMENDATION_LABEL,
+  SOL_ROLE_LABEL as SHARED_SOL_ROLE_LABEL,
 } from "@/server/shared";
 import type {
   AnalysisStatus,
@@ -42,6 +43,7 @@ import type {
   Recommendation,
   ReviewFlag,
 } from "@/server/bids";
+import type { SolRole } from "@/server/organization";
 
 // 라벨 글자의 정본은 docs/plans/2026-10-19-c6-screens-design.md 다.
 // 클라이언트 부품도 쓰므로 @/server/bids 는 타입으로만 가져온다.
@@ -121,6 +123,9 @@ export const NEEDS_REVIEW_REASON_LABEL = SHARED_NEEDS_REVIEW_REASON_LABEL satisf
   string
 >;
 
+// 업무 역할의 화면 이름. 정본은 @/server/shared 다. 권한 안내와 결정 이력에 쓴다.
+export const SOL_ROLE_LABEL = SHARED_SOL_ROLE_LABEL satisfies Record<SolRole, string>;
+
 // §5.4.5 요소 라벨. 순서는 점수표(08 §2) 순이다. 정본은 @/server/shared 다. 추천 분석 요청(서버)과 같은 표를 쓴다.
 export const FACTOR_LABEL = SHARED_FACTOR_LABEL satisfies Record<FactorKey, string>;
 
@@ -166,7 +171,7 @@ export const REVIEW_FLAG_LABEL = {
   EXTRACTION_LOW_CONFIDENCE: "추출 신뢰 낮음",
   TRANSLATION_INCOMPLETE: "영문 번역 누락 · 원문 검토 필요",
   AI_UNAVAILABLE: "AI 사용 불가",
-  QWEN_UNAVAILABLE: "Qwen 서버 미접속",
+  QWEN_UNAVAILABLE: "AI 서버 미접속",
   // 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9). 그래서 "서버 미접속"이라 쓰지 않는다.
   KEV_UNAVAILABLE: "결정 모델 사용 불가",
   MOCK_FALLBACK: "Mock 대체 결과",

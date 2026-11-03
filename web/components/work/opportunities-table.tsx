@@ -56,7 +56,7 @@ export function OpportunityDeadline({ item, now }: { item: OpportunityItem; now:
   if (item.deadlineAt === null) return <span>—</span>;
   const days = EARLY_STAGES.includes(item.stage) ? null : dDay(item.deadlineAt, now);
   return (
-    <div className="flex flex-col tabular-nums" title={`${formatKst(item.deadlineAt)} KST`}>
+    <div className="flex flex-col tabular-nums" title={formatKst(item.deadlineAt)}>
       <span className="type-label">{days?.label ?? "일정"}</span>
       <time dateTime={item.deadlineAt} className="type-caption text-muted-foreground">
         {formatKstShort(item.deadlineAt)}
@@ -72,7 +72,7 @@ function NoticeMeta({ item }: { item: OpportunityItem }) {
     <span
       data-part="notice-meta"
       className="block max-w-full truncate type-caption text-muted-foreground tabular-nums"
-      title={publishedAt === null ? noticeId : `${noticeId} · 게시 ${formatKst(publishedAt)} KST`}
+      title={publishedAt === null ? noticeId : `${noticeId} · 게시 ${formatKst(publishedAt)}`}
     >
       <span className="font-mono">{noticeId}</span>
       {publishedAt !== null && (

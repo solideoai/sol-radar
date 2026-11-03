@@ -430,7 +430,7 @@ export function OpportunityFilters({
               })
             }
           />
-          Early Opportunity 포함
+          입찰공고 전 단계 포함
         </label>
       </div>
       <div className="flex flex-wrap items-end gap-3">

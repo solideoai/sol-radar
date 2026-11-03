@@ -24,13 +24,13 @@ export const dailyLimitText = (limit: number | null): string =>
 
 const pad2 = (hour: number): string => String(hour).padStart(2, "0");
 
-/** "정기 수집: 매일 00·03·06·09·12·15·18·21시(KST) · 다음 15:00" / "정기 수집: 꺼짐". */
+/** "정기 수집: 매일 00·03·06·09·12·15·18·21시 · 다음 15:00" / "정기 수집: 꺼짐". */
 export function scheduleText(schedule: ManualGate["schedule"], now: Date): string {
   if (!schedule.active) return SCHEDULE_OFF;
   const hours =
     schedule.slotHoursKst.length === 0
       ? null
-      : `매일 ${schedule.slotHoursKst.map(pad2).join("·")}시(KST)`;
+      : `매일 ${schedule.slotHoursKst.map(pad2).join("·")}시`;
   const next =
     schedule.nextRunAt === null ? null : `다음 ${formatKstMoment(schedule.nextRunAt, now)}`;
   const body = joinNotice(hours, next);

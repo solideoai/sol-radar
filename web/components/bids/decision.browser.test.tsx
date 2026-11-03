@@ -110,7 +110,7 @@ describe("DecisionPanel 폼", () => {
   it("canRecordReview=false 이면 입력이 모두 비활성이고 이유를 글자로 보인다", async () => {
     render(panel({ canRecordReview: false }));
     await expect
-      .element(page.getByText("결정은 ADMIN·SALES 역할만 기록할 수 있습니다"))
+      .element(page.getByText("결정은 관리자·영업 역할만 기록할 수 있습니다"))
       .toBeVisible();
     await expect.element(page.getByRole("radio", { name: "추천", exact: true })).toBeDisabled();
     await expect.element(reasonBox()).toBeDisabled();
@@ -208,7 +208,7 @@ describe("DecisionPanel 표시", () => {
     await expect.element(page.getByText("참고", { exact: true })).toBeVisible();
   });
 
-  it("규칙 우선 플래그는 레일에 문구를 남기지 않고, 중립 플래그 라벨과 코드는 320px 레일을 넘지 않는다", async () => {
+  it("규칙 우선 플래그는 레일에 문구를 남기지 않고, 중립 플래그는 라벨만 보이며 320px 레일을 넘지 않는다", async () => {
     const host = render(
       panel({
         analysis: {
@@ -223,8 +223,13 @@ describe("DecisionPanel 표시", () => {
       }),
     );
     await expect.element(page.getByText("사람 검토 권장")).toBeVisible();
-    await expect.element(page.getByText("TRANSLATION_INCOMPLETE")).toBeVisible();
+    await expect
+      .element(page.getByText(REVIEW_FLAG_LABEL.TRANSLATION_INCOMPLETE, { exact: true }))
+      .toBeVisible();
+    // 플래그 영문 코드는 화면에 두지 않는다(2026-11-03 사용자 지시).
     for (const hidden of [
+      "TRANSLATION_INCOMPLETE",
+      "MOCK_FALLBACK",
       "MODEL_RULE_DISAGREEMENT",
       "KEV_MANDATORY_RISK",
       REVIEW_FLAG_LABEL.MODEL_RULE_DISAGREEMENT,
@@ -281,7 +286,8 @@ describe("DecisionPanel 표시", () => {
     await expect.element(page.getByText("· 탈퇴한 사용자 ·", { exact: false })).toBeVisible();
     expect(host.textContent).not.toContain("탈퇴한 사용자()");
     expect(host.textContent).not.toContain("()");
-    expect(host.textContent).toContain("김영업(SALES)");
+    expect(host.textContent).toContain("김영업(영업)");
+    expect(host.textContent).not.toContain("(SALES)");
   });
 
   it("pending 이면 권고·점수 자리를 skeleton 으로 바꾸고 폼과 이력은 그대로 둔다", async () => {
@@ -360,14 +366,15 @@ describe("EvidenceDrawer", () => {
     await expect.element(opener).toHaveFocus();
   });
 
-  it("본문 근거(documentId=null)는 mark 하나와 위치·대조·수집 시각을 보인다", async () => {
+  it("본문 근거(documentId=null)는 mark 하나와 위치·대조·수집 시각을 보이고 문자 위치·시간대 표기는 없다", async () => {
     render(drawer);
     await userEvent.click(page.getByRole("button", { name: "근거 열기" }));
     const dialog = page.getByRole("dialog").element();
     await vi.waitFor(() => expect(dialog.querySelectorAll("mark")).toHaveLength(1));
     expect(dialog.querySelector("mark")?.textContent).toBe("신고 업체");
-    expect(dialog.textContent).toContain("공고 본문 · 문자 9–14");
-    expect(dialog.textContent).toContain("원문 대조: 정확히 일치");
-    expect(dialog.textContent).toContain("수집 2026-10-16 10:00 KST");
+    expect(dialog.textContent).toContain("공고 본문");
+    expect(dialog.textContent).toContain("원문과 일치");
+    expect(dialog.textContent).toContain("수집 2026-10-16 10:00");
+    expect(dialog.textContent).not.toMatch(/문자 9|KST|원문 대조/);
   });
 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { formatKst } from "@/components/bids/format";
+import { ANALYSIS_STATUS_LABEL } from "@/components/bids/labels";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { PersonAvatar } from "@/components/people/person-avatar";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,13 @@ import type {
   WorkforceTeamPerson,
   WorkforceTeamSupply,
 } from "@/server/workforce";
-const date = (value: string) => (value.length === 10 ? value : `${formatKst(value)} KST`);
+// 한국 시각. 시간대 표기(KST)는 붙이지 않는다(2026-11-03 사용자 지시).
+const date = (value: string) => (value.length === 10 ? value : formatKst(value));
+// 최근 시도 상태는 문자열로 온다. 아는 분석 상태면 화면 이름으로 바꾼다.
+const attemptStatus = (status: string) =>
+  Object.hasOwn(ANALYSIS_STATUS_LABEL, status)
+    ? ANALYSIS_STATUS_LABEL[status as keyof typeof ANALYSIS_STATUS_LABEL].short
+    : status;
 // 인력 양은 "명분"(한 사람이 그 기간 업무 시간을 전부 쓰면 1명분), 한 사람의 몫은 %로 적는다. FTE 라는 말은 쓰지 않는다.
 const headcount = (value: number | null) => (value === null ? "—" : `${value}명분`);
 const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -275,8 +282,8 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
         <>
           {item.latestAttempt && item.latestAttempt.id !== item.analysisId && (
             <p className="mb-3 type-caption text-warning">
-              최근 시도 {item.latestAttempt.status} · {formatKst(item.latestAttempt.at)} KST. 최근
-              유효 완료 분석을 표시합니다.
+              최근 시도 {attemptStatus(item.latestAttempt.status)} ·{" "}
+              {formatKst(item.latestAttempt.at)}. 최근 유효 완료 분석을 표시합니다.
             </p>
           )}
           <div className="space-y-2 type-caption text-muted-foreground">
@@ -288,13 +295,9 @@ function BidCard({ item }: { item: WorkforceBidResult }) {
               <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 계산 기준
               </summary>
+              <p>분석 시각 {item.analyzedAt ? formatKst(item.analyzedAt) : "정보 없음"}</p>
               <p>
-                분석 {item.analysisId.slice(0, 8)} · 공고 revision {item.revision}
-              </p>
-              <p>분석 시각 {item.analyzedAt ? `${formatKst(item.analyzedAt)} KST` : "정보 없음"}</p>
-              <p>
-                인력 스냅샷 기준{" "}
-                {item.snapshotAsOf ? `${formatKst(item.snapshotAsOf)} KST` : "정보 없음"}
+                인력 스냅샷 기준 {item.snapshotAsOf ? formatKst(item.snapshotAsOf) : "정보 없음"}
               </p>
               <p>계산 기준일 {item.calculationDate}</p>
             </details>
@@ -458,7 +461,7 @@ export function WorkforceResults({ result }: { result: WorkforceResult }) {
           현재 배정과 기간 충돌
         </h2>
         <p className="type-caption text-muted-foreground">
-          현재 배정 기준 {formatKst(result.currentAssignmentsAsOf)} KST · 분석 당시 투입 가능 인력과
+          현재 배정 기준 {formatKst(result.currentAssignmentsAsOf)} · 분석 당시 투입 가능 인력과
           별도 기준입니다.
         </p>
         <p className="type-caption text-muted-foreground">

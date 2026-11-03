@@ -11,12 +11,11 @@ import type { EvidenceContext } from "@/components/bids/evidence-store";
 import type { ReviewFlag, ScoreFactorView } from "@/server/bids";
 
 // SOL Score 분해(§5.4.5). 요소 5행은 점수표 순서로 고정이고 합계는 받은 points 의 합이다.
+// 점수 계산 버전·프로필 버전은 화면에 두지 않는다(2026-11-03 사용자 지시). 분석 기록(score_runs)에 남는다.
 type ScoreFactorsProps = {
   factors: ScoreFactorView[];
   reviewFlags: ReviewFlag[];
   explanation: string | null;
-  algorithmVersion: string;
-  profileRevision: number;
   reference?: boolean;
   onOpenEvidence?: (ctx: EvidenceContext) => void;
 };
@@ -90,8 +89,6 @@ function ScoreFactors({
   factors,
   reviewFlags,
   explanation,
-  algorithmVersion,
-  profileRevision,
   reference = false,
   onOpenEvidence,
 }: ScoreFactorsProps) {
@@ -158,14 +155,6 @@ function ScoreFactors({
           합계 {formatPoints(sum)} → SOL Score {Math.round(sum)} (반올림)
         </span>
       </p>
-      <details className="type-caption text-muted-foreground">
-        <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-          점수 계산 기준
-        </summary>
-        <p className="mt-2 wrap-anywhere">
-          알고리즘 {algorithmVersion} · 프로필 rev {profileRevision}
-        </p>
-      </details>
     </section>
   );
 }

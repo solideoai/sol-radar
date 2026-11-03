@@ -72,7 +72,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             dateTime={summary.generatedAt}
             className="type-caption text-muted-foreground tabular-nums"
           >
-            {formatKst(summary.generatedAt)} 기준 · KST
+            {formatKst(summary.generatedAt)} 기준
           </time>
           <OpportunityRefresh />
         </div>

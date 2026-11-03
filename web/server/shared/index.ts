@@ -36,6 +36,7 @@ export {
   relabelLegacyExplanation,
 } from "./recommendation-label";
 export { NEEDS_REVIEW_REASON_LABEL } from "./review-reason-label";
+export { SOL_ROLE_LABEL } from "./sol-role-label";
 export { WORK_ROLE_CODES, WORK_ROLE_LABELS, workRoleLabel, workRoleOf } from "./work-role";
 export type { WorkRoleCode } from "./work-role";
 export {

@@ -110,7 +110,10 @@ function QualificationValue({ view }: { view: AnalysisView }) {
 function AttentionValue({ view }: { view: AnalysisView }) {
   return (
     <div className="space-y-1">
-      {view.errorCode && <p className="type-caption text-destructive">{view.errorCode}</p>}
+      {/* 오류 코드 원문은 보이지 않는다(2026-11-03 사용자 지시). 실패만 한 줄로 밝힌다. */}
+      {view.status === "FAILED" && (
+        <p className="type-caption text-destructive">분석에 실패했습니다</p>
+      )}
       {view.fallbackReason && (
         <p className="type-caption text-warning">
           {view.fallbackReason === "QWEN_UNAVAILABLE"
@@ -123,7 +126,7 @@ function AttentionValue({ view }: { view: AnalysisView }) {
           {REVIEW_FLAG_LABEL[flag]}
         </p>
       ))}
-      {!view.errorCode && !view.fallbackReason && view.reviewFlags.length === 0 && "없음"}
+      {view.status !== "FAILED" && !view.fallbackReason && view.reviewFlags.length === 0 && "없음"}
     </div>
   );
 }
@@ -153,18 +156,20 @@ const rows: CompareRow[] = [
   })),
   { label: "자격 판정", content: (view) => <QualificationValue view={view} /> },
   {
-    label: "분석 시각 (KST)",
+    label: "분석 시각",
     content: (view) =>
       `${formatKst(view.finishedAt ?? view.queuedAt)}${view.finishedAt ? "" : " · 접수"}`,
   },
   { label: "주의 사항·실패 사유", content: (view) => <AttentionValue view={view} /> },
 ];
 
-const technicalRows: CompareRow[] = [
-  { label: "공고 revision", content: (view) => view.revision },
-  { label: "회사 프로필 revision", content: (view) => view.profileRevision },
-  { label: "알고리즘 버전", content: (view) => view.model.algorithmVersion },
-  { label: "실행 모드", content: (view) => view.runMode },
+// 비교 기준. 값(수집 번호·프로필 번호·알고리즘 버전·실행 모드)은 보이지 않고, 다른 것이 있을 때 무엇이 다른지만 말한다
+// (2026-11-03 사용자 지시).
+const BASIS: { label: string; of(view: AnalysisView): string | number }[] = [
+  { label: "공고 내용", of: (view) => view.revision },
+  { label: "회사 프로필", of: (view) => view.profileRevision },
+  { label: "점수 계산 방식", of: (view) => view.model.algorithmVersion },
+  { label: "분석 방식", of: (view) => view.runMode },
 ];
 
 export function AnalysisComparison({
@@ -220,12 +225,9 @@ export function AnalysisComparison({
   const loaded = ids.flatMap((id) =>
     columns[id]?.kind === "loaded" ? [columns[id].value.view] : [],
   );
-  const differs =
-    ["revision", "profileRevision", "runMode"].some(
-      (key) =>
-        new Set(loaded.map((view) => view[key as "revision" | "profileRevision" | "runMode"]))
-          .size > 1,
-    ) || new Set(loaded.map((view) => view.model.algorithmVersion)).size > 1;
+  const differs = BASIS.filter(({ of }) => new Set(loaded.map(of)).size > 1).map(
+    ({ label }) => label,
+  );
   return (
     <section aria-labelledby="analysis-comparison-title" className="min-w-0 space-y-4">
       <h2 id="analysis-comparison-title" tabIndex={-1} className="type-heading outline-none">
@@ -234,9 +236,10 @@ export function AnalysisComparison({
       {ids.length === 1 && (
         <p className="type-label text-muted-foreground">비교하려면 한 건을 더 선택하세요.</p>
       )}
-      {differs && (
+      {differs.length > 0 && (
         <p className="rounded-lg border border-warning p-3 type-label text-warning">
-          비교 기준이 다릅니다. 각 분석의 입력과 실행 모드를 확인하세요.
+          비교 기준이 다릅니다({differs.join("·")}). 같은 조건의 분석이 아니라 점수 차이를 그대로
+          비교할 수 없습니다.
         </p>
       )}
       <Table className="min-w-200 table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
@@ -317,44 +320,6 @@ export function AnalysisComparison({
           ))}
         </TableBody>
       </Table>
-      <details>
-        <summary className="min-h-8 cursor-pointer rounded-sm py-1.5 type-label outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-          비교 기준
-        </summary>
-        <Table className="min-w-200 table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
-          <caption className="sr-only">선택한 분석의 비교 기준</caption>
-          <colgroup>
-            <col className="w-40" />
-            {ids.map((id) => (
-              <col key={id} />
-            ))}
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">비교 항목</TableHead>
-              {ids.map((id) => (
-                <TableHead key={id} scope="col" className="h-auto p-3">
-                  {columns[id]?.kind === "loaded" ? columns[id].value.title : "분석"}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {technicalRows.map((row) => (
-              <TableRow key={row.label}>
-                <th scope="row" className="p-3 text-left align-top type-label font-medium">
-                  {row.label}
-                </th>
-                {ids.map((id) => (
-                  <TableCell key={id} className="p-3 align-top tabular-nums">
-                    {columns[id]?.kind === "loaded" ? row.content(columns[id].value.view) : "—"}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </details>
       <p className="type-caption text-muted-foreground">
         {loaded[0]?.disclaimer ?? BIDS_DESCRIPTION}
       </p>

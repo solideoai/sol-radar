@@ -20,17 +20,13 @@ import type { BidDocument } from "@/server/bids";
 
 const CONTEXT_CHARS = 200;
 
+// 인용을 원문에서 찾은 결과. 내부 용어(정규화·문자 위치)는 쓰지 않는다(2026-11-03 사용자 지시).
 const MATCH_LABEL = {
-  EXACT: "원문 대조: 정확히 일치",
-  NORMALIZED: "원문 대조: 정규화 후 일치",
-  FUZZY: "원문 대조: 유사 일치",
-  FAILED: "원문 대조: 실패",
+  EXACT: "원문과 일치",
+  NORMALIZED: "원문과 일치(띄어쓰기·기호 차이)",
+  FUZZY: "원문과 비슷함",
+  FAILED: "원문에서 찾지 못함",
 } as const satisfies Record<NonNullable<EvidenceRef["match"]>, string>;
-
-const rangeText = (ref: EvidenceRef): string | null =>
-  typeof ref.charStart === "number" && typeof ref.charEnd === "number"
-    ? `문자 ${ref.charStart}–${ref.charEnd}`
-    : null;
 
 const isApiRef = (ref: EvidenceRef) => ref.kind === "API_FIELD" || ref.apiField !== undefined;
 
@@ -39,24 +35,18 @@ const documentNameOf = (ref: EvidenceRef, documents: BidDocument[]): string =>
     ? "공고 본문"
     : (documents.find((doc) => doc.id === ref.documentId)?.name ?? "첨부");
 
-// 목록 행의 짧은 위치 라벨(Ruling 9). API 근거 → API {필드}, 쪽이 있으면 p.N, 없으면 본문 또는 문서 이름.
+// 목록 행의 짧은 위치 라벨(Ruling 9). API 근거 → 공고 API, 쪽이 있으면 p.N, 없으면 본문 또는 문서 이름.
+// API 필드 이름(lcnsLmtNm 등)은 내부 이름이라 보이지 않는다(2026-11-03 사용자 지시).
 function evidenceLabel(ref: EvidenceRef, documents: BidDocument[]): string {
-  if (isApiRef(ref)) return `API ${ref.apiField ?? ""}`.trim();
+  if (isApiRef(ref)) return "공고 API";
   if (typeof ref.page === "number") return `p.${ref.page}`;
   return documentNameOf(ref, documents);
 }
 
-// 서랍의 자세한 위치. 같은 분기를 쓰되 문서 이름·쪽·문자 범위, API 출처를 모두 보인다.
+// 서랍의 자세한 위치. 같은 분기를 쓰되 문서 이름과 쪽을 보인다.
 function evidenceDetail(ref: EvidenceRef, documents: BidDocument[]): string {
-  if (isApiRef(ref)) {
-    const source = ref.apiSource === undefined ? "" : ` (${ref.apiSource})`;
-    return `공고 API 필드 ${ref.apiField ?? ""}${source}`;
-  }
-  return [
-    documentNameOf(ref, documents),
-    typeof ref.page === "number" ? `p.${ref.page}` : null,
-    rangeText(ref),
-  ]
+  if (isApiRef(ref)) return "공고 API 정보";
+  return [documentNameOf(ref, documents), typeof ref.page === "number" ? `p.${ref.page}` : null]
     .filter((part) => part !== null)
     .join(" · ");
 }
@@ -123,9 +113,7 @@ function EvidenceItem({
           {excerpt.after}
         </p>
       )}
-      <p className="type-caption text-muted-foreground">
-        수집 {formatKst(evidenceRef.fetchedAt)} KST
-      </p>
+      <p className="type-caption text-muted-foreground">수집 {formatKst(evidenceRef.fetchedAt)}</p>
     </li>
   );
 }
@@ -269,9 +257,6 @@ function AttachmentRow({
             {REVIEW_FLAG_LABEL.PARSE_UNSUPPORTED}
           </AttachmentBadge>
           <p className="type-body text-foreground">첨부를 내려받지 못했습니다</p>
-          <p className="font-mono type-caption text-muted-foreground [overflow-wrap:anywhere]">
-            DOCUMENT_DOWNLOAD_FAILED{doc.downloadErrorCode !== null && ` ${doc.downloadErrorCode}`}
-          </p>
         </div>
       )}
       {!failedDownload && failedParse && (
@@ -282,9 +267,6 @@ function AttachmentRow({
           <p className="type-body text-foreground">
             첨부를 읽지 못했습니다. 원문을 직접 확인하세요
           </p>
-          {doc.parseErrorCode !== null && (
-            <p className="font-mono type-caption text-muted-foreground">{doc.parseErrorCode}</p>
-          )}
           <SourceLink
             href={sourceUrl}
             className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}

@@ -7,7 +7,7 @@ import type { GoogleConnectOutcome } from "@/server/google-calendar";
 export const CALENDAR_PATH = "/calendar";
 export const CALENDAR_TITLE = "입찰 일정";
 export const CALENDAR_DESCRIPTION =
-  "관심 공고·입찰 프로젝트·IT 공고의 마감과 원본 일정을 한국 시각(KST) 달력으로 모아 봅니다.";
+  "관심 공고·입찰 프로젝트·IT 공고의 마감과 원본 일정을 한국 시각 달력으로 모아 봅니다.";
 export const CALENDAR_CAPTION = "월간 입찰 일정";
 export const CALENDAR_LOADING = "입찰 일정을 불러오는 중…";
 

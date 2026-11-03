@@ -42,6 +42,13 @@ describe("readableCheck", () => {
         "회사 프로필에 소프트웨어사업자 신고확인서(SW_BUSINESS_REG) 기록이 없음. 보유·미보유를 확인하지 못함",
       ),
     ).toBe("회사 프로필에 소프트웨어사업자 신고확인서 기록이 없음. 보유·미보유를 확인하지 못함");
+    expect(read("회사 프로필 등록 SW_BUSINESS_REG 보유(HELD)")).toBe("회사 프로필에 보유로 등록됨");
+    expect(read("회사 프로필에 직접생산확인증명 미보유(NOT_HELD)로 기록됨")).toBe(
+      "회사 프로필에 직접생산확인증명 미보유로 기록됨",
+    );
+    expect(
+      read("면허제한 2행을 모두 보유해 AND/OR 와 상관없이 충족(회사 프로필 업종 1468 보유(HELD))"),
+    ).toBe("면허제한 2개를 모두 보유해 충족(회사 프로필에 이 업종 보유로 등록됨)");
     const quoted =
       '"정보보호(ISMS) 인증"은(는) 자격 코드 사전에 없어 의미 대응을 확정하지 못함. 사람 검토 필요';
     expect(read(quoted)).toBe(quoted);

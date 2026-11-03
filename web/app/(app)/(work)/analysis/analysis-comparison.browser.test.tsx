@@ -63,7 +63,7 @@ it("4열에서 부분·실패 값을 유지하고 실패한 조회만 재시도�
   );
   await expect.poll(() => host.querySelectorAll("button").length).toBe(5);
   expect(host.textContent).toContain("부분 완료 (규칙만)");
-  expect(host.textContent).toContain("EXTRACTION_FAILED");
+  expect(host.textContent).toContain("분석에 실패했습니다");
   const scoreRow = [...host.querySelectorAll("tbody tr")].find(
     (row) => row.querySelector("th")?.textContent === "SOL Score",
   );
@@ -76,20 +76,16 @@ it("4열에서 부분·실패 값을 유지하고 실패한 조회만 재시도�
   await expect.poll(() => fetch.mock.calls.length).toBe(5);
   await expect.poll(() => host.querySelector('[role="alert"]')).toBeNull();
   expect(fetch.mock.calls.filter(([url]) => String(url).endsWith(views[0].id))).toHaveLength(1);
-  expect(host.textContent).toContain("비교 기준이 다릅니다");
-  const details = host.querySelector<HTMLDetailsElement>("details:has(table)")!;
-  expect(details.open).toBe(false);
-  await expect.element(page.getByText("공고 revision", { exact: true })).not.toBeVisible();
-  await expect.element(page.getByText("EXTRACTION_FAILED", { exact: true })).toBeVisible();
+  // 무엇이 다른지만 말하고, 수집 번호·알고리즘 버전·실행 모드 값과 오류 코드는 화면에 없다(2026-11-03 사용자 지시).
+  expect(host.textContent).toContain("비교 기준이 다릅니다(공고 내용·분석 방식)");
+  expect(host.querySelector("details:has(table)")).toBeNull();
+  expect(host.textContent).not.toMatch(
+    /revision|알고리즘|실행 모드|sol-v|EXTRACTION_FAILED|\bmock\b|fixture/,
+  );
   await expect.element(page.getByText("Mock 응답(데모 데이터)").first()).toBeVisible();
   await expect.element(page.getByText("저장 공고 기반 분석")).toBeVisible();
   const liveColumn = host.querySelector("thead tr th:nth-child(2)")!;
   expect(liveColumn.textContent).toContain("Mock 응답(데모 데이터)");
   expect(liveColumn.querySelector("details")).toBeNull();
-  const requestsBeforeExpand = fetch.mock.calls.length;
-  await userEvent.click(details.querySelector("summary")!);
-  await expect.element(page.getByText("공고 revision", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("알고리즘 버전", { exact: true })).toBeVisible();
-  expect(fetch.mock.calls).toHaveLength(requestsBeforeExpand);
   expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
 });

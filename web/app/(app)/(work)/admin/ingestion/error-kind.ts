@@ -110,7 +110,7 @@ const DAILY_LIMIT_RESULT_CODE = "22";
 
 export const QUOTA_CAUSE_TEXT = {
   EXCEEDED:
-    "일일 API 호출 한도(1,000회)를 다 써서 수집하지 못했습니다 · 다음 날 00:00(KST)부터 다시 수집합니다",
+    "일일 API 호출 한도(1,000회)를 다 써서 수집하지 못했습니다 · 다음 날 0시부터 다시 수집합니다",
   STORE_UNAVAILABLE:
     "호출 예산 저장소에 연결하지 못해 수집을 멈췄습니다(안전을 위해 호출하지 않음)",
 } as const satisfies Record<QuotaCause, string>;

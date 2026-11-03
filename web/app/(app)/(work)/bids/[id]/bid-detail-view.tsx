@@ -28,6 +28,7 @@ import {
   kevRecordMissing,
   RECOMMENDATION_LABEL,
   ruleReasonOf,
+  SOL_ROLE_LABEL,
   STAGE_LABEL,
 } from "@/components/bids/labels";
 import { QualificationChecklist } from "@/components/bids/qualification-checklist";
@@ -35,6 +36,7 @@ import { RecommendationInsight } from "@/components/bids/recommendation-insight"
 import { ScoreFactors } from "@/components/bids/score-factors";
 import { SourceLink } from "@/components/bids/source-link";
 import { StageTimeline } from "@/components/bids/stage-timeline";
+import { OPPORTUNITY_SERVICES } from "@/components/work/opportunities-copy";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import {
   agencyLabelOf,
@@ -164,16 +166,10 @@ const PUBLIC_PROFILE_BADGE = "공개 자료 회사 프로필로 분석";
 const PUBLIC_PROFILE_TOOLTIP =
   "공개 자료(홈페이지·기사·채용공고·나라장터 계약·DART 공시·협회 등록 조회)로 만든 솔리데오 프로필과 대조한 결과입니다. 자격 중 소프트웨어사업자·직접생산·중소기업 3건은 회사가 확인해 더했습니다. 선호 분야는 회사가 정한 선택값입니다. 실적은 공개 자료에 있는 것만 들어 있습니다";
 const LIVE_PUBLIC_PROFILE_TEXT = "실제 공고 × 공개 자료 회사 프로필";
-const ANALYZE_ROLE_HINT = "분석 요청은 ADMIN·SALES·ANALYST 역할만 할 수 있습니다";
+const ANALYZE_ROLE_HINT = `분석 요청은 ${[SOL_ROLE_LABEL.ADMIN, SOL_ROLE_LABEL.SALES, SOL_ROLE_LABEL.ANALYST].join("·")} 역할만 할 수 있습니다`;
 const SOURCE_MISSING_HINT = "공고 본문 미확보 · 분석 준비 중";
 const SOURCE_MISSING_CODE = "ANALYSIS_SOURCE_MISSING";
 const REVIEW_SAVED = "결정을 기록했습니다";
-
-const SOURCE_LABEL: Record<string, string> = {
-  "g2b-bid-notice": "나라장터 입찰공고",
-  "g2b-pre-spec": "나라장터 사전규격",
-  "g2b-order-plan": "나라장터 발주계획",
-};
 
 // 머리 줄 회색 칩(Chip sm)이 줄바꿈에 눌리거나 두 줄로 꺾이지 않게 한다.
 const CHIP_LAYOUT = "shrink-0 whitespace-nowrap";
@@ -191,11 +187,10 @@ const activeOf = (analysis: AnalysisView | null): ActiveRun | null =>
     ? { id: analysis.id, status: analysis.status }
     : null;
 
-// 스펙 §5.4.1: demo 는 "출처 fixture", live 는 "출처 나라장터 입찰공고 (g2b-bid-notice)". 모르는 출처는 식별자 그대로다.
-const sourceText = (source: string): string => {
-  const label = SOURCE_LABEL[source];
-  return label === undefined ? source : `${label} (${source})`;
-};
+// 스펙 §5.4.1: demo 는 "출처 데모 데이터", live 는 "출처 나라장터 입찰공고". 내부 출처 키(g2b-bid-notice 등)는 보이지 않는다
+// (2026-11-03 사용자 지시). 표에 없는 새 출처만 키 그대로다.
+const sourceText = (source: string): string =>
+  source === "fixture" ? "데모 데이터" : (OPPORTUNITY_SERVICES[source] ?? source);
 
 type PollingView = { status: "QUEUED" | "RUNNING"; delayed: boolean };
 
@@ -436,7 +431,7 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
   );
 }
 
-// ① 요약 두 줄: 기관(·공고기관)·예산·마감 / 공고번호·revision·수집·마지막 변경 시각.
+// ① 요약 두 줄: 기관(·공고기관)·예산·마감 / 공고번호·수집·마지막 변경 시각. 시각은 한국 시각이고 시간대 표기는 붙이지 않는다.
 // 기관 라벨은 저장된 source 의 정규화 규칙을 따른다(G2B 는 dminsttNm 수요기관, notice-origin). 공고기관(ntceInsttNm)은 원본에 있을 때만 보인다.
 function SummaryLines({
   bid,
@@ -458,28 +453,23 @@ function SummaryLines({
         {bid.deadlineAt === null ? (
           "—"
         ) : (
-          <time dateTime={bid.deadlineAt} title={`UTC ${bid.deadlineAt}`} className="tabular-nums">
+          <time dateTime={bid.deadlineAt} className="tabular-nums">
             {formatKst(bid.deadlineAt)}
             {due !== null && ` (${due.label})`}
           </time>
         )}
       </span>
       <span className="block">
-        공고번호 <span className="font-mono">{bid.noticeId}</span> · revision {bid.latestRevision} ·
-        수집{" "}
-        <time
-          dateTime={bid.lastSyncedAt}
-          title={`UTC ${bid.lastSyncedAt}`}
-          className="tabular-nums"
-        >
-          {formatKst(bid.lastSyncedAt)} KST
+        공고번호 <span className="font-mono">{bid.noticeId}</span> · 수집{" "}
+        <time dateTime={bid.lastSyncedAt} className="tabular-nums">
+          {formatKst(bid.lastSyncedAt)}
         </time>
         {changedAt !== null && (
           <>
             {" "}
             · 마지막 변경{" "}
-            <time dateTime={changedAt} title={`UTC ${changedAt}`} className="tabular-nums">
-              {formatKst(changedAt)} KST
+            <time dateTime={changedAt} className="tabular-nums">
+              {formatKst(changedAt)}
             </time>
           </>
         )}
@@ -643,12 +633,6 @@ function ProfileBadge({ isDemo }: { isDemo: boolean }) {
   );
 }
 
-function aiText({ model, reviewFlags }: Pick<AnalysisView, "model" | "reviewFlags">): string {
-  const unanswered = reviewFlags.includes("AI_UNAVAILABLE") ? " · 응답 없음(규칙만)" : "";
-  if (model.provider === "mock") return `AI: mock${unanswered}`;
-  return `${[`AI: ${model.provider}`, model.qwen?.name, model.kev?.model].filter((part) => part !== undefined).join(" · ")}${unanswered}`;
-}
-
 function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
   return (
     // 분석 띠 상자 안이라 표 바깥 테두리는 끈다(2026-10-28 화면 개편).
@@ -662,24 +646,16 @@ function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
             점수
           </TableHead>
           <TableHead scope="col">권고</TableHead>
-          <TableHead scope="col">분석 실행 모드</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
           <TableRow key={row.id}>
             <TableCell className="align-top tabular-nums">
-              <time dateTime={row.at} title={`UTC ${row.at}`}>
-                {formatKst(row.at)}
-              </time>
+              <time dateTime={row.at}>{formatKst(row.at)}</time>
             </TableCell>
             <TableCell className="align-top whitespace-normal">
               <StatusBadge kind="analysis" value={row.status} short variant="inline" />
-              {row.errorCode !== null && (
-                <span className="block font-mono type-caption text-muted-foreground wrap-anywhere">
-                  {row.errorCode}
-                </span>
-              )}
             </TableCell>
             <TableCell className="text-right align-top tabular-nums">
               {row.solScore === null ? "—" : Math.round(row.solScore)}
@@ -691,7 +667,6 @@ function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
                 <StatusBadge kind="recommendation" value={row.recommendation} variant="inline" />
               )}
             </TableCell>
-            <TableCell className="align-top">{row.runMode}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -699,7 +674,8 @@ function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
   );
 }
 
-// 상태와 데이터 성격은 바로 보이고, 운영·재현 정보는 필요할 때 펼친다.
+// 상태와 데이터 성격(저장 공고·모의 응답·회사 프로필)만 보인다. 실행 모드·모델명·알고리즘·프로필 버전은 화면에 두지 않는다
+// (2026-11-03 사용자 지시). 그 값은 분석 기록(score_runs)에 남는다.
 function AnalysisBand({
   bid,
   latest,
@@ -754,18 +730,6 @@ function AnalysisBand({
               </span>
             )}
           </div>
-          <details className="type-caption text-muted-foreground">
-            <summary className="w-fit min-h-8 cursor-pointer content-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              분석 상세 정보
-            </summary>
-            <div className="mt-2 flex flex-col gap-1 wrap-anywhere">
-              <span>분석 실행 모드: {shown.runMode}</span>
-              <span>{aiText(shown)}</span>
-              <span>
-                알고리즘 {shown.model.algorithmVersion} · 프로필 rev {shown.profileRevision}
-              </span>
-            </div>
-          </details>
         </>
       )}
       {historyRows.length >= 2 && (
@@ -864,8 +828,6 @@ function AnalysisResult({
           factors={analysis.scoreBreakdown}
           reviewFlags={analysis.reviewFlags}
           explanation={analysis.explanation}
-          algorithmVersion={analysis.model.algorithmVersion}
-          profileRevision={analysis.profileRevision}
           reference={analysis.qualification.status === "NOT_SATISFIED"}
           onOpenEvidence={openWith}
         />
@@ -876,7 +838,6 @@ function AnalysisResult({
           reviewFlags={analysis.reviewFlags}
           recommendation={analysis.recommendation}
           ruleReason={ruleReasonOf(analysis)}
-          errorCode={analysis.errorCode}
           notRecorded={kevRecordMissing(analysis)}
           assessments={assessments}
         />
@@ -1074,7 +1035,6 @@ export function BidDetailView({
               <StageTimeline
                 stage={bid.stage}
                 stageLinks={bid.stageLinks}
-                latestRevision={bid.latestRevision}
                 revisionsHref={revisionsHref}
               />
               <StageLinks stageLinks={relatedStages} />

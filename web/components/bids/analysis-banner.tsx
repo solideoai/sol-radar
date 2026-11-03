@@ -20,9 +20,9 @@ const TONE_ICON = {
   neutral: STATUS_ICON.CANCELLED,
 } as const satisfies Record<Tone, { icon: unknown; className: string }>;
 
-// 09 "AI 불가 배너"
+// 09 "AI 불가 배너". 상태 코드(PARTIAL) 대신 화면 이름을 쓴다(2026-11-03 사용자 지시, 09 개정).
 const AI_UNAVAILABLE_TEXT =
-  "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)";
+  "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: 부분 완료)";
 // 09 "Mock 대체 배너"
 const MOCK_FALLBACK_TEXT =
   "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)";

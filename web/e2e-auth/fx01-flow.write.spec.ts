@@ -158,7 +158,7 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, 보류 결정과 이
     await expect(drawer).toBeVisible();
     await expect(drawer.getByRole("blockquote").first()).toContainText("소프트웨어사업자");
     await expect(
-      drawer.getByText(/^원문 대조: (정확히 일치|정규화 후 일치|유사 일치)$/).first(),
+      drawer.getByText(/^원문과 (일치|일치\(띄어쓰기·기호 차이\)|비슷함)$/).first(),
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(drawer).toBeHidden();

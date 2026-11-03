@@ -136,11 +136,8 @@ const describeFreshness = (
     return { text: "—", className: "text-muted-foreground", tip: failed ? CHECK_FAILED : null };
   const { lastIngestAt, lastIngestStatus, lastIngestSummary } = summary.dataFreshness;
   const lines: string[] = [];
-  if (lastIngestAt !== null) {
-    const at = new Date(lastIngestAt);
-    const utc = Number.isNaN(at.getTime()) ? "—" : at.toISOString().slice(0, 16).replace("T", " ");
-    lines.push(`${formatKst(lastIngestAt)} KST · ${utc} UTC`);
-  }
+  // 한국 시각만 보인다. 시간대 표기(KST·UTC)는 붙이지 않는다(2026-11-03 사용자 지시).
+  if (lastIngestAt !== null) lines.push(`마지막 수집 ${formatKst(lastIngestAt)}`);
   if (lastIngestSummary !== null)
     lines.push(`적재 ${lastIngestSummary.created} · 격리 ${lastIngestSummary.quarantined}`);
   if (failed) lines.push(CHECK_FAILED);

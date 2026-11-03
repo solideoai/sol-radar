@@ -53,7 +53,7 @@ describe("liveControlViewOf", () => {
     expect(view(gate())).toEqual({
       blocked: false,
       notice: null,
-      schedule: "정기 수집: 매일 00·03·06·09·12·15·18·21시(KST) · 다음 15:00",
+      schedule: "정기 수집: 매일 00·03·06·09·12·15·18·21시 · 다음 15:00",
     });
   });
 
@@ -158,7 +158,7 @@ describe("quotaCauseOf", () => {
     expect(quotaCauseOf([error("QUOTA_STORE_UNAVAILABLE")])).toBe("STORE_UNAVAILABLE");
     expect(quotaCauseOf([error("API_TIMEOUT")])).toBeNull();
     expect(QUOTA_CAUSE_TEXT.EXCEEDED).toBe(
-      "일일 API 호출 한도(1,000회)를 다 써서 수집하지 못했습니다 · 다음 날 00:00(KST)부터 다시 수집합니다",
+      "일일 API 호출 한도(1,000회)를 다 써서 수집하지 못했습니다 · 다음 날 0시부터 다시 수집합니다",
     );
   });
 });

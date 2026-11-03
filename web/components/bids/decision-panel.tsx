@@ -25,6 +25,7 @@ import {
   EXTRA_STATUS_LABEL,
   RECOMMENDATION_LABEL,
   REVIEW_RECOMMENDED_FLAGS,
+  SOL_ROLE_LABEL,
   STATUS_ICON,
 } from "@/components/bids/labels";
 import { ScoreGauge } from "@/components/bids/score-gauge";
@@ -98,15 +99,11 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
   );
 }
 
-// 플래그 배지 + 코드(스펙 §5.4.9 "배지 옆에 코드를 type-caption font-mono 로"). 레일 320px 에서
-// "영문 번역 누락 · 원문 검토 필요 TRANSLATION_INCOMPLETE" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
+// 플래그 배지(스펙 §5.4.9). 영문 코드(CITATION_FAILED 등)는 두지 않는다(2026-11-03 사용자 지시).
 function FlagItem({ flag }: { flag: ReviewFlag }) {
   return (
-    <li className="flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+    <li className="flex max-w-full min-w-0">
       <StatusBadge kind="flag" value={flag} />
-      <span className="min-w-0 font-mono type-caption text-muted-foreground wrap-anywhere">
-        {flag}
-      </span>
     </li>
   );
 }
@@ -207,7 +204,7 @@ function ReviewHistory({ reviews }: { reviews: Review[] }) {
                   <span>
                     · {review.reviewer.name}
                     {/* 조직을 떠난 사람(탈퇴한 사용자)은 역할을 알 수 없어 괄호를 그리지 않는다. */}
-                    {review.reviewer.role !== null && `(${review.reviewer.role})`} ·{" "}
+                    {review.reviewer.role !== null && `(${SOL_ROLE_LABEL[review.reviewer.role]})`} ·{" "}
                     {formatKst(review.decidedAt)}
                   </span>
                 </div>
@@ -318,7 +315,7 @@ function DecisionPanel({
   }, onInvalid);
 
   const lockedReason = !canRecordReview
-    ? "결정은 ADMIN·SALES 역할만 기록할 수 있습니다"
+    ? `결정은 ${SOL_ROLE_LABEL.ADMIN}·${SOL_ROLE_LABEL.SALES} 역할만 기록할 수 있습니다`
     : cancelled
       ? "취소된 공고에는 결정을 기록할 수 없습니다"
       : null;

@@ -63,7 +63,7 @@ it("입찰 공고 필터가 모두 보이고 다중 선택은 나머지 URL 조�
     "opportunity-sort",
   ])
     expect(document.getElementById(id)?.checkVisibility()).toBe(true);
-  await expect.element(page.getByRole("switch", { name: "Early Opportunity 포함" })).toBeVisible();
+  await expect.element(page.getByRole("switch", { name: "입찰공고 전 단계 포함" })).toBeVisible();
   await page.getByRole("button", { name: "AI·AX", exact: true }).click();
   await page.getByRole("button", { name: "클라우드", exact: true }).click();
   const params = new URLSearchParams(navigation.query);

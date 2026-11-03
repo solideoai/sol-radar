@@ -16,6 +16,7 @@ import {
 import {
   INSIGHT_NOTICE,
   authorshipText,
+  readableSummary,
   type InsightRunFacts,
 } from "@/components/bids/recommendation-insight-sections";
 import { useInsightRequest } from "@/components/bids/use-insight-request";
@@ -55,8 +56,10 @@ type RecommendationInsightProps = {
 };
 
 /** 판단 이유 첫 문장. 뒤가 공백이거나 글 끝인 "." 까지다("3.5" 같은 숫자는 자르지 않는다). 없으면 전체. */
-const firstSentence = (summary: string): string =>
-  /^[\s\S]*?\.(?=\s|$)/.exec(summary)?.[0] ?? summary;
+const firstSentence = (summary: string): string => {
+  const text = readableSummary(summary);
+  return /^[\s\S]*?\.(?=\s|$)/.exec(text)?.[0] ?? text;
+};
 
 type SectionButton = { label: string; requests: boolean } | null;
 type SectionState = {

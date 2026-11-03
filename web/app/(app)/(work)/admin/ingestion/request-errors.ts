@@ -108,7 +108,7 @@ export function requestErrorOf(
             renewKey: true,
           }
         : {
-            message: "이 작업을 할 권한이 없습니다. 업무 역할이 ADMIN이어야 합니다.",
+            message: "이 작업을 할 권한이 없습니다. 업무 역할이 관리자여야 합니다.",
             renewKey: true,
           },
     );

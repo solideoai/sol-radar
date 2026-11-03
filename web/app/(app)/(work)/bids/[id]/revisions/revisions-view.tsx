@@ -40,13 +40,17 @@ function Empty({ label }: { label: string }) {
   );
 }
 
+// 한국 시각. 시간대 표기(KST·UTC)는 붙이지 않는다(2026-11-03 사용자 지시).
 function Kst({ iso }: { iso: string }) {
   return (
-    <time dateTime={iso} title={`UTC ${iso}`} className="tabular-nums">
-      {formatKst(iso)} KST
+    <time dateTime={iso} className="tabular-nums">
+      {formatKst(iso)}
     </time>
   );
 }
+
+// 수집 번호(revision)의 화면 이름. "r1" 같은 내부 표기 대신 "1번째 수집"으로 쓴다(2026-11-03 사용자 지시).
+const collectedName = (revision: number): string => `${revision}번째 수집`;
 
 // 값 하나. 표시(추가·삭제 모양)를 입힐지는 부른 쪽이 정한다.
 function ScalarValue({ field, value }: { field: ScalarChange["field"]; value: string | null }) {
@@ -185,7 +189,8 @@ function ChangesTable({
   return (
     <Table className="min-w-160 table-fixed">
       <TableCaption className="sr-only">
-        바뀐 항목 표: 이전 r{previous.revision}, 이후 r{current.revision}
+        바뀐 항목 표: 이전 {collectedName(previous.revision)}, 이후{" "}
+        {collectedName(current.revision)}
       </TableCaption>
       <colgroup>
         <col className="w-32" />
@@ -195,8 +200,8 @@ function ChangesTable({
       <TableHeader>
         <TableRow>
           <TableHead scope="col">항목</TableHead>
-          <TableHead scope="col">이전 r{previous.revision}</TableHead>
-          <TableHead scope="col">이후 r{current.revision}</TableHead>
+          <TableHead scope="col">이전 ({collectedName(previous.revision)})</TableHead>
+          <TableHead scope="col">이후 ({collectedName(current.revision)})</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -256,14 +261,14 @@ function EmptyChanges({
     },
     first: {
       icon: HistoryIcon,
-      title: "처음 수집한 revision 입니다",
-      description: "이전 revision 이 없어 비교할 내용이 없습니다.",
+      title: "처음 수집한 기록입니다",
+      description: "이전 수집 기록이 없어 비교할 내용이 없습니다.",
       action: link(`${detailHref}/revisions`, "최신 변경 보기"),
     },
     gap: {
       icon: HistoryIcon,
-      title: "이전 revision 을 찾을 수 없습니다",
-      description: `r${comparison.current.revision - 1} 기록이 없어 비교할 수 없습니다.`,
+      title: "이전 수집 기록을 찾을 수 없습니다",
+      description: `${collectedName(comparison.current.revision - 1)} 기록이 없어 비교할 수 없습니다.`,
       action: link(detailHref, "공고 상세로"),
     },
     "no-changes": {
@@ -297,7 +302,7 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
     >
       <div className="flex items-baseline gap-2 px-4 pt-4 pb-3">
         <h2 id="revision-list-title" className="type-heading text-foreground">
-          revision 목록
+          수집 기록
         </h2>
         <span className="type-caption text-muted-foreground">{revisions.length}개</span>
       </div>
@@ -314,7 +319,7 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
                 aria-current={selected ? "page" : undefined}
                 className={cn(
                   "flex flex-col gap-0.5 px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50",
-                  // 고른 revision 은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
+                  // 고른 수집 기록은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
                   selected && "bg-selected hover:bg-selected",
                 )}
               >
@@ -324,7 +329,7 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
                     selected ? "font-semibold text-selected-foreground" : "text-foreground",
                   )}
                 >
-                  r{item.revision} · 차수 {item.amendmentNo ?? "—"}
+                  {collectedName(item.revision)} · 차수 {item.amendmentNo ?? "—"}
                 </span>
                 <span className="type-caption text-muted-foreground">
                   <Kst iso={item.fetchedAt} />
@@ -358,10 +363,11 @@ function Description({ comparison }: { comparison: RevisionComparison }) {
   return (
     <>
       <span className="tabular-nums">
-        r{previous?.revision ?? current.revision}
+        {collectedName(previous?.revision ?? current.revision)}
         {previous !== null && (
           <>
-            {arrow}r{current.revision}
+            {arrow}
+            {collectedName(current.revision)}
           </>
         )}
       </span>

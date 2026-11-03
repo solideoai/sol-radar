@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { AppPage } from "@/components/app-page";
-import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
+import { RECOMMENDATION_LABEL, SOL_ROLE_LABEL } from "@/components/bids/labels";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -342,7 +342,8 @@ export function ProjectDetailView({
     >
       {!project.canManage && (
         <p className="type-label text-muted-foreground">
-          읽기 전용입니다. ADMIN·SALES 역할이 프로젝트와 체크리스트를 수정할 수 있습니다.
+          읽기 전용입니다. {SOL_ROLE_LABEL.ADMIN}·{SOL_ROLE_LABEL.SALES} 역할이 프로젝트와
+          체크리스트를 수정할 수 있습니다.
         </p>
       )}
       {project.warnings.latestDecision && (
@@ -356,8 +357,7 @@ export function ProjectDetailView({
       )}
       {project.warnings.bidAmended && (
         <p className="rounded-lg border border-border p-4 type-body">
-          공고가 정정되었습니다. 시작 revision {project.openedBy.revision} · 최신 revision{" "}
-          {project.bid.latestRevision}.{" "}
+          공고가 정정되었습니다. 프로젝트를 시작한 뒤 공고 내용이 바뀌었습니다.{" "}
           <Link className="underline" href={`/bids/${project.bidId}`}>
             최신 공고 확인
           </Link>
@@ -394,8 +394,7 @@ export function ProjectDetailView({
               <div>
                 <dt className="type-label text-muted-foreground">프로젝트 시작 결정</dt>
                 <dd>
-                  {project.openedBy.reviewer} · {projectDate(project.openedBy.decidedAt)} · revision{" "}
-                  {project.openedBy.revision}
+                  {project.openedBy.reviewer} · {projectDate(project.openedBy.decidedAt)}
                 </dd>
               </div>
             </dl>
@@ -403,8 +402,7 @@ export function ProjectDetailView({
               시작 시 분석 SOL Score {project.openedBy.analysis?.solScore ?? "—"} · 권고{" "}
               {project.openedBy.analysis?.recommendation
                 ? RECOMMENDATION_LABEL[project.openedBy.analysis.recommendation]
-                : "—"}{" "}
-              · 알고리즘 {project.openedBy.analysis?.algorithmVersion ?? "—"}
+                : "—"}
             </p>
             <Link
               href={`/bids/${project.bidId}#review-history-title`}

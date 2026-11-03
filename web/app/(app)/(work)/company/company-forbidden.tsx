@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "cn";
 import { AppPage } from "@/components/app-page";
+import { SOL_ROLE_LABEL } from "@/components/bids/labels";
 import { COMPANY_TITLE } from "@/components/company/company-tabs";
 import { buttonVariants } from "@/components/ui/button";
 import type { SolRole } from "@/server/organization";
@@ -18,7 +19,8 @@ export function CompanyForbidden({ role }: { role: SolRole }) {
           이 화면을 볼 권한이 없습니다
         </h2>
         <p className="type-body text-muted-foreground">
-          회사 역량은 업무 역할이 ADMIN 또는 EXECUTIVE인 구성원만 볼 수 있습니다. 지금 역할: {role}
+          회사 역량은 업무 역할이 {SOL_ROLE_LABEL.ADMIN} 또는 {SOL_ROLE_LABEL.EXECUTIVE}인 구성원만
+          볼 수 있습니다. 지금 역할: {SOL_ROLE_LABEL[role]}
         </p>
         <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }))}>
           대시보드로

@@ -508,14 +508,14 @@ export function HistoryPanel({
     <Panel
       id="history"
       title={`변경 이력 ${revisions.length}건`}
-      usage="프로필은 고쳐 쓰지 않고 새 revision 으로 쌓습니다. 분석 결과는 그때 쓴 revision 번호를 남겨서, 프로필이 바뀌어도 지난 분석은 그대로입니다."
+      usage="프로필은 고쳐 쓰지 않고 바꿀 때마다 새로 쌓습니다. 분석 결과는 그때 쓴 프로필을 기억해서, 프로필이 바뀌어도 지난 분석은 그대로입니다."
     >
       <Table className="min-w-180 table-fixed">
-        <caption className="sr-only">회사 프로필 revision 이력. 최신이 위에 있습니다.</caption>
+        <caption className="sr-only">회사 프로필 변경 이력. 최신이 위에 있습니다.</caption>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead scope="col" className="w-[120px] pl-4">
-              revision
+              순서
             </TableHead>
             <TableHead scope="col" className="w-[120px]">
               적용일
@@ -534,7 +534,7 @@ export function HistoryPanel({
             <TableRow key={revision.id} className="h-11">
               <TableCell className="pl-4 type-body tabular-nums">
                 <span className="inline-flex items-center gap-2">
-                  rev {revision.revision}
+                  {revision.revision}번째
                   {revision.revision === currentRevision ? (
                     <Chip tone="brand" size="sm">
                       현재

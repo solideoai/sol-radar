@@ -134,7 +134,7 @@ function Portfolio({ summary }: { summary: OpportunitySummary }) {
 /** 다음 정기 수집 예정. at 은 마지막 정기 수집 + 주기(없으면 null), failed 는 정기 수집 시각 조회 실패다 */
 export type NextIngest = { at: string | null; failed: boolean };
 
-// "2026-10-25 14:05" → 값 칸에는 시각, 보조 줄에는 날짜·KST. 좁은 칸에서 값이 꺾이지 않게 나눈다.
+// "2026-10-25 14:05" → 값 칸에는 시각, 보조 줄에는 날짜. 좁은 칸에서 값이 꺾이지 않게 나눈다.
 function kstParts(iso: string): { time: string; day: string } {
   const [day = "—", time = "—"] = formatKst(iso).split(" ");
   return { time, day };
@@ -187,7 +187,8 @@ function TimeRow({
       hint={
         <>
           <time dateTime={at}>
-            {day} KST{suffix}
+            {day}
+            {suffix}
           </time>
           {late !== undefined && <span className="block text-warning">{late}</span>}
         </>
