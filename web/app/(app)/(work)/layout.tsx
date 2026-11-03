@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { loadMyBusinessAccess, loadMyProfile } from "@/app/_lib/my-account";
-import { loginPath } from "@/app/auth/employment-routing";
+import { signInPath } from "@/app/auth/employment-routing";
 import { loadStatusSummary } from "@/app/_lib/work-data";
 import { AppShell } from "@/components/app-shell";
 import { getMyWorkspace } from "@/server/organization";
@@ -23,8 +23,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
   await connection();
   const [business, me] = await Promise.all([loadMyBusinessAccess(), loadMyProfile()]);
   // 로그인 뒤 보던 화면으로 돌아오게 요청 경로를 싣는다(proxy 가 매 요청 덮어쓴다. 사이트 밖 주소는 loginPath 가 버린다).
-  if (business.status !== "ready" || me.status !== "ready")
-    redirect(loginPath((await headers()).get("x-sol-radar-request-path")));
+  // 카톡 안 창이면 로그인 대신 기본 브라우저로 넘긴다(signInPath).
+  if (business.status !== "ready" || me.status !== "ready") {
+    const requestHeaders = await headers();
+    redirect(
+      signInPath(requestHeaders.get("x-sol-radar-request-path"), requestHeaders.get("user-agent")),
+    );
+  }
   const workspace = await getMyWorkspace(business.current.slug);
   if (workspace.status !== "ready") redirect("/auth/organization-state");
 
