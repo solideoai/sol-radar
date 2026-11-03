@@ -1,0 +1,2806 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SOL RADAR 발표</title>
+    <!--
+  SOL RADAR 해커톤 발표 덱 (2026-11-05)
+  - 넘기기: → · PageDown · Space · Enter · 클릭 / 뒤로: ← · PageUp · Backspace / 처음·끝: Home · End
+  - 영상 장: 첫 '다음'은 영상 재생, 그다음 '다음'이 다음 장. P 는 재생·일시정지
+  - F 전체 화면, N 발표자 노트
+  - 장 순서는 <section class="slide"> 블록을 옮기면 된다. 머리줄·쪽 번호는 스크립트가 붙인다
+  - 영상은 clips/ 아래 이름(각 장 <video src>)으로 넣는다. 파일이 없으면 임시 캡처와 '녹화 전' 표시가 보인다
+  - 글꼴 Pretendard(OFL-1.1)는 assets/fonts 에 들어 있어 인터넷 없이 열린다
+-->
+    <style>
+      @font-face {
+        font-family: "Pretendard Variable";
+        src:
+          url("assets/fonts/PretendardVariable.woff2") format("woff2-variations"),
+          url("assets/fonts/PretendardVariable.woff2") format("woff2");
+        font-weight: 45 920;
+        font-display: block;
+      }
+      :root {
+        --fg: #191f28;
+        --muted: #4e5968;
+        --subtle: #8b95a1;
+        --faint: #c5cdd6;
+        --line: #e5e8eb;
+        --soft: #f2f4f6;
+        --brand: #1b64da;
+        --brand-soft: #eaf2fe;
+        --ok: #15803d;
+        --warn: #b45309;
+        --bad: #a51926;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      body {
+        color: var(--fg);
+        font-family:
+          "Pretendard Variable",
+          Pretendard,
+          -apple-system,
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+      }
+      .stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: 0 0;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: none;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      .slide.on {
+        display: block;
+      }
+      .notes {
+        display: none;
+      }
+
+      /* 공통: 머리줄 · 제목 · 아래 한 줄 */
+      .hd {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 64px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 24px;
+        color: var(--subtle);
+      }
+      .hd b {
+        color: var(--brand);
+        font-weight: 600;
+        margin-right: 14px;
+      }
+      .tt {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 136px;
+        margin: 0;
+        font-size: 58px;
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+      }
+      .foot {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 72px;
+        font-size: 28px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .foot b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .src {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 56px;
+        font-size: 20px;
+        color: var(--subtle);
+        line-height: 1.5;
+      }
+
+      /* 표지 */
+      .cover-line {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 10px;
+        background: var(--brand);
+      }
+      .cover {
+        position: absolute;
+        left: 120px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      /* 로고: 앱 Logo 부품과 같은 마크 + 글자(마크 32px·글자 20px 비율) */
+      .lockup {
+        display: flex;
+        align-items: center;
+        align-self: flex-start;
+        gap: 16px;
+      }
+      .lockup img {
+        width: 104px;
+        height: 104px;
+        object-fit: contain;
+      }
+      .lockup span {
+        font-size: 65px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--fg);
+      }
+      .lockup.sm {
+        gap: 7px;
+      }
+      .lockup.sm img {
+        width: 44px;
+        height: 44px;
+      }
+      .lockup.sm span {
+        font-size: 28px;
+      }
+      .cover p {
+        margin: 44px 0 0;
+        font-size: 40px;
+        color: var(--muted);
+      }
+      .cover-foot {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 68px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 24px;
+        color: var(--subtle);
+      }
+
+      /* 목차 */
+      .toc {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 430px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 46px;
+      }
+      .toc div {
+        border-top: 3px solid var(--fg);
+        padding-top: 30px;
+      }
+      .toc span {
+        display: block;
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--brand);
+        margin-bottom: 14px;
+      }
+      .toc b {
+        font-size: 42px;
+        font-weight: 700;
+      }
+
+      /* 절 표지 */
+      .sec {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .sec .no {
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--brand);
+      }
+      .sec h2 {
+        margin: 18px 0 0;
+        font-size: 92px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .sec p {
+        margin: 40px 0 0;
+        font-size: 30px;
+        color: var(--subtle);
+      }
+      .sec ol {
+        margin: 56px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(7, auto);
+        column-gap: 80px;
+        row-gap: 18px;
+        max-width: 1240px;
+        counter-reset: f;
+      }
+      .sec li {
+        font-size: 30px;
+        color: var(--muted);
+        counter-increment: f;
+      }
+      .sec li::before {
+        content: counter(f, decimal-leading-zero);
+        color: var(--brand);
+        font-weight: 600;
+        font-size: 24px;
+        margin-right: 22px;
+      }
+
+      /* 2×2 · 3칸 · 4칸 글 */
+      .cells {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 360px;
+        display: grid;
+        gap: 56px 64px;
+      }
+      .cells.c2 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .cells.c3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .cells.c4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .cells > div {
+        border-top: 2px solid var(--fg);
+        padding-top: 26px;
+      }
+      .cells span {
+        display: block;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--brand);
+        margin-bottom: 12px;
+      }
+      .cells b {
+        display: block;
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+      .cells p {
+        margin: 14px 0 0;
+        font-size: 28px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      /* 증가 막대 */
+      .growth-hero {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 300px;
+        display: flex;
+        align-items: baseline;
+        gap: 44px;
+      }
+      .growth-hero b {
+        font-size: 150px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+      .growth-hero p {
+        margin: 0;
+        font-size: 32px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* AI 시대: 숫자 셋 + 메시지 */
+      .kpis {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 336px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 64px;
+      }
+      .kpis > div {
+        border-top: 2px solid var(--fg);
+        padding-top: 28px;
+      }
+      .kpis b {
+        display: block;
+        font-size: 104px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+      .kpis b small {
+        font-size: 56px;
+        letter-spacing: -0.02em;
+        margin-left: 4px;
+      }
+      .kpis p {
+        margin: 24px 0 0;
+        font-size: 31px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+      .kpis span {
+        display: block;
+        margin-top: 12px;
+        font-size: 23px;
+        color: var(--subtle);
+        line-height: 1.45;
+      }
+      .msg {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 672px;
+        padding: 34px 44px;
+        border-radius: 16px;
+        background: var(--brand-soft);
+      }
+      .msg b {
+        display: block;
+        font-size: 40px;
+        font-weight: 700;
+        color: var(--brand);
+      }
+      .msg p {
+        margin: 14px 0 0;
+        font-size: 28px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* 코드량 */
+      .loc-hero {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 296px;
+        display: flex;
+        align-items: center;
+        gap: 44px;
+      }
+      .loc-hero b {
+        font-size: 128px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .loc-hero p {
+        margin: 0;
+        font-size: 28px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .loc-grid {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 500px;
+        display: grid;
+        grid-template-columns: 680px 1fr;
+        gap: 104px;
+      }
+      .loc-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border-top: 2px solid var(--fg);
+      }
+      .loc-list li {
+        display: flex;
+        justify-content: space-between;
+        font-size: 27px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .loc-list li span {
+        color: var(--muted);
+      }
+      .loc-list li b {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .loc-list li.sub span,
+      .loc-list li.sub b {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      .loc-cmp {
+        border-top: 2px solid var(--fg);
+        padding-top: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 44px;
+      }
+      .loc-cmp span {
+        display: block;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--subtle);
+      }
+      .loc-cmp b {
+        display: block;
+        margin-top: 6px;
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .loc-cmp .on span,
+      .loc-cmp .on b {
+        color: var(--brand);
+      }
+      .loc-cmp .track {
+        display: block;
+        margin-top: 16px;
+        height: 22px;
+      }
+      .loc-cmp .fill {
+        display: block;
+        height: 100%;
+        min-width: 10px;
+        border-radius: 0 4px 4px 0;
+        background: var(--faint);
+      }
+      .loc-cmp .on .fill {
+        background: var(--brand);
+      }
+      .loc-cmp p {
+        margin: 12px 0 0;
+        font-size: 23px;
+        color: var(--subtle);
+      }
+      .bars {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 600px;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 250px 1fr;
+        align-items: center;
+      }
+      .bar-label {
+        font-size: 30px;
+        color: var(--muted);
+      }
+      .bar-track {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 34px 0;
+        border-left: 1px solid var(--line);
+      }
+      .bar-fill {
+        flex: none;
+        height: 24px;
+        border-radius: 0 4px 4px 0;
+        background: #8b95a1;
+      }
+      .bar-fill.on {
+        background: var(--brand);
+      }
+      .bar-value {
+        font-size: 40px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .bar-row:first-child .bar-value {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      /* SOL Score 계산식 */
+      .seg {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 296px;
+        display: grid;
+        grid-template-columns: 30fr 25fr 20fr 15fr 10fr;
+        column-gap: 6px;
+      }
+      .seg i {
+        display: block;
+        height: 12px;
+        border-radius: 4px;
+        background: var(--brand);
+      }
+      .seg span {
+        display: block;
+        margin-top: 16px;
+        font-size: 28px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .seg span em {
+        font-style: normal;
+        font-weight: 500;
+        color: var(--muted);
+        margin-left: 8px;
+      }
+      .tbl.score-tbl {
+        top: 440px;
+      }
+      .tbl.score-tbl td {
+        font-size: 25px;
+        padding: 15px 24px 15px 0;
+      }
+      .tbl.score-tbl td.pt {
+        font-weight: 700;
+        text-align: right;
+        padding-right: 48px;
+      }
+      .tbl.score-tbl th.pt {
+        text-align: right;
+        padding-right: 48px;
+      }
+      .foot.sm {
+        font-size: 25px;
+        bottom: 60px;
+      }
+
+      /* 흐름 */
+      .flow {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 400px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+        column-gap: 30px;
+        align-items: start;
+      }
+      .flow b {
+        display: block;
+        font-size: 40px;
+        font-weight: 700;
+        margin-bottom: 20px;
+      }
+      .flow p {
+        margin: 0;
+        font-size: 27px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+      .flow .on b {
+        color: var(--brand);
+      }
+      .flow .arr {
+        font-size: 40px;
+        color: var(--faint);
+        line-height: 1.2;
+      }
+      .stats {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 80px;
+        padding-top: 30px;
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 64px;
+      }
+      .stats b {
+        font-size: 44px;
+        font-weight: 700;
+        margin-right: 22px;
+      }
+      .stats span {
+        font-size: 26px;
+        color: var(--muted);
+      }
+
+      /* 표 */
+      .tbl {
+        position: absolute;
+        left: 120px;
+        top: 300px;
+        width: 1680px;
+        border-collapse: collapse;
+      }
+      .tbl th {
+        text-align: left;
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--subtle);
+        padding: 0 20px 16px 0;
+        border-bottom: 2px solid var(--fg);
+      }
+      .tbl td {
+        font-size: 27px;
+        padding: 22px 20px 22px 0;
+        border-bottom: 1px solid var(--line);
+        line-height: 1.45;
+        vertical-align: top;
+      }
+      .tbl td:first-child {
+        font-weight: 600;
+      }
+      .tbl td small {
+        display: block;
+        font-size: 22px;
+        color: var(--subtle);
+        font-weight: 400;
+        margin-top: 4px;
+      }
+      .tbl .key {
+        color: var(--brand);
+        font-weight: 600;
+      }
+      .cmp {
+        top: 270px;
+      }
+      .cmp th,
+      .cmp td {
+        text-align: center;
+      }
+      .cmp th:first-child,
+      .cmp td:first-child {
+        text-align: left;
+      }
+      .cmp td {
+        font-size: 25px;
+        padding: 11px 16px;
+        font-weight: 400;
+      }
+      .cmp td:first-child {
+        font-weight: 400;
+        padding-left: 0;
+      }
+      .cmp tr.grp td {
+        font-size: 21px;
+        font-weight: 600;
+        color: var(--subtle);
+        padding-top: 18px;
+        border-bottom: 0;
+      }
+      .cmp .me {
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-weight: 700;
+      }
+      .cmp th.me {
+        color: var(--brand);
+      }
+      .cmp .no {
+        color: var(--faint);
+      }
+
+      /* 화면 · 영상 장 */
+      .frame {
+        position: absolute;
+        left: 120px;
+        top: 276px;
+        width: 1120px;
+        height: 700px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      .frame img,
+      .frame video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .frame img {
+        object-fit: cover;
+        object-position: top left;
+      }
+      .frame video {
+        object-fit: contain;
+        background: #ffffff;
+        opacity: 0;
+      }
+      .frame.ready video {
+        opacity: 1;
+      }
+      .frame.ready img {
+        opacity: 0;
+      }
+      .frame .tag {
+        position: absolute;
+        right: 18px;
+        top: 18px;
+        font-size: 18px;
+        color: var(--muted);
+        background: var(--soft);
+        padding: 7px 14px;
+        border-radius: 8px;
+      }
+      .frame.ready .tag {
+        display: none;
+      }
+      .frame.phone {
+        left: 500px;
+        top: 246px;
+        width: 360px;
+        height: 760px;
+        border-radius: 44px;
+        border: 2px solid var(--line);
+      }
+      .frame.phone .empty {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 22px;
+        color: var(--subtle);
+        line-height: 1.6;
+      }
+      .frame.phone.ready .empty {
+        display: none;
+      }
+      .frame.phone .tag {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        top: auto;
+        bottom: 26px;
+        white-space: nowrap;
+      }
+      .side {
+        position: absolute;
+        left: 1300px;
+        right: 120px;
+        top: 276px;
+        height: 700px;
+        display: flex;
+        flex-direction: column;
+      }
+      .pts {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pts li {
+        font-size: 28px;
+        line-height: 1.5;
+        padding: 20px 0 30px;
+        border-top: 1px solid var(--line);
+      }
+      .pts li:first-child {
+        border-top: 2px solid var(--fg);
+      }
+      .cap {
+        margin-top: auto;
+        font-size: 21px;
+        color: var(--subtle);
+        line-height: 1.55;
+      }
+      .cap b {
+        display: block;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .verdict {
+        display: grid;
+        gap: 22px;
+        margin-bottom: 36px;
+      }
+      .verdict div {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+      .verdict div:first-child {
+        border-top: 2px solid var(--fg);
+      }
+      .verdict span {
+        font-size: 28px;
+        color: var(--muted);
+      }
+      .verdict b {
+        font-size: 60px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .c-ok {
+        color: var(--ok);
+      }
+      .c-warn {
+        color: var(--warn);
+      }
+      .c-bad {
+        color: var(--bad);
+      }
+
+      /* 검증 */
+      .two {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 300px;
+        display: grid;
+        grid-template-columns: 1.35fr 1fr;
+        gap: 80px;
+      }
+      .two h3 {
+        margin: 0 0 18px;
+        font-size: 26px;
+        font-weight: 600;
+        color: var(--subtle);
+      }
+      .two .tbl {
+        position: static;
+        width: 100%;
+      }
+      .two .tbl td {
+        font-size: 25px;
+        padding: 18px 16px 18px 0;
+      }
+      .two .tbl tr:first-child td {
+        border-top: 2px solid var(--fg);
+      }
+
+      /* 마무리 · Q&A */
+      .close {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .close p {
+        margin: 0;
+        font-size: 64px;
+        font-weight: 700;
+        line-height: 1.4;
+        letter-spacing: -0.03em;
+      }
+      .close p span {
+        color: var(--brand);
+      }
+      .close ul {
+        margin: 80px 0 0;
+        padding: 30px 0 0;
+        border-top: 1px solid var(--line);
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 48px;
+      }
+      .close li {
+        font-size: 26px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .close li b {
+        display: block;
+        color: var(--fg);
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+      .qa {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .qa h2 {
+        margin: 0;
+        font-size: 140px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .qa p {
+        margin: 36px 0 0;
+        font-size: 34px;
+        color: var(--muted);
+      }
+      .qa-foot {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 68px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 24px;
+        color: var(--subtle);
+      }
+
+      /* 발표자 노트 패널 (N) */
+      .notes-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-height: 38vh;
+        overflow: auto;
+        background: #ffffff;
+        border-top: 1px solid var(--line);
+        box-shadow: 0 -8px 24px rgba(25, 31, 40, 0.08);
+        padding: 18px 28px 24px;
+        font-size: 17px;
+        line-height: 1.65;
+        color: var(--fg);
+        display: none;
+        z-index: 10;
+      }
+      .notes-panel.on {
+        display: block;
+      }
+      .notes-panel h4 {
+        margin: 0 0 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--subtle);
+      }
+      .notes-panel p {
+        margin: 0 0 8px;
+      }
+
+      @media print {
+        @page {
+          size: 1920px 1080px;
+          margin: 0;
+        }
+        html,
+        body {
+          height: auto;
+          overflow: visible;
+        }
+        .stage {
+          position: static;
+          transform: none !important;
+          height: auto;
+        }
+        .slide {
+          display: block !important;
+          position: relative;
+          width: 1920px;
+          height: 1080px;
+          break-after: page;
+        }
+        .notes-panel {
+          display: none !important;
+        }
+      }
+
+      /* 아키텍처 그림 */
+      .arch {
+        position: absolute;
+        left: 120px;
+        top: 250px;
+        width: 1680px;
+        height: 660px;
+        overflow: visible;
+      }
+      .arch-image {
+        object-fit: contain;
+      }
+      .arch text {
+        fill: var(--muted);
+        font-size: 22px;
+        font-family: inherit;
+      }
+      .arch .box {
+        fill: #fff;
+        stroke: var(--faint);
+        stroke-width: 1.5px;
+        rx: 12px;
+      }
+      .arch .zone {
+        fill: var(--soft);
+        stroke: var(--line);
+        stroke-width: 1.5px;
+        stroke-dasharray: 7 7;
+        rx: 12px;
+      }
+      .arch .zone-label {
+        fill: var(--subtle);
+        font-size: 22px;
+      }
+      .arch .node-title {
+        fill: var(--fg);
+        font-size: 27px;
+        font-weight: 700;
+      }
+      .arch .actor {
+        fill: var(--muted);
+        font-size: 22px;
+      }
+      .arch .band-detail {
+        font-size: 26px;
+      }
+      .arch .lane-label {
+        fill: var(--subtle);
+        font-size: 22px;
+      }
+      .arch .edge {
+        fill: none;
+        stroke: var(--faint);
+        stroke-width: 2px;
+        stroke-linejoin: round;
+      }
+      .arch .arrow {
+        fill: var(--faint);
+      }
+      .arch .edge.accent {
+        stroke: var(--brand);
+        stroke-width: 3px;
+      }
+      .arch .accent-arrow {
+        fill: var(--brand);
+      }
+      .arch .dashed,
+      .arch .optional {
+        stroke-dasharray: 7 7;
+      }
+      .arch .edge-label {
+        fill: var(--muted);
+        font-size: 22px;
+        paint-order: stroke;
+        stroke: #fff;
+        stroke-width: 6px;
+        stroke-linejoin: round;
+      }
+      .arch .decision,
+      .arch .gate {
+        fill: var(--brand-soft);
+        stroke: var(--brand);
+        stroke-width: 2px;
+      }
+      .arch .decision-label {
+        fill: var(--brand);
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      /* 결정 모델 학습 */
+      .ft-req {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 292px;
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+        padding: 26px 40px;
+        border-radius: 16px;
+        background: var(--brand-soft);
+      }
+      .ft-req span {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--brand);
+      }
+      .ft-req b {
+        font-size: 38px;
+        font-weight: 700;
+      }
+      .ft-req em {
+        margin-left: auto;
+        font-style: normal;
+        font-size: 24px;
+        color: var(--muted);
+      }
+      .ft-cases {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 440px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 64px;
+      }
+      .ft-cases > div {
+        border-top: 2px solid var(--fg);
+        padding-top: 24px;
+      }
+      .ft-cases span {
+        display: block;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--subtle);
+      }
+      .ft-cases p {
+        margin: 10px 0 0;
+        font-size: 30px;
+        color: var(--muted);
+      }
+      .ft-cases b {
+        display: block;
+        margin-top: 18px;
+        font-size: 60px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      .ft-cases small {
+        display: block;
+        margin-top: 10px;
+        font-size: 22px;
+        color: var(--subtle);
+      }
+      .ft-facts {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 740px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 64px;
+        padding-top: 30px;
+        border-top: 1px solid var(--line);
+      }
+      .ft-facts span {
+        display: block;
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--brand);
+        margin-bottom: 10px;
+      }
+      .ft-facts p {
+        margin: 0;
+        font-size: 26px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .ft-two {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        top: 590px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 80px;
+      }
+      .ft-two h3 {
+        margin: 0 0 14px;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--subtle);
+      }
+      .ft-rows div {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 0;
+        border-top: 1px solid var(--line);
+      }
+      .ft-rows div:first-child {
+        border-top: 2px solid var(--fg);
+      }
+      .ft-rows span {
+        font-size: 26px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .ft-rows b {
+        font-size: 34px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .ft-rows.st div {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+      }
+      .ft-rows.st b {
+        font-size: 26px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <!-- ───────────────────────── 표지 ───────────────────────── -->
+      <section class="slide">
+        <span class="cover-line"></span>
+        <div class="cover">
+          <div class="lockup"><img src="assets/logo-mark.png" alt="" /><span>SOL RADAR</span></div>
+          <p>입찰 참여 판단 지원</p>
+        </div>
+        <div class="cover-foot"><span>솔리데오 사내 해커톤</span><span>2026. 11. 05</span></div>
+        <aside class="notes">
+          <p>
+            SOL RADAR 는 영업팀이 "이 입찰에 들어가야 하는가"를 근거와 함께 판단하도록 돕는
+            서비스입니다. 자격 판정 · 점수 · 근거를 보여 주며, 최종 결정은 사람이 내리고 기록합니다.
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 목차 ───────────────────────── -->
+      <section class="slide">
+        <h1 class="tt" style="top: 134px">목차</h1>
+        <div class="toc">
+          <div><span>01</span><b>아이디어 배경</b></div>
+          <div><span>02</span><b>시스템 아키텍처</b></div>
+          <div><span>03</span><b>주요 기능</b></div>
+          <div><span>04</span><b>Q&amp;A</b></div>
+        </div>
+        <aside class="notes">
+          <p>
+            배경, 아키텍처, 주요 기능을 차례로 보여 드리고 질문을 받겠습니다. 주요 기능은 녹화
+            영상으로 보여 드립니다.
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 01 아이디어 배경 ───────────────────────── -->
+      <section class="slide">
+        <div class="sec">
+          <span class="no">01</span>
+          <h2>아이디어 배경</h2>
+          <p>AI 시대 · 있었으면 했던 것 · 시장 · 지금의 방식 · 기존 서비스</p>
+        </div>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">AI 시대, 개발보다 중요한 것은 사업 기회 확보</h1>
+        <div class="kpis">
+          <div>
+            <b>8<small>×</small></b>
+            <p>개발자 1인당 하루 병합 코드량</p>
+            <span>Anthropic · 2026년 2분기, 2024년 대비</span>
+          </div>
+          <div>
+            <b>55.8<small>%</small></b>
+            <p>같은 개발 과제를 더 빨리 완료</p>
+            <span>GitHub Copilot 통제 실험 · 개발자 95명</span>
+          </div>
+          <div>
+            <b>25<small>시간</small></b>
+            <p>AI 가 쉬지 않고 코드 약 3만 줄 작성</p>
+            <span>OpenAI Codex 실험 · 사람은 명세와 계획만 작성</span>
+          </div>
+        </div>
+        <div class="msg">
+          <b>개발 역량의 증대 → 사업 기회 발굴의 중요성 확대</b>
+          <p>
+            SOL RADAR 는 입찰 · 지원사업 공고를 모아 회사 역량과 맞춰 보고, 참여할 만한 사업을
+            근거와 함께 골라 입찰 의사결정을 돕습니다.
+          </p>
+        </div>
+        <p class="src">
+          출처: Anthropic 「When AI builds itself」(줄 수 기준, 실제 생산성보다 크게 잡힌다고 스스로
+          밝힘) · Peng 외 2023, 「The Impact of AI on Developer Productivity」(arXiv 2302.06590) ·
+          OpenAI 「Run long horizon tasks with Codex」
+        </p>
+        <aside class="notes">
+          <p>
+            AI 기술이 발전하면서 소프트웨어 개발 방식이 빠르게 바뀌고 있습니다. 실제로 Anthropic
+            에서는 개발자 한 명이 하루에 병합하는 코드량이 과거 대비 8배까지 증가했습니다.
+          </p>
+          <p>
+            이제 AI 를 활용하면 적은 인원으로도 더 많은 개발 작업을 수행할 수 있는 환경이 만들어지고
+            있습니다.
+          </p>
+          <p>
+            그렇다면 기업의 경쟁력은 어디서 나올까요? 저희는 단순히 코드를 얼마나 잘 작성하느냐를
+            넘어, 어떤 사업을 먼저 발견하고, 어떤 사업에 참여할지 판단하는 역량이 더욱 중요해질
+            것이라고 생각했습니다.
+          </p>
+          <p>이러한 문제의식에서 출발한 것이 바로 SOL RADAR 입니다.</p>
+          <p>
+            질문이 오면 - 8배: Anthropic 보고서 원문은 "2026년 2분기 보통 엔지니어가 하루에 병합한
+            코드가 2024년의 8배"이고, 줄 수라서 실제 생산성 향상보다 과장된 값이라고 보고서가 직접
+            밝힙니다. 같은 보고서에서 2026년 5월 기준 병합 코드의 80% 이상을 Claude 가 썼습니다.
+          </p>
+          <p>
+            55.8%: 개발자 95명을 무작위로 나눠 JavaScript HTTP 서버를 만들게 한 실험입니다. Copilot
+            쪽이 평균 1시간 11분, 아닌 쪽이 2시간 41분 걸렸습니다(95% 신뢰구간 21~89%). 과제는
+            하나뿐인 실험입니다.
+          </p>
+          <p>
+            25시간: OpenAI Codex 팀 엔지니어가 빈 저장소에서 디자인 도구를 만들게 한 실험입니다.
+            GPT-5.3-Codex 로 약 25시간 쉬지 않고 실행해 토큰 약 1,300만 개, 코드 약 3만 줄이
+            나왔습니다. 사람은 명세 · 계획 · 제약 · 진행 상황을 마크다운으로 썼습니다. 실험이지 제품
+            출시가 아닙니다.
+          </p>
+          <p>
+            보조 사례(화면에 없음): Y Combinator 대표 Garry Tan 이 AI 에이전트로 5개 프로젝트에서
+            하루 3만 7천 줄을 배포한다고 X 에 썼습니다. 외부 검증이 없고, 공개 사이트를 살펴본
+            개발자가 코드 비대 · 초보적 실수를 지적했습니다(Fast Company 보도). 그래서 화면에 넣지
+            않았습니다.
+          </p>
+          <p>
+            출처 URL: https://www.anthropic.com/institute/recursive-self-improvement ·
+            https://arxiv.org/abs/2302.06590 ·
+            https://developers.openai.com/blog/run-long-horizon-tasks-with-codex ·
+            https://www.fastcompany.com/91520702/y-combinator-garry-tan-agentic-ai-social-media
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">SOL RADAR 는 1명이 AI 와 20일 만에 만들었습니다</h1>
+        <div class="loc-hero">
+          <b>약 20만 줄</b>
+          <p>
+            지금 SOL RADAR 코드 (시험 포함 · 빈 줄 포함 · 11-03 기준)<br />품질은 자동 시험과, 커밋
+            · push 마다 도는 자동 검사(서식 · 린트 · 타입 · 시험 · 빌드)로 지킵니다
+          </p>
+        </div>
+        <div class="loc-grid">
+          <ul class="loc-list">
+            <li><span>웹 · 서버 (TypeScript)</span><b>104,368</b></li>
+            <li><span>자동 시험</span><b>52,286</b></li>
+            <li><span>스크립트 · 인프라</span><b>20,492</b></li>
+            <li><span>AI · 결정 모델 (Python)</span><b>15,466</b></li>
+            <li><span>DB 스키마 · 권한 (SQL)</span><b>9,996</b></li>
+            <li class="sub"><span>설계 문서 (별도)</span><b>19,500</b></li>
+          </ul>
+          <div class="loc-cmp">
+            <div>
+              <span>전통 방식으로 추정하면</span>
+              <b>약 15명 · 23개월</b>
+              <span class="track"><span class="fill" style="width: 100%"></span></span>
+              <p>COCOMO 기본 모형 · 약 350 인월</p>
+            </div>
+            <div class="on">
+              <span>SOL RADAR 실제</span>
+              <b>개발자 1명 + AI · 20일</b>
+              <span class="track"><span class="fill" style="width: 2.9%"></span></span>
+              <p>2026-10-16 첫 커밋부터 11-04 까지 · 커밋 1,100건 이상</p>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <p>
+            SOL RADAR 도 이렇게 만들었습니다. 10월 16일 첫 커밋부터 11월 4일까지 20일 동안, 개발자
+            한 명이 AI 코딩 도구와 함께 만들었습니다.
+          </p>
+          <p>
+            지금 코드는 시험과 빈 줄을 포함해 약 20만 줄입니다. 전통적인 추정식으로 환산하면 15명
+            정도의 팀이 2년 가까이 걸리는 양입니다.
+          </p>
+          <p>
+            물론 줄 수는 양이지 품질이 아닙니다. 그래서 자동 시험 5만 2천 줄을 함께 쓰고, 커밋과
+            푸시 때마다 자동 검사를 돌립니다. 검사를 통과하지 못하면 커밋도 푸시도 되지 않습니다.
+          </p>
+          <p>
+            질문이 오면 - 커밋 때는 바뀐 영역의 서식 · 린트 · 타입과 커밋 메시지 형식을, 푸시 때는
+            pnpm verify(공통 검사 · 시험 · 빌드)와 의존성 감사를 돌립니다.
+          </p>
+          <p>
+            질문이 오면 - 시작 템플릿(agentic-boilerplate)에서 온 줄은 최대 4.4만 줄이라, 20일 동안
+            새로 쓴 코드는 빈 줄 제외로도 13.9만 줄 이상입니다. 추정식: 2.4 × 115^1.05 ≈ 350 인월,
+            2.5 × 350^0.38 ≈ 23개월, 350 ÷ 23 ≈ 15명. AI 가 쓴 코드는 사람이 쓴 코드보다 길어지기
+            쉬워 이 환산은 크게 잡힐 수 있습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">입찰 전에 있었으면 했던 네 가지</h1>
+        <div class="cells c2">
+          <div><span>01</span><b>우리에게 맞는 공고를 미리 추천받기</b></div>
+          <div><span>02</span><b>우리 직원 역량으로 수행할 수 있는지 판정받기</b></div>
+          <div><span>03</span><b>그 공고에서 우리가 강한 곳과 약한 곳 보기</b></div>
+          <div><span>04</span><b>새 공고를 카카오톡으로 받아 보기</b></div>
+        </div>
+        <p class="foot">
+          공고를 찾아 주는 도구는 이미 있습니다.
+          <b>우리 회사 기준으로 판단까지 해 주는 사내 도구</b>는 없었습니다.
+        </p>
+        <aside class="notes">
+          <p>
+            입찰 전에 영업팀 · 경영진 · 사업 참여자가 우리에게 맞는 공고를 미리 추천받고, 우리
+            직원들의 역량으로 수행 가능 여부를 판정받고, 그 공고에서 우리가 어디에 강하고 어디가
+            약한지 보고, 공고를 카카오톡으로 받아 보고 싶었습니다.
+          </p>
+          <p>
+            제품으로는 1 추천 공고, 2 필수 자격 판정과 인력 가용성 점수, 3 점수 분해 · 미충족 사유 ·
+            가정 재계산, 4 카카오톡 알림입니다. 찾아 주는 도구의 이름은 말하지 않습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">전 부처 AI 예산, 1년 만에 65.7% 증가</h1>
+        <div class="growth-hero">
+          <b>+65.7%</b>
+          <p>2026년 9.9조원 → 2027년 예산안 16.4조원<br />1년 사이 6.5조원 증가</p>
+        </div>
+        <div
+          class="bars"
+          role="img"
+          aria-label="전 부처 AI 예산: 2026년 9.9조원, 2027년 예산안 16.4조원"
+        >
+          <div class="bar-row">
+            <span class="bar-label">2026년</span
+            ><span class="bar-track"
+              ><span class="bar-fill" style="width: calc((100% - 280px) * 0.6037)"></span
+              ><span class="bar-value">9.9조원</span></span
+            >
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">2027년 예산안</span
+            ><span class="bar-track"
+              ><span class="bar-fill on" style="width: calc(100% - 280px)"></span
+              ><span class="bar-value">16.4조원</span></span
+            >
+          </div>
+        </div>
+        <p class="src">
+          출처: 2026년 9.9조원 - 국가AI전략위원회 통합 설명자료(2026-03) · 2027년 16.4조원 -
+          기획예산처 2027 예산안 설명(2026-10-08). 증가폭 6.5조원 · 65.7% 는 두 값으로 계산
+        </p>
+        <aside class="notes">
+          <p>
+            전 부처 AI 예산은 2026년 9.9조였고, 2027년 예산안은 16.4조입니다. 1년 사이 6.5조, 65.7%
+            늘었습니다. 발주처는 AI 를 요구하고, 공고를 고르는 쪽도 AI 가 필요합니다.
+          </p>
+          <p>
+            질문이 오면: 16.4조는 기획예산처 2026-10-08 발표의 예산안(국회 심의 전)입니다. 증가폭
+            6.5조 · 65.7% 는 9.9조와 16.4조로 계산한 값입니다.
+          </p>
+          <p>출처 URL: https://mpb.go.kr/web/main/bbs/b_0003/2957</p>
+          <p>[발표 전 재확인] 숫자는 slides-spec 부록 C 원문 페이지로 다시 확인합니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">지금은 사람이 눈으로 거르고, 판단 근거는 남지 않습니다</h1>
+        <div class="flow">
+          <div>
+            <b>공고 발견</b>
+            <p>키워드 알림.<br />노이즈가 많고<br />사전규격 → 공고를<br />사람이 다시 잇는다</p>
+          </div>
+          <span class="arr">→</span>
+          <div>
+            <b>자격 확인</b>
+            <p>공고문과 첨부를 눈으로.<br />필수 자격 하나를 놓치면<br />제안서 작업 전체가 무효</p>
+          </div>
+          <span class="arr">→</span>
+          <div>
+            <b>참여 판단</b>
+            <p>책임자의 경험과 감.<br />왜 들어갔는지<br />근거가 남지 않는다</p>
+          </div>
+          <span class="arr">→</span>
+          <div>
+            <b>변경 추적</b>
+            <p>정정공고를 다시 확인.<br />마감 · 예산 · 자격<br />변경을 놓친다</p>
+          </div>
+        </div>
+        <div class="stats">
+          <div><b>하루 약 65건</b><span>16,274건 ÷ 250 영업일 (추정, 공공 SW 전체 기준)</span></div>
+          <div><b>공고 1건 30분</b><span>검토 시간 가설 (측정 전, 예비 검증은 발표 뒤)</span></div>
+        </div>
+        <aside class="notes">
+          <p>
+            하루 65건은 전체 공공 SW 수요를 영업일로 나눈 값이고, 우리 관심 분야는 그 일부입니다.
+            1건 30분은 아직 가설이고 재지 않았습니다. "매일 수백 건"이라고 말하지 않습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">찾아 주는 서비스는 많고, 판단까지 하는 곳은 드뭅니다</h1>
+        <table class="tbl cmp">
+          <thead>
+            <tr>
+              <th>기능</th>
+              <th>인XX</th>
+              <th>비XX</th>
+              <th>모XX</th>
+              <th>클XX</th>
+              <th class="me">SOL RADAR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="grp">
+              <td colspan="6">공고 찾기 · 읽기</td>
+            </tr>
+            <tr>
+              <td>공고 수집 · 조건 검색</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr>
+              <td>AI 공고 요약</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>✓</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr>
+              <td>우리 회사 기준 참가자격 판정</td>
+              <td class="no">—</td>
+              <td>△</td>
+              <td class="no">—</td>
+              <td>✓</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr>
+              <td>판단 근거 원문 인용</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>✓</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr class="grp">
+              <td colspan="6">참여 판단</td>
+            </tr>
+            <tr>
+              <td>보유 인력 반영</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>△</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr>
+              <td>추천 · 보류 · 비추천 권고</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr>
+              <td>검토 결정 · 사유 기록</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>△</td>
+              <td class="me">✓</td>
+            </tr>
+            <tr class="grp">
+              <td colspan="6">가격</td>
+            </tr>
+            <tr>
+              <td>투찰 가격 분석</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td>△</td>
+              <td class="me">✓</td>
+            </tr>
+          </tbody>
+        </table>
+        <aside class="notes">
+          <p>
+            공고를 모아 주는 서비스 네 곳과 나란히 놓았습니다. 네 곳 모두 공고 수집과 검색은 잘
+            하고, 세 곳은 투찰 가격 분석이 강점입니다. 한 곳은 AI 요약과 자격 판정까지 합니다. 보유
+            인력을 반영해 추천 · 보류 · 비추천을 권고하고 결정과 사유를 남기는 것은 네 곳 공개
+            페이지에서 확인되지 않았습니다. 그 세 줄이 SOL RADAR 의 자리입니다. 가격은 사정율을
+            맞히지 않고, 같은 분류 · 비슷한 금액대 지난 낙찰값으로 참고 범위를 보입니다. 협상
+            계약까지 봅니다.
+          </p>
+          <p>
+            표는 읽지 않고 "참여 판단" 묶음의 SOL RADAR 칸만 가리킵니다. 실명은 말하지 않습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="01 아이디어 배경">
+        <h1 class="tt">우리 회사 기준으로, 들어갈 입찰인지 근거와 함께</h1>
+        <div class="cells c3">
+          <div>
+            <span>규칙</span><b>판정은 규칙이 합니다</b>
+            <p>필수 자격, SOL Score, 권고는 규칙 엔진이 정합니다</p>
+          </div>
+          <div>
+            <span>모델</span><b>AI 는 참고입니다</b>
+            <p>공고를 읽고 설명을 돕지만 판정을 바꾸지 못합니다</p>
+          </div>
+          <div>
+            <span>사람</span><b>결정은 사람이 합니다</b>
+            <p>최종 참여 결정은 사유와 함께 사람이 기록합니다</p>
+          </div>
+        </div>
+        <p class="foot">SOL Score 는 우리 회사와의 <b>적합도</b>를 나타냅니다.</p>
+        <aside class="notes">
+          <p>
+            그래서 만든 것이 SOL RADAR 입니다. 세 가지 원칙이 있습니다. 판정은 규칙이 하고, AI 는
+            참고이고, 결정은 사람이 합니다. 점수는 우리 회사와 얼마나 맞는지를 나타냅니다.
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 02 시스템 아키텍처 ───────────────────────── -->
+      <section class="slide">
+        <div class="sec">
+          <span class="no">02</span>
+          <h2>시스템 아키텍처</h2>
+          <p>전체 구성 · 분석 순서 · 모델의 역할 · SOL Score · 운영 현황 · 조직 격리</p>
+        </div>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">화면 · 작업 · 모델 · 데이터, 네 경계로 나눠 설계했습니다</h1>
+        <img
+          class="arch arch-image"
+          src="assets/architecture-generated-v3.png"
+          alt="SOL RADAR 시스템 아키텍처. 개발자가 git push하면 GitHub에 올라가고 Vercel 웹에 자동 배포됩니다. 회사 서버의 Docker Compose는 운영자가 확인한 뒤 반영하며 redis-api·Worker 5종·AI gateway를 포함합니다. Nginx와 Redis는 기존 회사 인프라이고 Bosun은 Compose 밖의 같은 GPU 호스트에서 서빙합니다. 모델 호출은 AI gateway만 담당합니다. 웹과 Worker는 Supabase를 공유하고 공공 API·카카오 API와 연결됩니다."
+        />
+        <p class="foot">
+          키는 <b>웹에 두지 않고</b>, 작업은 <b>큐</b>로, 모델은 <b>AI gateway 한 곳</b>으로,
+          데이터는 <b>조직별 RLS</b> 로 나눴습니다.
+        </p>
+        <aside class="notes">
+          <p>
+            SOL RADAR 는 화면 · 작업 · 모델 · 데이터를 네 경계로 나눠 설계했습니다. 왼쪽부터
+            보겠습니다.
+          </p>
+          <p>
+            첫째, 화면입니다. 사용자는 Vercel 의 Next.js 웹을 씁니다. 웹에는 Supabase 관리자 키도,
+            모델 키도 없습니다. 무거운 일은 회사 서버에 맡기기만 합니다.
+          </p>
+          <p>
+            둘째, 작업입니다. 회사 서버에서 Nginx 와 redis-api 를 거쳐 Redis 큐에 작업이 쌓이고,
+            공고 수집 · 첨부 읽기 · 분석 · 지원사업 공고 · 알림을 Worker 5종이 나눠 처리합니다.
+            요청이 몰려도 큐가 받아 둡니다.
+          </p>
+          <p>
+            셋째, 모델입니다. 모델은 AI gateway 한 곳에서만 부릅니다. 공고를 읽는 Qwen 은 회사 vLLM
+            API, 결정 모델 Bosun 은 같은 서버의 GPU 입니다. AI 가 멈추면 규칙만으로 부분 완료합니다.
+            다음 장에서 보여 드립니다.
+          </p>
+          <p>
+            넷째, 데이터입니다. Supabase 하나를 웹과 Worker 가 같이 쓰고, 다른 조직의 데이터는 DB 의
+            RLS 가 직접 막습니다.
+          </p>
+          <p>
+            배포도 나눴습니다. push 하면 웹은 Vercel 에 자동 배포되고, 회사 서버는 운영자가 확인한
+            뒤 반영합니다.
+          </p>
+          <p>
+            질문이 오면 - 회사 서버는 운영자가 배포할 커밋을 고정해 커밋 SHA 태그로 이미지를 만들고,
+            바뀐 서비스만 다시 띄운 뒤 기동 로그와 /health 를 확인합니다. DB 스키마는 migration 을
+            새로 쌓기만 하고, 운영 DB 적용은 사람이 확인한 뒤 pnpm db:push 로 합니다.
+          </p>
+          <p>
+            질문이 오면 - 웹은 서비스 토큰과 사용자 로그인 토큰으로 회사 Gateway 에 작업을 맡깁니다.
+            추천 알림은 카카오 API 를 거쳐 카카오톡으로 갑니다. 카카오톡 발송은 운영자가 켜고 끌 수
+            있습니다.
+          </p>
+          <!-- 근거: docs/submission/architecture.md (a), docs/10-DEPLOYMENT.md 회사 Compose 프로젝트, infra/company/README.md -->
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">공고가 들어와서 결정으로 남기까지</h1>
+        <img
+          class="arch arch-image"
+          src="assets/analysis-sequence-generated-v3.png"
+          alt="공고 한 건의 분석 순서. 자동 구간에서 수집 Worker가 3시간마다 공고를 모으고, 첨부 Worker가 AI gateway로 PDF·HWPX·HWP 첨부를 읽고, 조달청 공식 분류와 키워드 규칙으로 IT 공고만 표시합니다. 모델은 쓰지 않습니다. 사람이 공고를 골라 [분석]을 누르면 Qwen이 요건과 원문 인용을 뽑고, AI gateway가 원문과 대조하고, 규칙 엔진 sol-v0.2.2가 자격·SOL Score·권고를 최종 판정하며, 사람이 근거를 확인해 결정과 사유를 기록합니다. Bosun은 검증된 요건만 받아 검토 신호만 더하고 점수·권고를 바꾸지 못합니다. AI가 멈추면 규칙만으로 부분 완료하고, 분석 결과에서 [추천 분석]을 누르면 Qwen이 판정 이유를 설명합니다."
+        />
+        <p class="foot">모델은 읽고 참고만 하고, 판정은 규칙이, 결정은 사람이 합니다.</p>
+        <aside class="notes">
+          <p>
+            왼쪽 세 단계는 자동입니다. 3시간마다 공고를 모으고 첨부는 기본 3건까지 읽습니다.
+            나라장터는 조달청 공식 분류로, 다른 출처는 키워드 규칙으로 IT 공고만 화면에 남깁니다.
+            여기에는 모델을 쓰지 않습니다.
+          </p>
+          <p>
+            분석은 사람이 공고를 골라 [분석]을 누를 때 시작합니다. AI gateway를 통해 Qwen이 요건과
+            원문 인용을 뽑고, 인용을 원문과 대조해 통과한 것만 근거로 씁니다. 규칙 엔진이 자격과 SOL
+            Score, 권고를 판정하고, 오른쪽에서 사람이 근거를 확인해 결정과 사유를 기록합니다.
+          </p>
+          <p>
+            아래 Bosun은 검증된 요건만 받아 사람이 볼 신호만 더합니다. 규칙 결과는 받지 않고, 점수나
+            권고를 바꾸지 못합니다. 점선은 AI가 멈췄을 때 규칙만으로 부분 완료하는 경로와, 분석
+            결과에서 버튼으로 요청하는 추천 분석입니다. 인앱·카카오톡 알림은 분석·결정 이벤트와 발송
+            설정에 따라 처리됩니다.
+          </p>
+          <p>
+            질문이 오면 - Bosun 으로 먼저 거르지 않는 이유: Bosun 은 Qwen 이 뽑아 검증한 영어 요건이
+            있어야 돌기 때문에 수집 단계에서는 쓸 수 없습니다. 또 모델이 잘못 거르면 놓친 공고를
+            아무도 보지 못합니다. 그래서 거르기는 근거가 남는 규칙으로 합니다.
+          </p>
+          <!-- 근거: docs/submission/architecture.md (b), docs/16-DECISIONS.md ADR-069 1·2·5번·ADR-034 2번, web/server/analysis/analysis.service.ts runAnalysis, web/server/scoring/decision.ts mergeKev -->
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">읽는 모델, 참고하는 모델, 결정하는 규칙</h1>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="width: 30%">구성 요소</th>
+              <th>하는 일</th>
+              <th style="width: 18%">판정</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Qwen3.8-Flash-Next<small>회사 vLLM API</small></td>
+              <td>공고 요건 추출과 원문 인용.<br />[추천 분석] 버튼을 누르면 판단 이유 설명</td>
+              <td>바꾸지 못함</td>
+            </tr>
+            <tr>
+              <td>Bosun v3.1 0.6B<small>회사 GPU · 결정 모델</small></td>
+              <td>사람이 봐야 할 신호 (참고 지표만)</td>
+              <td>바꾸지 못함</td>
+            </tr>
+            <tr>
+              <td>규칙 엔진<small>sol-v0.2.2 · 순수 함수</small></td>
+              <td>
+                필수 자격 3값 → SOL Score 5요소 → 권고<br /><small
+                  >기술 30 · 실적 25 · 인력 20 · 규모 15 · 전략 10 / 추천 75 이상 · 보류 50
+                  이상</small
+                >
+              </td>
+              <td class="key">최종 판정</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="foot">
+          모델이 꺼져도 규칙만으로 끝까지 갑니다 (<b>PARTIAL</b>). 같은 입력이면 같은 결과입니다.
+        </p>
+        <aside class="notes">
+          <p>
+            큰 모델은 비정형 공고문을 읽어 구조화하고, 인용은 원문과 대조합니다. 작은 결정 모델은
+            정형화된 상태를 보고 사람이 봐야 할 신호만 냅니다. 최종 판정은 결정론적 규칙이라 같은
+            입력이면 같은 결과이고, 알고리즘 버전이 남습니다.
+          </p>
+          <p>
+            분석마다 붙는 설명은 템플릿 문장이고, Qwen 설명은 [추천 분석] 버튼을 눌렀을 때만
+            만듭니다. 규칙과 모델이 엇갈리면 사람 검토 표시가 붙습니다. 가중치와 임계값은 초기 제품
+            가정입니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">SOL Score, 다섯 요소를 더한 100점</h1>
+        <div
+          class="seg"
+          role="img"
+          aria-label="SOL Score 배점: 기술 30, 실적 25, 인력 20, 규모 15, 전략 10, 합계 100"
+        >
+          <div>
+            <i></i><span>기술<em>30</em></span>
+          </div>
+          <div>
+            <i></i><span>실적<em>25</em></span>
+          </div>
+          <div>
+            <i></i><span>인력<em>20</em></span>
+          </div>
+          <div>
+            <i></i><span>규모<em>15</em></span>
+          </div>
+          <div>
+            <i></i><span>전략<em>10</em></span>
+          </div>
+        </div>
+        <table class="tbl score-tbl">
+          <thead>
+            <tr>
+              <th style="width: 22%">요소</th>
+              <th class="pt" style="width: 9%">최대</th>
+              <th>계산</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>기술 스택 적합</td>
+              <td class="pt">30</td>
+              <td>공고의 필수 · 우대 기술 중 회사가 가진 비율 (필수 80% + 우대 20%, 별칭 포함)</td>
+            </tr>
+            <tr>
+              <td>유사 수행 실적</td>
+              <td class="pt">25</td>
+              <td>가장 비슷한 실적 1건의 유사도: 분야 40% · 금액 30% · 최근성 30%</td>
+            </tr>
+            <tr>
+              <td>인력 가용성</td>
+              <td class="pt">20</td>
+              <td>
+                투입 가능 인력 ÷ 필요 인력 × 제안 준비 기간 계수 (마감까지 10영업일 이상이면 1.0)
+              </td>
+            </tr>
+            <tr>
+              <td>규모 적합성</td>
+              <td class="pt">15</td>
+              <td>공고 예산 ÷ 최대 수행 실적 금액: 1.5배 이하 만점, 3배 이하 60%</td>
+            </tr>
+            <tr>
+              <td>전략적 선호</td>
+              <td class="pt">10</td>
+              <td>선호 분야 60% + 선호 발주기관 40%. 제외 분야 · 키워드면 0</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="foot sm">
+          요소 점수 = 최대점 × 정규화 값(0~1). 모르는 값은 중립(0.5)이나 0으로 두고, 올려 채우지
+          않습니다.<br /><b>권고</b> 필수 자격 미충족 → 비추천 · 확인 필요 → 보류 · 그 밖에는 75점
+          이상 추천, 50점 이상 보류, 그 아래 비추천
+        </p>
+        <aside class="notes">
+          <p>
+            SOL Score 는 우리 회사와 공고가 얼마나 맞는지를 다섯 요소로 나눠 더한 100점입니다. 기술
+            30, 실적 25, 인력 20, 규모 15, 전략 10 입니다. 각 요소는 0에서 1 사이 값으로 계산해
+            최대점을 곱합니다.
+          </p>
+          <p>
+            모르는 값은 점수를 올리는 쪽으로 채우지 않습니다. 요소 전체를 모르면 중립 0.5 나 0 으로
+            두고 화면에 "미확인"으로 보입니다. 모르는 요소가 두 개 이상이면 점수와 상관없이
+            보류입니다.
+          </p>
+          <p>
+            권고는 점수보다 자격이 먼저입니다. 필수 자격이 근거와 함께 미충족이면 비추천, 확인이
+            필요하면 보류이고, 그 뒤에 75점 이상 추천, 50점 이상 보류입니다. 가중치와 임계값은 초기
+            가정이라 버전으로 관리하고, 바꾸면 기존 결과를 덮지 않고 새로 계산합니다.
+          </p>
+          <p>
+            근거: docs/08-SCORING.md §2~§5, web/server/scoring/analysis-result.model.ts(가중치),
+            analysis-input.model.ts(sol-v0.2.2 · 임계값 75/50), decision.ts(권고 순서).
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">실제 공고로 운영 중입니다</h1>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="width: 22%">영역</th>
+              <th>운영 서버에서 하는 일</th>
+              <th style="width: 24%">2026-11-03 기준</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>공고 수집</td>
+              <td>
+                나라장터 · LH · KEPCO · K-water 입찰공고와<br />기업마당 · 과기정통부 부처 공고를
+                3시간마다
+              </td>
+              <td class="key">출처 6곳</td>
+            </tr>
+            <tr>
+              <td>첨부 읽기</td>
+              <td>공고 첨부 PDF · HWPX · HWP 에서 본문 추출</td>
+              <td class="key">10,373건</td>
+            </tr>
+            <tr>
+              <td>분석</td>
+              <td>회사 Qwen · 결정 모델과 규칙 sol-v0.2.2 로 판정</td>
+              <td class="key">실제 공고 364건</td>
+            </tr>
+            <tr>
+              <td>알림</td>
+              <td>인앱 알림과 카카오톡 추천 알림 (나에게 보내기)</td>
+              <td class="key">카카오톡 24통 발송</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="foot">
+          질의응답 때 운영 사이트 <b>www.solideos-radar.com</b> 에서 직접 보여 드립니다.
+        </p>
+        <aside class="notes">
+          <p>
+            지금까지 보신 구조가 실제 운영 서버에서 돌고 있습니다. 여섯 곳에서 3시간마다 공고를
+            받고, 첨부 10,373건을 읽었고, 실제 공고 364건을 회사 모델과 규칙으로 분석했습니다.
+            카카오톡 추천 알림은 '나에게 보내기'로 24통을 실제로 보냈습니다. 외부 유료 모델 API 는
+            쓰지 않습니다.
+          </p>
+          <p>공고 변경 감지와 장애 대체 영상은 로컬 시험 환경에서 찍었고 영상 캡션에 적었습니다.</p>
+          <p>
+            수치 출처: 운영 DB 읽기(2026-11-03 12:40 KST). 출처 6곳은 2026-11-02 과기정통부 사업공고
+            운영 반영 뒤 값이다(ADR-075). 첨부 10,373건은 bid_documents 처리 상태 PARSED(11-01 은
+            7,708). 실제 공고 364건은 11-03 sol-v0.2.2 재채점 뒤 화면 run(추천 9 · 보류 344 · 비추천
+            11, docs/evidence/sol-score-v022/20261103/rollout.md). 카카오톡 24통은 추천 알림
+            SENT(10-30 23통 · 11-01 1통)이고 11-01 17:44 뒤로 연결이 꺼져 더 보내지 않았다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="02 시스템 아키텍처">
+        <h1 class="tt">조직을 더해도 코드는 그대로</h1>
+        <div class="cells c2">
+          <div>
+            <span>격리</span><b>조직 단위로 잠근 데이터</b>
+            <p>모든 데이터는 org_id 와 Supabase RLS 로 거릅니다. 다른 조직 자원은 404</p>
+          </div>
+          <div>
+            <span>역할</span><b>업무 역할 5종</b>
+            <p>ADMIN · SALES · ANALYST · EXECUTIVE · VIEWER. 최종 결정 기록은 ADMIN · SALES 만</p>
+          </div>
+          <div>
+            <span>교체</span><b>바꿔 끼우는 구조</b>
+            <p>수집 소스 · 첨부 파서 · 모델이 인터페이스 뒤에 있어 설정으로 교체합니다</p>
+          </div>
+          <div>
+            <span>재현</span><b>다시 재현되는 분석</b>
+            <p>알고리즘 버전과 입력 스냅샷을 남겨 과거 분석을 그대로 재현합니다</p>
+          </div>
+        </div>
+        <p class="foot">서비스 운영자도 <b>다른 조직의 데이터는 읽지 못합니다</b>.</p>
+        <aside class="notes">
+          <p>
+            전사 확산은 조직을 하나 더 만드는 일입니다. 데이터는 전부 조직 단위로 잠겨 있어 코드를
+            바꾸지 않습니다. 역할은 관리 · 영업 · 분석 · 임원 · 열람으로 나뉩니다. 분석은 입력
+            스냅샷과 알고리즘 버전이 남아 몇 달 뒤에도 같은 결과를 재현합니다. 해커톤 뒤에는 API ·
+            worker 를 NestJS 로 옮기고, 화면 · DB · /api/v1 계약은 그대로 둡니다.
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 03 주요 기능 ───────────────────────── -->
+      <section class="slide">
+        <div class="sec">
+          <span class="no">03</span>
+          <h2>주요 기능</h2>
+          <ol>
+            <li>공고 판단 한 화면</li>
+            <li>참고 낙찰가</li>
+            <li>자격 갭 레이더</li>
+            <li>규칙 우선</li>
+            <li>추천 분석</li>
+            <li>가정 재계산</li>
+            <li>재분석과 결정 기록</li>
+            <li>카카오톡 알림</li>
+            <li>인력 배치</li>
+            <li>공고 변경 감지</li>
+            <li>장애 대체와 조직 격리</li>
+            <li>실제 공고 분석</li>
+            <li>구글 캘린더</li>
+            <li>결정 모델 학습</li>
+          </ol>
+        </div>
+        <aside class="notes">
+          <p>
+            지금부터는 녹화 영상입니다. 영상은 모두 무음이고 제가 설명하겠습니다. 녹화한 화면을
+            순서대로 보겠습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="공고 판단 한 화면">
+        <h1 class="tt">공고를 열면 자격 · 점수 · 근거가 한 화면에</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-detail.png"
+            alt="공고 상세 화면: 필수 자격 판정, SOL Score, 참여 판단 패널"
+          />
+          <video src="clips/bid-detail.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/bid-detail.mp4 (90초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>필수 자격을 충족 · 미충족 · 확인 필요 셋으로 판정</li>
+            <li>SOL Score 5요소 점수와 추천 · 보류 · 비추천 권고</li>
+            <li>근거마다 공고 원문 인용. 원문과 대조해 통과한 문장만 씁니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화</b>FX-01 세종특별자치시 차세대 행정정보시스템 고도화 · 필수 자격 3건 충족 · 92
+            추천
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            회사 프로필은 공개 자료로 만든 우리 회사 프로필에 회사가 확인한 자격 3건을 더했습니다.
+            공고를 열면 필수 자격 3건이 회사 기록으로 충족입니다. 공고가 요구하는 자격마다 원문
+            인용이 붙고, 회사 기록에 근거가 없으면 충족으로 치지 않습니다.
+          </p>
+          <p>
+            근거 서랍을 열면 공고 원문 어디에서 왔는지 나옵니다. 이 인용은 AI 가 쓴 문장이 아니라
+            원문과 대조해 통과한 문장입니다. 대조에 실패한 인용은 무효 처리합니다.
+          </p>
+          <p>
+            [영상] 대시보드 → 공고 목록 → FX-01 상세 → 근거 서랍. 원래 클립 1. 캡션 숫자는 녹화 화면
+            값과 대조합니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="참고 낙찰가">
+        <h1 class="tt">공고마다 지난 낙찰값으로 참고 가격 범위를</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-award.png"
+            alt="공고 상세의 참고 낙찰가 범위 카드: 범위 금액, 중간값과 기준금액 대비 비율, 기준 줄, 가격 배점 줄"
+          />
+          <video src="clips/award-reference.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/award-reference.mp4 (20초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>같은 분류 · 비슷한 금액대 지난 낙찰의 가운데 절반을 금액으로</li>
+            <li>협상 계약까지 봅니다. 공고의 가격 배점도 함께</li>
+            <li>사정율을 맞히지 않습니다. 최종 투찰가는 담당자가 정합니다</li>
+          </ul>
+          <p class="cap">
+            <b>임시 화면 · 자동 시험 캡처</b>금액 · 건수는 시험 데이터입니다. 녹화 뒤 녹화 화면
+            값으로 바꿉니다
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            실제 공고 상세 아래에는 참고 낙찰가 범위가 붙습니다. 조달청 낙찰정보에서 같은
+            공공조달분류, 비슷한 금액대의 지난 낙찰을 모아 기준금액 대비 낙찰 비율의 가운데 절반을
+            이 공고 금액으로 보여 줍니다. 협상 계약도 봅니다.
+          </p>
+          <p>
+            사정율을 맞히는 기능이 아닙니다. 지난 낙찰값을 모은 참고 값이고, 비슷한 낙찰이 적으면
+            범위를 보이지 않습니다. 최종 투찰가는 담당자가 정합니다.
+          </p>
+          <p>
+            질문이 오면 - 이 범위는 지난 낙찰값의 사분위이고 확률이 아닙니다(ADR-077). 낙찰업체
+            이름은 저장하지 않습니다.
+          </p>
+          <p>
+            [영상] 클립 8 촬영 예정. 실제 공고(?origin=live) 상세 → 참고 낙찰가 범위 카드. 촬영
+            공고와 캡션 값(기준일 · 건수 · 가격 배점)은 운영 화면을 확인한 뒤 정합니다. 운영에
+            카드가 없으면 이 장을 빼고 비교 표 장의 가격 칸을 — 로 되돌립니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="자격 갭 레이더">
+        <h1 class="tt">실제 공고 전체를 우리 회사 자격으로 거르기</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-gaps.png"
+            alt="자격 갭 레이더 화면: 대상 공고, 참가 가능, 회사 기록 없음, 사람 확인 필요"
+          />
+          <video src="clips/gaps.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/gaps.mp4 (30초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>공고 API 의 면허 제한 · 참가 가능 지역으로 1차 선별. AI 는 쓰지 않습니다</li>
+            <li>회사 기록이 없는 자격과 사람이 확인할 공고를 나눠 보여 줍니다</li>
+            <li>예산 합은 참가 자격이 열리는 공고의 배정 예산 합이고, 수주 금액이 아닙니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화 · 실제 나라장터 입찰공고</b>규칙 엔진만 사용 · 회사 확인 자격 3건 기록 뒤
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            점수는 공고만 보고 나오지 않습니다. 우리 회사 프로필과 인력이 입력입니다. 공개 자료만
+            있을 때는 같은 공고가 92점이어도 보류였습니다. 필수 자격 세 건을 확인하지 못했기
+            때문입니다. 회사 기록을 넣자 자격 관문을 통과해 92점 추천이 됐습니다.
+          </p>
+          <p>
+            자격 갭 레이더는 마감 전 실제 공고 전체를 우리 회사 자격으로 거릅니다. 회사가 확인한
+            자격 3건을 기록하자 '회사 기록 없음'이 0건이 됐습니다. 남은 것은 사람이 확인할
+            공고입니다.
+          </p>
+          <p>
+            [영상] 원래 클립 7. 대상 · 참가 가능 · 예산 합 · 사람 확인 필요 숫자와 촬영 시각은 녹화
+            화면 값으로 캡션에 채웁니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="규칙 우선">
+        <h1 class="tt">모델 의견이 달라도 판정은 규칙이</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-model.png"
+            alt="공고 상세의 참여 판단 패널: 권고, 결정 모델 분포, 규칙 우선 배지"
+          />
+          <video src="clips/rule-first.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/rule-first.mp4 (30초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>결정 모델 분포는 참고 지표이고, 수주 확률이 아닙니다</li>
+            <li>규칙과 엇갈리면 '규칙 우선' 배지를 달고 사람이 봅니다</li>
+            <li>모델이 자격 · 점수 · 권고를 바꾸는 코드 경로는 없습니다</li>
+          </ul>
+          <p class="cap"><b>녹화</b>FX-01 · 결정 모델은 비추천 쪽, 권고는 규칙이 정한 추천 92</p>
+        </div>
+        <aside class="notes">
+          <p>
+            이 공고는 결정 모델이 '비추천' 쪽으로 기울었지만 권고는 규칙이 정한 추천입니다. 둘이
+            다르면 '규칙 우선' 배지가 붙고 사람이 봅니다. 모델 의견은 화면에 그대로 보이되 점수 ·
+            자격 · 권고에 들어가지 않습니다. 이 숫자는 모델이 선택지를 얼마나 믿는지이고 수주 확률이
+            아닙니다.
+          </p>
+          <p>[영상] 원래 클립 2 앞 30초. 분포 값은 녹화 화면 값과 대조합니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="추천 분석">
+        <h1 class="tt">판정 이유를 사람 말로 풀어 쓰는 추천 분석</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-insight.png"
+            alt="추천 분석 패널: 판단 이유, 강점, 보완할 점과 근거 번호"
+          />
+          <video src="clips/insight.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/insight.mp4 (20초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>[추천 분석] 버튼을 누를 때만 회사 Qwen 이 판단 이유 · 강점 · 보완할 점을 씁니다</li>
+            <li>항목마다 근거 번호. 누르면 공고 원문이 펼쳐집니다</li>
+            <li>판정을 바꿔 쓰거나 근거에 없는 숫자를 쓰면 버리고 규칙 결과 문장을 보입니다</li>
+          </ul>
+          <p class="cap"><b>녹화</b>FX-01 · 저장된 추천 분석 · 강점 3건 · 보완할 점 1건</p>
+        </div>
+        <aside class="notes">
+          <p>
+            아래 '추천 분석'은 회사 Qwen 이 이 판정을 사람 말로 풀어 쓴 것입니다. 버튼을 누를 때만
+            만들고 분석 결과마다 저장합니다. 지금 보시는 것은 저장된 결과입니다. 판단 이유와 강점,
+            보완할 점마다 근거 번호가 붙고, 누르면 공고 원문이나 회사 자료가 펼쳐집니다. 모델이 판정
+            이름을 다시 쓰거나 근거에 없는 숫자를 쓰면 모델 문장을 버리고 규칙 결과로 정리한 문장을
+            보입니다. 어느 쪽이든 판정은 그대로입니다.
+          </p>
+          <p>[영상] 원래 클립 2 가운데 20초. 버튼을 누르는 장면은 찍지 않습니다(회사 Qwen 호출).</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="가정 재계산">
+        <h1 class="tt">필요한 자격을 갖췄다고 가정해 다시 계산</h1>
+        <div class="frame">
+          <img src="assets/shot-whatif.png" alt="가정 재계산 화면: 원래 결과와 가정 결과 비교" />
+          <video src="clips/what-if.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/what-if.mp4 (25초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>자격과 점수를 따로 봅니다. 자격이 풀려도 점수가 낮으면 보류</li>
+            <li>가정은 저장하지 않고 결정 기록에도 쓰지 않습니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화</b>FX-16 국방부 군 지휘통제체계 SW 유지보수 · 방산업체 지정 보유 가정 → 70 보류
+            그대로
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            자격만 있으면 될까요. 이 국방 공고는 방산업체 지정이 없어 보류입니다. 있다고 가정해 켜
+            보면 자격 관문은 통과하지만 점수가 70이라 여전히 보류입니다. 자격과 점수를 따로 봅니다.
+            이 가정은 저장되지 않고 결정 기록에도 쓰이지 않습니다.
+          </p>
+          <p>[영상] 원래 클립 2 끝 25초. 지금 임시 화면은 FX-01 의 예전 가정 재계산 화면입니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="재분석과 결정 기록">
+        <h1 class="tt">다시 분석하고, 결정은 사람이 기록</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-decision.png"
+            alt="공고 상세의 결정 패널: 최종 결정, 사유, 담당자"
+          />
+          <video src="clips/reanalyze-decision.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/reanalyze-decision.mp4 (95초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>회사 프로필이 바뀌면 다시 분석하고, 이전 결과는 덮어쓰지 않습니다</li>
+            <li>권고와 달라도 사람의 결정과 사유가 그대로 남습니다</li>
+            <li>담당자에게 알림이 갑니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화</b>FX-02 경기도교육청 통합 LMS · 재분석 → 비추천 결정 · 사유 기록
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            회사 프로필이 바뀌면 같은 공고도 다시 분석합니다. 큐에 들어가 새 결과를 만들고, 이전
+            결과 66점은 덮어쓰지 않습니다. 지금은 {녹화 화면 점수} 보류입니다. 필수 자격은
+            충족했지만 교육 분야 수행 실적이 없어 유사 실적이 0점입니다. 담당자는 이 공고를
+            비추천으로 결정하고 사유를 적습니다. 권고와 달라도 사람 결정이 그대로 기록되고,
+            담당자에게 알림이 갑니다.
+          </p>
+          <p>
+            [영상] 원래 클립 3. FX-02 재분석은 촬영 때 한 번만 합니다(11-03 전이면 59 보류 예상).
+            점수는 녹화 화면 값으로 말합니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="카카오톡 알림">
+        <h1 class="tt">추천 공고는 카카오톡으로도</h1>
+        <div class="frame phone">
+          <div class="empty">휴대폰 녹화 영상<br />10초</div>
+          <video src="clips/kakao.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 파일 넣기 전 · clips/kakao.mp4</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>실제 나라장터 공고를 분석해 추천이 나오면 메시지가 옵니다</li>
+            <li>시연은 카카오톡 '나에게 보내기'입니다. 운영에서는 알림톡으로 바꿔야 합니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화 · 실제 공고 · 실행 모드 live</b>2026-11-01 17:44 · 재분석 85점 추천 뒤 '나와의
+            채팅'으로 수신
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            추천 공고는 카카오톡으로도 갑니다. 이 10초는 실제 나라장터 공고를 분석해 받은 메시지를
+            녹화한 것입니다. 카카오톡은 시연용 '나에게 보내기'이고, 운영은 알림톡(사업자 · 템플릿
+            검수)으로 바꿔야 합니다.
+          </p>
+          <p>
+            영상을 넣지 못하면 이 장을 빼고 "카카오톡 나에게 보내기 코드는 있지만 실제 수신 녹화는
+            이번 발표에서 뺐습니다"라고 말합니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="인력 배치">
+        <h1 class="tt">공고마다 사내 인력으로 추천 팀 구성</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-workforce.png"
+            alt="인력 배치 화면: 공고별 추천 팀 구성과 팀별 지원 요청"
+          />
+          <video src="clips/workforce.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">시험 화면 캡처 · clips/workforce.mp4 (선택)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>인력 요구조건대로 PM · 개발 · 디자인 등 자리를 나눕니다</li>
+            <li>같은 직무가 없으면 다른 직무에서 대체해 팀이 비지 않게 합니다</li>
+            <li>확정 배정이 아닌 후보이고, 저장하지 않습니다</li>
+          </ul>
+          <p class="cap">
+            <b>직원 200명 명부 기준</b>임시 화면은 화면 부품 시험 캡처이고 운영 화면이 아닙니다
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            공고마다 필요한 역할에 맞춰 사내 인력으로 추천 팀을 짭니다. 인력 요구조건이 있으면 그
+            역할대로, 없으면 필요 인력에 맞춰 PM → 요구 기술이 말하는 직무 → 개발자 · 디자이너
+            순으로 자리를 나눕니다. 같은 직무가 없으면 다른 직무에서 대체해 팀이 비지 않게 합니다.
+            확정 배정이 아닌 후보이고 저장하지 않습니다.
+          </p>
+          <p>[발표 전 확인] 운영 화면을 직접 본 뒤에만 시연했다고 말합니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="공고 변경 감지">
+        <h1 class="tt">공고가 바뀌면 이력으로 남기고 차이를 표시</h1>
+        <div class="frame">
+          <img src="assets/shot-revisions.png" alt="변경 이력 화면: 예산과 요구 기술 변경 강조" />
+          <video src="clips/revisions.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/revisions.mp4 (30초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>정정공고는 revision 으로 기록하고 바뀐 칸을 강조합니다</li>
+            <li>같은 내용을 다시 받으면 revision 이 늘지 않습니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화 · 로컬 시험 환경</b>FX-07 · 예산 18억 → 21.6억, Kubernetes 요구 추가 · FX-09 는
+            revision 1 그대로
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            공고가 정정되면 이렇게 revision 으로 남고 무엇이 바뀌었는지 보입니다. 같은 공고를 다시
+            받아도 이력이 늘지 않습니다.
+          </p>
+          <p>[영상] 원래 클립 6. 로컬 Compose 에서 찍습니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="장애 대체와 조직 격리">
+        <h1 class="tt">AI 가 꺼져도 끝까지, 다른 조직은 404</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-partial.png"
+            alt="AI gateway 정지 뒤 공고 상세: 부분 완료(규칙만) 배너"
+          />
+          <video src="clips/fallback-isolation.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/fallback-isolation.mp4 (60초)</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>
+              AI gateway 가 멈추면 규칙만으로 '부분 완료'라고 표시합니다. 고정 응답으로 바꿔 끼우지
+              않습니다
+            </li>
+            <li>다른 조직 토큰으로 판정을 요청하면 404, 공용 공고는 200</li>
+            <li>격리는 앱 코드가 아니라 DB 정책(RLS)이 지킵니다</li>
+          </ul>
+          <p class="cap">
+            <b>녹화 · 로컬 시험 환경</b>ai-gateway 정지 → FX-01 규칙만 PARTIAL, 이전 결과 보존
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            이제 AI 게이트웨이를 아예 꺼 버립니다. 그래도 규칙만으로 자격과 점수가 나오고, 화면은
+            '부분 완료'라고 정직하게 씁니다. 다음은 다른 조직 토큰입니다. 공고는 공용이라 200, 우리
+            판정은 404. 이건 앱이 아니라 DB 정책이 막습니다.
+          </p>
+          <p>
+            [영상] 원래 클립 4. 장애 화면이 뜨기까지 5~6초 걸려도 자르지 않습니다. 토큰 · 키가
+            보이는 컷은 쓰지 않습니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="실제 공고 분석">
+        <h1 class="tt">실제 공고 364건, 회사 모델로 분석한 결과</h1>
+        <div class="frame">
+          <img src="assets/shot-live.png" alt="실제 입찰 공고 목록 화면" />
+          <video src="clips/live-bid.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/live-bid.mp4 (40초, 선택)</span>
+        </div>
+        <div class="side">
+          <div class="verdict">
+            <div><span>추천</span><b class="c-ok">9</b></div>
+            <div><span>보류</span><b class="c-warn">344</b></div>
+            <div><span>비추천</span><b class="c-bad">11</b></div>
+          </div>
+          <p class="cap">
+            <b>2026-11-03 기준 · 규칙 sol-v0.2.2 재채점</b>IT 실제 공고, 공고마다 최신 분석 1건.
+            점수는 우리 회사와 공고의 내부 적합도입니다
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            실제 공고는 3시간마다 받고, IT 실제 공고를 회사 Qwen 과 결정 모델로 분석했습니다. 최신
+            결과는 추천 9건, 보류 344건, 비추천 11건입니다. 대부분 보류인 것은 공개 자료로 만든 회사
+            프로필로는 확인할 수 없는 자격과 실적이 많아서입니다.
+          </p>
+          <p>
+            영상 속 공고는 결정 모델도 규칙과 같은 비추천입니다. 판정은 규칙, 결정 모델은 참고,
+            결정은 사람입니다. 지연 숫자와 모델 성능 수치는 말하지 않습니다.
+          </p>
+          <p>[영상] 원래 클립 5(선택). 동국대 공고 최신 분석(49 비추천)을 엽니다.</p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="구글 캘린더">
+        <h1 class="tt">입찰 일정을 버튼 한 번으로 구글 캘린더에</h1>
+        <div class="frame">
+          <img
+            src="assets/shot-gcal.png"
+            alt="입찰 일정 화면: 구글 캘린더에 넣기 버튼과 결과 '구글 캘린더에 넣었습니다: 새로 3건 · 갱신 1건 · 삭제 2건'"
+          />
+          <video src="clips/google-calendar.mp4" preload="auto" muted playsinline></video>
+          <span class="tag">녹화 전 임시 화면 · clips/google-calendar.mp4</span>
+        </div>
+        <div class="side">
+          <ul class="pts">
+            <li>관심 · 담당 공고의 마감과 나라장터 원본 일정을 한 달력에 모읍니다</li>
+            <li>[구글 캘린더에 넣기] 한 번이면 지금 보는 달 일정이 내 구글 캘린더로 갑니다</li>
+            <li>전용 캘린더 'SOL RADAR 입찰 일정'에 바뀐 것만 반영. 다시 눌러도 중복이 없습니다</li>
+          </ul>
+          <p class="cap">
+            <b>임시 화면 · 자동 시험 캡처</b>새로 3건 · 갱신 1건 · 삭제 2건은 시험 데이터입니다.
+            녹화 뒤 녹화 화면 값으로 바꿉니다
+          </p>
+        </div>
+        <aside class="notes">
+          <p>
+            입찰 일정은 한 달력에 모읍니다. 관심 · 담당 공고의 마감과 나라장터 원본 일정을 한
+            화면에서 봅니다.
+          </p>
+          <p>
+            구글 캘린더 버튼을 한 번 누르면 지금 보는 달의 일정이 내 구글 캘린더의 'SOL RADAR 입찰
+            일정'에 들어갑니다. 다시 누르면 바뀐 것만 고치고, 중복은 생기지 않습니다.
+          </p>
+          <p>
+            질문이 오면 - 구글 권한은 일정 쓰기(calendar.events) 하나만 받습니다. 갱신 토큰은
+            AES-256-GCM 으로 암호화해 저장하고, 연결 정보는 본인만 읽도록 RLS 로 막습니다. 운영
+            사이트에는 계정 연동 버튼이 아직 없고(운영 연결은 발표 뒤), 일정마다 '구글 캘린더에
+            추가' 링크는 지금 운영에서 됩니다. 질의응답 라이브에서는 그 링크를 보여 줍니다.
+          </p>
+          <p>
+            [영상] 촬영 예정. clips/google-calendar.mp4 로 넣고, 캡션 · 노트는 녹화한 환경과 화면
+            값으로 고칩니다. 지금 임시 화면은 자동 시험 캡처입니다.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="결정 모델 학습">
+        <h1 class="tt">같은 공고, 다른 회사, 다른 정답으로 학습합니다</h1>
+        <div class="ft-req">
+          <span>공고 요건 · 예시</span><b>공공 SI 수행 실적 3건 이상</b
+          ><em>요건은 그대로, 회사만 바꿔 정답 셋</em>
+        </div>
+        <div class="ft-cases">
+          <div>
+            <span>가상 회사 A</span>
+            <p>실적 4건 · 증빙 있음</p>
+            <b class="c-ok">충족</b>
+          </div>
+          <div>
+            <span>가상 회사 B</span>
+            <p>실적 1건</p>
+            <b class="c-bad">미충족</b>
+          </div>
+          <div>
+            <span>가상 회사 C</span>
+            <p>실적 기록 없음</p>
+            <b class="c-warn">확인 필요</b>
+            <small>정보 부족은 미충족이 아닙니다</small>
+          </div>
+        </div>
+        <div class="ft-facts">
+          <div>
+            <span>데이터</span>
+            <p>
+              실제 공고 × 가상 기업 6유형. 대형 · 중견 SI, AI 스타트업, 유지보수, 데이터 플랫폼,
+              신생
+            </p>
+          </div>
+          <div>
+            <span>나누기</span>
+            <p>같은 사업은 학습 · 시험 한쪽에만. 한 유형은 시험에만 둬 처음 보는 회사도 봅니다</p>
+          </div>
+          <div>
+            <span>학습 범위</span>
+            <p>0.6B 결정 모델의 LoRA 1,009만 개만 이어 학습. 본체는 고정, 회사 GPU A40 1장</p>
+          </div>
+        </div>
+        <aside class="notes">
+          <p>
+            결정 모델 파인튜닝은 발표 뒤에 합니다. 결과는 아직 없고, 어떻게 학습시키는지를
+            말씀드립니다. 데이터는 실제 공고에 가상 회사 여섯 유형을 붙여 만듭니다. 같은 공고라도
+            회사에 따라 정답이 달라집니다. 실적이 충분하면 충족, 모자라면 미충족, 기록이 없으면 확인
+            필요입니다. 정보가 없는 것을 미충족으로 보지 않는 것이 핵심이고, 이 혼동은 따로 잽니다.
+          </p>
+          <p>
+            같은 사업의 공고는 학습과 시험 중 한쪽에만 넣고, 한 유형은 시험에만 둬서 처음 보는
+            회사에서도 맞히는지 봅니다. 학습은 0.6B 결정 모델의 LoRA 1,009만 개만 이어서 하고 본체는
+            고정합니다. 회사 GPU A40 한 장에서 돌릴 계획이고, 메모리는 발표 뒤 먼저 확인합니다. 추출
+            · 설명 모델인 Qwen 은 학습하지 않습니다.
+          </p>
+          <p>
+            [주의] '학습했다'처럼 과거형으로 말하지 않습니다(ADR-067). 화면의 요건과 회사 A · B · C
+            는 설명용 예시입니다. 근거는 21 모델 학습 §3 · §5.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="결정 모델 학습">
+        <h1 class="tt">학습해도 판정은 규칙이, 교체는 평가를 통과한 뒤에</h1>
+        <div class="flow" style="top: 300px">
+          <div>
+            <b>평가셋</b>
+            <p>실제 공고로<br />시험 20 · 검증 10 사업.<br />정답은 사람이 검수</p>
+          </div>
+          <span class="arr">→</span>
+          <div>
+            <b>기준선</b>
+            <p>공개 Bosun 을<br />그대로 채점</p>
+          </div>
+          <span class="arr">→</span>
+          <div>
+            <b>LoRA 학습</b>
+            <p>회사 GPU 에서 이어 학습한<br />모델을 같은 문제로 채점</p>
+          </div>
+          <span class="arr">→</span>
+          <div class="on">
+            <b>비교 · 교체</b>
+            <p>차이의 95% 신뢰구간이<br />0 밖일 때만 '개선'.<br />승인 뒤 교체, 되돌릴 수 있음</p>
+          </div>
+        </div>
+        <div class="ft-two">
+          <div>
+            <h3>목표 지표 · 시험 분할</h3>
+            <div class="ft-rows">
+              <div><span>세 값 판정 Macro-F1</span><b>0.80 이상</b></div>
+              <div><span>정보 부족을 미충족으로 본 비율</span><b>5% 이하</b></div>
+              <div><span>보정 뒤 ECE</span><b>0.08 이하</b></div>
+            </div>
+          </div>
+          <div>
+            <h3>지금 상태</h3>
+            <div class="ft-rows st">
+              <div>
+                <b class="c-ok">준비됨</b
+                ><span
+                  >학습 · 채점 · 누수 검사 코드, 가상 기업 6유형, 회사 GPU 환경(torch · CUDA ·
+                  bf16)</span
+                >
+              </div>
+              <div>
+                <b class="c-warn">발표 뒤</b
+                ><span>평가셋 구축 → GPU 메모리 확인 → 학습 → 비교 리포트</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="foot">
+          판정은 계속 <b>규칙 엔진</b>이 합니다. 회사 수행 이력이 늘면 <b>연 1회</b> 다시
+          학습합니다.
+        </p>
+        <aside class="notes">
+          <p>
+            학습한 모델도 판정을 바꾸지 못합니다. 순서는 이렇습니다. 사람이 정답을 검수한 평가셋을
+            만들고, 공개 모델로 기준을 잽니다. 같은 문제로 학습한 모델을 채점해 차이의 95%
+            신뢰구간이 0을 벗어날 때만 개선이라고 말합니다. 운영 모델 교체는 그 뒤 승인과 결정
+            기록을 거치고, 이전 모델은 남겨 설정 하나로 되돌립니다.
+          </p>
+          <p>
+            목표는 세 값 판정 Macro-F1 0.80 이상, 정보 부족을 미충족으로 본 비율 5% 이하, 보정 뒤
+            ECE 0.08 이하입니다. 회사 수행 이력은 해마다 늘어서 연 1회 다시 학습합니다. 인력은 자주
+            바뀌어 학습하지 않고 분석 때 입력으로 넣습니다.
+          </p>
+          <p>
+            질문이 오면 - 왜 해커톤 안에 학습하지 않았나: 개선을 증명하려면 평가셋과 기준선이
+            먼저라서 순서대로 발표 뒤에 합니다(ADR-067). 앱의 최종 결정 기록은 11-03 기준 3건이라
+            재학습 조건(200건)과는 거리가 있습니다. 근거는 21 모델 학습 §4 · §5.7.
+          </p>
+        </aside>
+      </section>
+
+      <section class="slide" data-sec="03 주요 기능" data-sub="검증">
+        <h1 class="tt">확인한 것과 아직 못 한 것</h1>
+        <div class="two">
+          <div>
+            <h3>확인한 것</h3>
+            <table class="tbl">
+              <tbody>
+                <tr>
+                  <td>자동 시험 (10-31)</td>
+                  <td>루트 316 · web 1,097 · AI gateway 264 · 결정 서버 57 · 빌드 통과</td>
+                </tr>
+                <tr>
+                  <td>E2E (10-21)</td>
+                  <td>업무 흐름 33/33 · 로그인 125/125</td>
+                </tr>
+                <tr>
+                  <td>접근성 axe</td>
+                  <td>가정 재계산 화면 위반 0</td>
+                </tr>
+                <tr>
+                  <td>골든 시나리오<small>시험 데이터</small></td>
+                  <td>FX-01 94 추천 · FX-02 72 보류 · FX-03 68 비추천</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h3>아직 못 한 것</h3>
+            <ul class="pts">
+              <li>검토 시간 30분 → 10분은 가설입니다. 실제 공고 3건 예비 검증은 발표 뒤</li>
+              <li>결정 모델 파인튜닝은 발표 뒤. 결과는 아직 없습니다</li>
+              <li>첨부는 공고당 기본 3건까지 읽고, 범위 밖은 확인 필요로 남깁니다</li>
+            </ul>
+          </div>
+        </div>
+        <aside class="notes">
+          <p>
+            자동 시험 1,700여 건이 통과했습니다. 못 한 것도 말씀드립니다. 검토 시간 단축은 아직
+            가설이고, 실제 공고 3건으로 재는 예비 검증은 발표 뒤에 합니다. 결정 모델 파인튜닝도 발표
+            뒤라 결과가 없습니다.
+          </p>
+          <p>
+            [발표 전 갱신] 시험 수는 발표 전날 전체 pnpm verify 출력으로 바꿉니다. 'CI 통과'라고
+            말하지 않습니다(로컬 pre-push 게이트로 검사).
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 정리 ───────────────────────── -->
+      <section class="slide">
+        <div class="close">
+          <p>
+            SOL RADAR 는 확률을 지어내지 않습니다.<br /><span
+              >근거를 보여 주고, 결정은 사람이 합니다.</span
+            >
+          </p>
+          <ul>
+            <li><b>검토 시간 실측</b>실제 공고 3건 예비 검증</li>
+            <li><b>영업팀 파일럿</b>평가셋을 넓히고 오류를 분석</li>
+            <li><b>결정 모델 반영</b>평가를 통과한 뒤 새 규칙 버전으로만</li>
+          </ul>
+        </div>
+        <aside class="notes">
+          <p>
+            다음 단계는 세 가지입니다. 검토 시간을 실제로 재고, 영업팀 파일럿으로 평가셋을 넓히고,
+            결정 모델은 평가를 통과한 뒤에만 점수에 넣습니다.
+          </p>
+        </aside>
+      </section>
+
+      <!-- ───────────────────────── 04 Q&A ───────────────────────── -->
+      <section class="slide" data-sec="04 Q&amp;A">
+        <div class="qa">
+          <h2>Q&amp;A</h2>
+          <p>감사합니다</p>
+        </div>
+        <div class="qa-foot">
+          <div class="lockup sm">
+            <img src="assets/logo-mark.png" alt="" /><span>SOL RADAR</span>
+          </div>
+          <span>www.solideos-radar.com</span>
+        </div>
+        <aside class="notes">
+          <p>
+            질의응답 때는 운영 사이트를 라이브로 엽니다. 발주 현황(/market)은 이때만 엽니다. 입찰
+            일정(/calendar)도 열어 일정마다 있는 '구글 캘린더에 추가' 링크를 보여 줄 수 있습니다.
+            예상 질문과 답은 slides-spec 부록 B 입니다.
+          </p>
+        </aside>
+      </section>
+    </div>
+
+    <div class="notes-panel" id="notes" aria-live="polite"></div>
+
+    <script>
+      const stage = document.getElementById("stage");
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const notesPanel = document.getElementById("notes");
+      let cur = 0;
+
+      // 머리줄: "번호 절 이름 · 부제"와 쪽 번호
+      slides.forEach((slide, i) => {
+        const sec = slide.dataset.sec;
+        if (!sec) return;
+        const space = sec.indexOf(" ");
+        const hd = document.createElement("div");
+        hd.className = "hd";
+        const left = document.createElement("span");
+        const num = document.createElement("b");
+        num.textContent = sec.slice(0, space);
+        left.append(
+          num,
+          sec.slice(space + 1) + (slide.dataset.sub ? " · " + slide.dataset.sub : ""),
+        );
+        const page = document.createElement("span");
+        page.textContent = String(i + 1).padStart(2, "0");
+        hd.append(left, page);
+        slide.prepend(hd);
+      });
+
+      // 영상: 파일이 있으면 첫 프레임을 보이고, 없으면 임시 캡처와 표시를 남긴다
+      slides.forEach((slide) => {
+        const video = slide.querySelector("video");
+        if (!video) return;
+        const frame = video.closest(".frame");
+        video.addEventListener("loadeddata", () => frame.classList.add("ready"));
+        video.addEventListener("error", () => frame.classList.add("missing"));
+        video.addEventListener("click", (event) => {
+          event.stopPropagation();
+          togglePlay();
+        });
+      });
+
+      const fit = () => {
+        const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        const x = (window.innerWidth - 1920 * scale) / 2;
+        const y = (window.innerHeight - 1080 * scale) / 2;
+        stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      };
+
+      const resetVideo = (slide) => {
+        const video = slide.querySelector("video");
+        if (!video) return;
+        video.pause();
+        if (video.readyState > 0) video.currentTime = 0;
+      };
+
+      const renderNotes = () => {
+        notesPanel.replaceChildren();
+        const title = document.createElement("h4");
+        title.textContent = `${cur + 1} / ${slides.length} 발표자 노트`;
+        notesPanel.append(title);
+        const notes = slides[cur].querySelector(".notes");
+        if (notes) notes.querySelectorAll("p").forEach((p) => notesPanel.append(p.cloneNode(true)));
+      };
+
+      const go = (index) => {
+        const next = Math.max(0, Math.min(slides.length - 1, index));
+        if (next === cur && slides[cur].classList.contains("on")) return;
+        slides[cur].classList.remove("on");
+        resetVideo(slides[cur]);
+        cur = next;
+        slides[cur].classList.add("on");
+        history.replaceState(null, "", `#${cur + 1}`);
+        renderNotes();
+      };
+
+      // 영상 장의 첫 '다음'은 재생, 재생을 시작한 뒤의 '다음'은 다음 장
+      const forward = () => {
+        const video = slides[cur].querySelector(".frame.ready video");
+        if (video && video.paused && video.currentTime === 0) {
+          video.play();
+          return;
+        }
+        go(cur + 1);
+      };
+
+      const togglePlay = () => {
+        const video = slides[cur].querySelector(".frame.ready video");
+        if (!video) return;
+        if (video.paused) video.play();
+        else video.pause();
+      };
+
+      const toggleFullscreen = () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      };
+
+      document.addEventListener("keydown", (event) => {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        const key = event.key;
+        if (["ArrowRight", "PageDown", " ", "Enter"].includes(key)) forward();
+        else if (["ArrowLeft", "PageUp", "Backspace"].includes(key)) go(cur - 1);
+        else if (key === "Home") go(0);
+        else if (key === "End") go(slides.length - 1);
+        else if (key === "f" || key === "F") toggleFullscreen();
+        else if (key === "n" || key === "N") notesPanel.classList.toggle("on");
+        else if (key === "p" || key === "P") togglePlay();
+        else return;
+        event.preventDefault();
+      });
+
+      document.addEventListener("click", (event) => {
+        if (notesPanel.contains(event.target)) return;
+        forward();
+      });
+
+      window.addEventListener("resize", fit);
+      fit();
+      const start = parseInt(location.hash.slice(1), 10);
+      cur = Number.isInteger(start) && start >= 1 && start <= slides.length ? start - 1 : 0;
+      slides[cur].classList.add("on");
+      renderNotes();
+    </script>
+  </body>
+</html>
