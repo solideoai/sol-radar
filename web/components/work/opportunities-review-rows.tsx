@@ -25,11 +25,12 @@ export function OpportunityReviewRows({
   return (
     <ul className={cn("divide-y divide-border", className)}>
       {items.map((item) => (
+        // 좁은 폭(640px 미만)에서는 출처를 제목 위 한 줄로 올려 제목 칸 폭을 넓힌다.
         <li
           key={item.id}
-          className="grid grid-cols-[92px_minmax(0,1fr)_112px] items-start gap-3 py-4"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 py-4 sm:grid-cols-[92px_minmax(0,1fr)_112px] sm:gap-3"
         >
-          <div className="flex flex-col items-start gap-1">
+          <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:flex-col sm:items-start sm:gap-1">
             <SourceBadge family={item.sourceFamily} />
             <OpportunitySourcesDialog item={item} listQuery={query} />
           </div>
