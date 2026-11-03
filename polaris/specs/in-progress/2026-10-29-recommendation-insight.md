@@ -146,7 +146,7 @@ PaddleOCR: 회사 컨테이너 `archicm-paddleocr-vl-prod`는 우리 것이 아�
 ## 8. 남은 것
 
 - 발표 뒤: 재학습 CLI·스크립트 구현, 첫 연간 재학습(GPU 승인), NestJS 이전 때 insight 경로 옮기기(ADR-028).
-- 다음 단계: 추천 분석 팝업·3배 상세화. 촬영 전(늦어도 2026-11-04)에 운영에 올린다(ADR-078). 스펙은 `polaris/specs/in-progress/2026-11-03-recommendation-insight-detail.md`다(2026-11-03 사용자 결정).
+- 다음 단계: 추천 분석 팝업·3배 상세화. 촬영 전(늦어도 2026-11-04)에 운영에 올린다(ADR-078). 스펙은 `polaris/specs/done/2026-11-03-recommendation-insight-detail.md`다(2026-11-03 사용자 결정).
 - 실모델 연결 뒤 확인: 회사 vLLM 이 근거 번호 enum guided 스키마를 받는지, 근거 칩·인용 펼침이 실제 앱에서 보이는지(mock 은 refs 가 비어 있다).
 - gateway 검증의 남은 위험(보안 리뷰 뒤 09 보고). 금지어·판정 표현·인젝션 guard 는 목록 기반이라 바꿔 말하면 못 잡는다. 숫자 검사는 한글 수사("십이억")와 단위 변환("12억", 날짜의 12 가 허용 숫자가 됨)을 못 잡는다. 모델 출력 속 URL 은 막지 않는다(화면은 일반 글로만 보인다).
 

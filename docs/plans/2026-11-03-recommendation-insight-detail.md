@@ -18,7 +18,7 @@ updated: 2026-11-03
 
 **구조:** 요청 흐름은 1단계 그대로다. 화면 POST → (Vercel relay) → 회사 redis-api가 PENDING 행·insight job → Analysis Worker가 gateway `POST /insight` → DONE·FAILED. 결과 읽기(GET)는 Vercel이 사용자 세션으로 한다(`web/app/api/v1/bids/[id]/analyses/[runId]/insight/route.ts`). 바뀌는 것은 출력 계약(v0.2), 검사·대체 방식, run·버전별 중복 규칙, 화면이다.
 
-**스펙:** `polaris/specs/in-progress/2026-11-03-recommendation-insight-detail.md`. 디자인은 [[2026-11-03-recommendation-insight-detail-design|디자인 스펙]]. 계획과 스펙이 다르면 스펙을 따른다. 새 패키지는 없다.
+**스펙:** `polaris/specs/done/2026-11-03-recommendation-insight-detail.md`. 디자인은 [[2026-11-03-recommendation-insight-detail-design|디자인 스펙]]. 계획과 스펙이 다르면 스펙을 따른다. 새 패키지는 없다.
 
 ## 사용자 결정(2026-11-03)
 
