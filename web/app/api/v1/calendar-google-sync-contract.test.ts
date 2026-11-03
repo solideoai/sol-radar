@@ -29,6 +29,7 @@ const bidOf = (id: string, deadlineAt: string, opening: string | null = null) =>
   deadlineAt,
   isDemo: true,
   cancelled: false,
+  field: null,
   rawSchedule: { ...EMPTY_SCHEDULE, OPENING: opening },
 });
 // 2026-11: 공고 마감 1건과 원본 개찰 1건, 2026-12: 공고 마감 1건

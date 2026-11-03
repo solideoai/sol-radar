@@ -7,6 +7,7 @@ import {
   RAW_SCHEDULE_KEYS,
   RAW_SITE_PLACE_KEY,
   latestRevisionOf,
+  primaryFieldOf,
   type CalendarBid,
   type CalendarRepo,
   type DeadlineWindow,
@@ -19,11 +20,15 @@ import {
 // 관심·열린 프로젝트는 사람이 하나씩 표시한 것이라 PostgREST 기본 1,000행 안이다.
 // 원본 일정은 raw_payload 를 통째로 받지 않고 필요한 키만 경로(raw_payload->>키)로 고른다. revision 은 공고마다 몇 개뿐이라
 // 다 받아 latest_revision 행만 쓴다(PostgREST 는 임베드를 부모 열과 비교해 거르지 못한다).
+// 공고 분야(칩 색)는 저장하지 않고 목록 뷰와 같은 규칙(primaryFieldOf)으로 여기서 계산한다. 재료는 최신 revision 의
+// 공공조달분류명과 관련성 평가(bid_relevance_assessments, 활동 중 회원 읽기)다. 마이그레이션은 없다.
 
 const RAW_FIELDS = [
   "revision",
   ...Object.entries(RAW_SCHEDULE_KEYS).map(([kind, key]) => `${kind}:raw_payload->>${key}`),
   `sitePlace:raw_payload->>${RAW_SITE_PLACE_KEY}`,
+  "procurementClass:raw_payload->>pubPrcrmntClsfcNm",
+  "relevance:bid_relevance_assessments(categories,created_at,id)",
 ].join(",");
 const REVISIONS = `revisions:bid_revisions!bid_revisions_bid_id_fkey(${RAW_FIELDS})`;
 const BID_FIELDS = `id,title,agency,deadline_at,is_demo,status,latest_revision,${REVISIONS}`;
@@ -39,7 +44,12 @@ const RELEVANT_SELECT =
   REVISIONS;
 const PAGE = 500;
 
-type StoredRevision = { revision: number } & Record<keyof RawSchedule, string | null>;
+type StoredAssessment = { categories: string[]; created_at: string; id: string };
+
+type StoredRevision = { revision: number } & Record<keyof RawSchedule, string | null> & {
+    procurementClass: string | null;
+    relevance: StoredAssessment[];
+  };
 
 type StoredBid = {
   id: string;
@@ -72,15 +82,31 @@ const rawScheduleOf = (revision: StoredRevision | undefined): RawSchedule =>
         sitePlace: revision.sitePlace,
       };
 
-const toBid = (row: StoredBid): CalendarBid => ({
-  id: row.id,
-  title: row.title,
-  agency: row.agency,
-  deadlineAt: row.deadline_at,
-  isDemo: row.is_demo,
-  cancelled: row.status === "CANCELLED",
-  rawSchedule: rawScheduleOf(latestRevisionOf(row.latest_revision, row.revisions)),
-});
+// 한 revision 의 평가는 같은 입력이 아니면 새 행으로 쌓인다. 가장 최근 것(created_at, 같으면 id 내림차순)을 쓴다(목록 뷰와 같다).
+const latestAssessmentOf = (assessments: readonly StoredAssessment[]) =>
+  assessments.toSorted(
+    (a, b) =>
+      Date.parse(b.created_at) - Date.parse(a.created_at) ||
+      (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+  )[0];
+
+function toBid(row: StoredBid): CalendarBid {
+  const latest = latestRevisionOf(row.latest_revision, row.revisions);
+  return {
+    id: row.id,
+    title: row.title,
+    agency: row.agency,
+    deadlineAt: row.deadline_at,
+    isDemo: row.is_demo,
+    cancelled: row.status === "CANCELLED",
+    field: primaryFieldOf({
+      categories: latestAssessmentOf(latest?.relevance ?? [])?.categories ?? [],
+      title: row.title,
+      procurementClass: latest?.procurementClass ?? null,
+    }),
+    rawSchedule: rawScheduleOf(latest),
+  };
+}
 
 /**
  * IT 범위 실공고 가운데 공고 마감이 window 안인 것. 대상 조건은 /gaps 와 같다:

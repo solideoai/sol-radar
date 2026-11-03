@@ -9,6 +9,7 @@ import {
   parseKinds,
   parseMonth,
   parseScheduleTime,
+  primaryFieldOf,
   relevantDeadlineWindow,
   toggleKind,
   upcomingEvents,
@@ -31,6 +32,7 @@ const bid = (
   deadlineAt,
   isDemo: false,
   cancelled: false,
+  field: null,
   rawSchedule: EMPTY_RAW_SCHEDULE,
   ...extra,
 });
@@ -420,5 +422,46 @@ describe("relevantDeadlineWindow — 관련 공고를 읽을 공고 마감 범�
     // 뒤쪽: 격자 끝날(2027-01-03) + 45일 = 2027-02-17 의 마지막 시각까지.
     expect(inside("2027-02-17T23:59:00")).toBe(true);
     expect(inside("2027-02-18T00:00:00")).toBe(false);
+  });
+});
+
+describe("primaryFieldOf — 대표 분야", () => {
+  const of = (categories: string[], title = "공고", procurementClass: string | null = null) =>
+    primaryFieldOf({ categories, title, procurementClass });
+
+  it("여러 분야면 우선순위 첫 분야(AI·AX → 보안 → 클라우드 → 데이터 → 디지털트윈 → SI·SW)", () => {
+    expect(of(["SI_SW", "SECURITY"])).toBe("SECURITY");
+    expect(of(["DATA", "CLOUD", "SI_SW"])).toBe("CLOUD");
+    expect(of(["DIGITAL_TWIN", "SI_SW"])).toBe("DIGITAL_TWIN");
+  });
+
+  it("OTHER·모르는 값은 버린다", () => {
+    expect(of(["OTHER"], "청사 시설 보수")).toBeNull();
+    expect(of(["OTHER", "BIM"], "청사 시설 보수")).toBeNull();
+  });
+
+  it("제목 AI 단어면 AI_AX 를 더한다(SQL it_scope_ai_title 과 같은 식)", () => {
+    expect(of(["SI_SW"], "생성형 AI 민원 상담 구축")).toBe("AI_AX");
+    expect(of(["SI_SW"], "RAG 기반 문서 검색 고도화")).toBe("AI_AX");
+    expect(of(["SI_SW"], "MAIL 서버 교체")).toBe("SI_SW");
+    expect(of(["SI_SW"], "지능형교통시스템 유지관리")).toBe("SI_SW");
+  });
+
+  it("관련성 분야가 없고 공식 IT 분류면 SI_SW, 아니면 분야 없음", () => {
+    expect(of([], "통합 유지관리", "정보시스템유지관리서비스")).toBe("SI_SW");
+    expect(of(["OTHER"], "통합 유지관리", "소프트웨어유지및지원서비스")).toBe("SI_SW");
+    expect(of([], "청사 설계", "건축설계서비스")).toBeNull();
+  });
+
+  it("일정은 공고의 대표 분야를 그대로 싣는다", () => {
+    const [event] = collectCalendarEvents(
+      {
+        watchedBids: [bid("a", "2026-11-10T01:00:00Z", { field: "AI_AX" })],
+        projects: [],
+        relevantBids: [],
+      },
+      { userId: ME, view: "org" },
+    );
+    expect(event?.bid.field).toBe("AI_AX");
   });
 });
