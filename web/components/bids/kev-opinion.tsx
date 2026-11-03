@@ -121,16 +121,12 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
           <p className="type-label text-foreground">
             결정 모델 선택지: {RECOMMENDATION_LABEL[suggested]}
           </p>
+          {/* 의견이 다를 때 "규칙 우선(결정 모델 의견 상이)" 배지는 두지 않고 문장만 보인다(2026-11-03 사용자 결정). */}
           {disagree ? (
-            <>
-              <span className="self-start">
-                <StatusBadge kind="flag" value="MODEL_RULE_DISAGREEMENT" />
-              </span>
-              <p className="type-label text-foreground">
-                결정 모델은 {recommendationWithObject(suggested)} 제시했지만{" "}
-                {withRo(ruleReason ?? "규칙 결과")} 규칙 판정이 우선합니다
-              </p>
-            </>
+            <p className="type-label text-foreground">
+              결정 모델은 {recommendationWithObject(suggested)} 제시했지만{" "}
+              {withRo(ruleReason ?? "규칙 결과")} 규칙 판정이 우선합니다
+            </p>
           ) : (
             recommendation !== null && (
               <p className="type-label text-muted-foreground">규칙 권고와 같음</p>

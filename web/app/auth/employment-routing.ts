@@ -1,4 +1,5 @@
 import "server-only";
+import { isKakaoInAppBrowser } from "@/app/auth/in-app-browser";
 import { safeNextPath } from "@/server/auth";
 import { getMyProfile } from "@/server/profile";
 
@@ -23,6 +24,15 @@ export function loginPath(next?: string | null): string {
   return path === "/auth/login" || path === "/dashboard"
     ? "/auth/login"
     : `/auth/login?next=${encodeURIComponent(path)}`;
+}
+// 로그인이 없을 때 업무 화면이 보낼 곳. 카카오톡 안 창이면 로그인 화면 대신 기본 브라우저로 넘기는 안내 화면이다.
+// 브라우저에 남은 로그인으로 그 화면을 바로 열게 한다(카톡 [분석 보기]). 사이트 밖 주소는 넘기지 않는다.
+export function signInPath(next: string | null | undefined, userAgent: string | null): string {
+  if (!next || !isKakaoInAppBrowser(userAgent)) return loginPath(next);
+  const path = safeEmploymentNext(next);
+  return path === "/auth/login"
+    ? "/auth/login"
+    : `/auth/open-in-browser?next=${encodeURIComponent(path)}`;
 }
 export function completionPath(next?: string): string {
   const path = safeEmploymentNext(next);

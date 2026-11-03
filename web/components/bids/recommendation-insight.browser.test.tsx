@@ -2,7 +2,12 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { INSIGHT_DONE_HOLD_MS } from "@/components/bids/insight-progress";
+import {
+  INSIGHT_DONE_HOLD_MS,
+  INSIGHT_EXPECTED_MS,
+  INSIGHT_FILL_MAX_MS,
+  insightFillMs,
+} from "@/components/bids/insight-progress";
 import {
   INSIGHT_BID_ID as BID_ID,
   INSIGHT_BID_TITLE as BID_TITLE,
@@ -36,7 +41,7 @@ vi.mock("sonner", () => ({ toast: spies.toast }));
 const FORBIDDEN = /승률|확률|가능성|수주 금액|점유율|경쟁사|%/;
 const RUN_ID = DONE_V2.scoreRunId;
 const INSIGHT_URL = `/api/v1/bids/${BID_ID}/analyses/${RUN_ID}/insight`;
-// 묻기 간격(setTimeout)·진행률 1초 갱신(setInterval)·경과(Date)를 함께 멈춘다.
+// 묻기 간격(setTimeout)·진행률 0.1초 갱신(setInterval)·경과(Date)를 함께 멈춘다.
 const startFakeClock = () =>
   vi.useFakeTimers({
     toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
@@ -99,6 +104,8 @@ const renderPanel = (props: Partial<PanelProps> = {}) => {
 const panel = () => page.getByRole("region", { name: "추천 분석", exact: true });
 const dialog = () => page.getByRole("dialog", { name: "추천 분석" });
 const progress = () => dialog().getByRole("progressbar", { name: "추천 분석 진행률" });
+const shownValue = () =>
+  Number(dialogElement()?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow"));
 const dialogElement = () => document.querySelector<HTMLElement>('[role="dialog"]');
 const openWith = async (name: string) => {
   await userEvent.click(panel().getByRole("button", { name, exact: true }));
@@ -135,7 +142,7 @@ afterEach(() => {
 });
 
 describe("추천 분석 요청과 진행률", () => {
-  it("[추천 분석] 을 누르면 팝업이 열리고 0% 에서 오르다가, DONE 이면 100% 를 보인 뒤 내용을 그린다", async () => {
+  it("[추천 분석] 을 누르면 팝업이 열리고 0% 에서 예상 시간(10초) 동안 고르게 오르다가, DONE 이면 100% 를 보인 뒤 내용을 그린다", async () => {
     startFakeClock();
     const clickedAt = Date.now();
     renderPanel();
@@ -156,16 +163,19 @@ describe("추천 분석 요청과 진행률", () => {
     calls[1]?.resolve(readBody(pendingAt(clickedAt)));
     // PENDING 이면 다음 간격에 다시 읽는다. 그 읽기는 응답을 주지 않고 기다리게 둔다.
     await advanceUntilCalls(3);
-    // T(3분)의 절반이 지나면 50%. 1초마다 다시 세므로 1초 여유를 둔다(floor(100 × 91초 / 180초) = 50).
-    await vi.advanceTimersByTimeAsync(clickedAt + POLL_LIMIT_MS / 2 + 1_000 - Date.now());
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "50");
-    await expect.element(dialog().getByText("50%", { exact: true })).toBeVisible();
-    // DONE 이 없으면 T 를 넘겨도 99% 에서 멈춘다.
+    // 예상 시간 10초의 절반이면 45%, 10초면 90%(1초에 9씩). 0.1초마다 다시 센다.
+    await vi.advanceTimersByTimeAsync(clickedAt + INSIGHT_EXPECTED_MS / 2 + 50 - Date.now());
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "45");
+    await expect.element(dialog().getByText("45%", { exact: true })).toBeVisible();
+    await vi.advanceTimersByTimeAsync(clickedAt + INSIGHT_EXPECTED_MS + 50 - Date.now());
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "90");
+    // DONE 이 없으면 대기 상한(3분)까지 천천히 올라 99% 에서 멈춘다.
     await vi.advanceTimersByTimeAsync(POLL_LIMIT_MS);
     await expect.element(progress()).toHaveAttribute("aria-valuenow", "99");
     expect(calls).toHaveLength(3);
 
     calls[2]?.resolve(readBody(DONE_V2));
+    await vi.advanceTimersByTimeAsync(insightFillMs(99) + 50);
     await expect.element(progress()).toHaveAttribute("aria-valuenow", "100");
     await expect.element(dialog().getByText("100%", { exact: true })).toBeVisible();
     await vi.advanceTimersByTimeAsync(INSIGHT_DONE_HOLD_MS);
@@ -174,6 +184,30 @@ describe("추천 분석 요청과 진행률", () => {
       .toBeVisible();
     await expect.element(progress()).not.toBeInTheDocument();
     expect(dialogElement()?.textContent).not.toMatch(FORBIDDEN);
+  });
+
+  it("예상보다 일찍 DONE 이 오면 그때 값에서 100% 까지 이어 채운다(한 번에 건너뛰지 않는다)", async () => {
+    startFakeClock();
+    const clickedAt = Date.now();
+    renderPanel();
+    await openWith("추천 분석");
+    await waitCalls(1);
+    calls[0]?.resolve(accepted("PENDING"));
+    await advanceUntilCalls(2);
+    calls[1]?.resolve(readBody(pendingAt(clickedAt)));
+    await advanceUntilCalls(3);
+    await vi.advanceTimersByTimeAsync(clickedAt + INSIGHT_EXPECTED_MS / 2 + 50 - Date.now());
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "45");
+
+    calls[2]?.resolve(readBody(DONE_V2));
+    // 45 에서 100 까지 0.8초에 고르게 채운다. 절반쯤이면 그 사이 값이다.
+    await vi.advanceTimersByTimeAsync(INSIGHT_FILL_MAX_MS / 2);
+    expect(shownValue()).toBeGreaterThan(60);
+    expect(shownValue()).toBeLessThan(85);
+    await vi.advanceTimersByTimeAsync(INSIGHT_FILL_MAX_MS / 2);
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "100");
+    await vi.advanceTimersByTimeAsync(INSIGHT_DONE_HOLD_MS);
+    await expect.element(dialog().getByText(PAYLOAD.summary)).toBeVisible();
   });
 
   it("POST 가 403 이면 toast 로 알리고, 팝업을 닫으면 [추천 분석] 으로 돌아간다", async () => {
@@ -232,6 +266,7 @@ describe("추천 분석 요청과 진행률", () => {
     await expect.element(progress()).toHaveAttribute("aria-valuenow", "99");
     expect(noticeText()).toBe("");
     calls[2]?.resolve(readBody(DONE_V2));
+    await vi.advanceTimersByTimeAsync(insightFillMs(99) + 50);
     await expect.element(progress()).toHaveAttribute("aria-valuenow", "100");
     await vi.advanceTimersByTimeAsync(INSIGHT_DONE_HOLD_MS);
     await expect.element(dialog().getByText(PAYLOAD.summary)).toBeVisible();
@@ -248,9 +283,8 @@ describe("추천 분석 요청과 진행률", () => {
     // 기기 시계가 서버보다 200초 빠르다.
     calls[1]?.resolve(readBody(pendingAt(clickedAt - 200_000)));
     await advanceUntilCalls(3);
-    expect(
-      Number(dialogElement()?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")),
-    ).toBeLessThan(10);
+    // 누른 때부터 약 4초라 36% 안팎이다. 서버 createdAt(204초 전)부터 셌다면 99% 와 늦음 안내가 나왔다.
+    expect(shownValue()).toBeLessThan(50);
     expect(noticeText()).toBe("");
   });
 
@@ -267,20 +301,21 @@ describe("추천 분석 요청과 진행률", () => {
     );
     await advanceUntilCalls(2);
     calls[1]?.resolve(readBody(pendingAt(Date.now() - 60_000)));
-    // floor(100 × 60초 / 180초) = 33
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "33");
+    // 60초는 예상 시간(10초)을 지났다: floor(90 + 9 × 50초 / 170초) = 92
+    await vi.advanceTimersByTimeAsync(100);
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "92");
   });
 
-  it("createdAt 이 1분 전인 PENDING 으로 열면 0% 가 아니라 1분만큼 진행된 값에서 시작한다", async () => {
+  it("createdAt 이 5초 전인 PENDING 으로 열면 0% 가 아니라 5초만큼 진행된 값에서 시작해 이어 오른다", async () => {
     startFakeClock();
-    renderPanel({ initialInsight: pendingAt(Date.now() - 60_000) });
+    renderPanel({ initialInsight: pendingAt(Date.now() - 5_000) });
     await openWith("추천 분석 보기");
-    // floor(100 × 60초 / 180초) = 33
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "33");
+    // floor(90 × 5초 / 10초) = 45
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "45");
     await vi.advanceTimersByTimeAsync(1_000);
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "33");
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "54");
     await vi.advanceTimersByTimeAsync(2_000);
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "35");
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "72");
   });
 });
 
@@ -588,7 +623,8 @@ describe("고지와 금지어", () => {
     const host = renderPanel({ initialInsight: pendingAt(Date.now() - 75_000) });
     expect(host.textContent).not.toMatch(FORBIDDEN);
     await openWith("추천 분석 보기");
-    await expect.element(progress()).toHaveAttribute("aria-valuenow", "41");
+    // 75초 전 요청: floor(90 + 9 × 65초 / 170초) = 93
+    await expect.element(progress()).toHaveAttribute("aria-valuenow", "93");
     await expect.element(dialog().getByText(INSIGHT_NOTICE)).toBeVisible();
     const element = dialogElement()!;
     expect(textOutsideProgress(element)).not.toMatch(FORBIDDEN);
