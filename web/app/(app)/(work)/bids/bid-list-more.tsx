@@ -18,11 +18,8 @@ export function BidListMore({
   startTransition,
   basePath = "/bids",
   watchedIds,
-  note,
 }: {
   basePath?: "/bids" | "/watchlist";
-  /** 건수 줄 오른쪽의 보조 안내(예: DEMO · 예시 공고 기준). 따로 한 줄을 차지하지 않게 같은 줄에 둔다 */
-  note?: React.ReactNode;
   watchedIds?: string[] | null;
   initialItems: OpportunityItem[];
   initialNextCursor: string | null;
@@ -63,7 +60,6 @@ export function BidListMore({
             ? "검색 조건에 맞는 공고를 불러오는 중…"
             : `${basePath === "/watchlist" ? "사업기회" : "IT 공고"} ${total.toLocaleString("ko-KR")}건 · 현재 ${items.length.toLocaleString("ko-KR")}건 표시`}
         </p>
-        {note}
       </div>
       {items.length === 0 ? (
         empty

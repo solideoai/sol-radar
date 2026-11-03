@@ -1,6 +1,5 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -12,6 +11,8 @@ import {
 import { PersonAvatar } from "./person-avatar";
 import type { Department, JobTitle, TeamMemberListItem } from "@/server/people";
 export type SelectPerson = (person: TeamMemberListItem, trigger: HTMLElement) => void;
+// "점수 계산 대상" 열은 두지 않는다(명부 대부분이 같은 값이라 열이 정보를 주지 않았다, 2026-11-03 사용자 지시, ADR-081).
+// 대상 여부는 거르기(people-filters)와 인물 서랍이 보인다.
 export function PeopleTable({
   members,
   departments,
@@ -32,17 +33,14 @@ export function PeopleTable({
     <Table className="min-w-140 table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead scope="col" className="w-1/4">
+          <TableHead scope="col" className="w-[30%]">
             사진+이름
           </TableHead>
-          <TableHead scope="col" className="w-[35%]">
+          <TableHead scope="col" className="w-[45%]">
             부서
           </TableHead>
-          <TableHead scope="col" className="w-1/5">
+          <TableHead scope="col" className="w-1/4">
             직급·직책
-          </TableHead>
-          <TableHead scope="col" className="w-1/5 whitespace-normal">
-            점수 계산 대상
           </TableHead>
           {renderActions ? (
             <TableHead scope="col" className="w-14">
@@ -85,9 +83,6 @@ export function PeopleTable({
             </TableCell>
             <TableCell className="whitespace-normal wrap-anywhere">
               {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
-            </TableCell>
-            <TableCell className="whitespace-normal">
-              <Chip size="sm">{person.scoringEligible ? "점수 계산 대상" : "비대상"}</Chip>
             </TableCell>
             {renderActions ? <TableCell>{renderActions(person)}</TableCell> : null}
           </TableRow>

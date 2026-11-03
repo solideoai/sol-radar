@@ -58,7 +58,8 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, 보류 결정과 이
     await expect(
       page.getByRole("heading", { name: "우선 검토할 입찰", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "수집 소스 상태", exact: true })).toBeVisible();
+    // 출처별 서비스 상태는 수집 관리 역할(ADMIN)에게만 보인다(ADR-081). 영업 계정에는 없다.
+    await expect(page.getByRole("heading", { name: "수집 소스 상태", exact: true })).toHaveCount(0);
     const summary = page.getByRole("region", { name: "공공조달 요약" });
     for (const label of [
       "신규 발견",

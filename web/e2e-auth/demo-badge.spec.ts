@@ -28,7 +28,7 @@ test("G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초�
 
   const rows = page.getByRole("table", { name: /입찰 공고 사업기회 목록/ }).locator("tbody tr");
   await expect(rows).toHaveCount(19);
-  // 현재 사업기회 표는 관심·출처 열을 앞에 두고 DEMO는 제목 셀에 표시한다.
+  // 사업기회 표의 DEMO 는 행마다 한 번이다. 출처가 없는 데모 공고는 출처 칸, 출처가 있으면 제목 칸에 둔다(ADR-081).
   for (const row of await rows.all())
     await expect(row.getByText("DEMO", { exact: true })).toBeVisible();
 

@@ -809,6 +809,8 @@ function AnalysisResult({
   insight: InsightPanelInput | null;
 }) {
   const openWith = useEvidenceStore((store) => store.openWith);
+  // 이 결과는 진행 중이 아닐 때 최신 run 으로만 그려져, 분석 요약 띠와 같은 조건으로 mock 을 이미 밝혔는지 안다.
+  const mockShownAbove = analysis.model.provider === "mock";
   const assessments = analysis.requirementAssessments.map((assessment) => ({
     assessment,
     label: assessmentLabels[assessment.itemId] ?? assessment.itemId,
@@ -840,6 +842,7 @@ function AnalysisResult({
           ruleReason={ruleReasonOf(analysis)}
           notRecorded={kevRecordMissing(analysis)}
           assessments={assessments}
+          mockShownAbove={mockShownAbove}
         />
       </Section>
       {/* 추천 분석은 점수 run(COMPLETED·PARTIAL)에만 붙는다. run 이 바뀌면 key 로 새로 그려 옛 run 의 설명을 버린다. */}
@@ -862,6 +865,7 @@ function AnalysisResult({
             initialPrevious={insight.previous?.scoreRunId === analysis.id ? insight.previous : null}
             pollLimitMs={insight.pollLimitMs}
             currentPromptVersion={insight.currentPromptVersion}
+            mockShownAbove={mockShownAbove}
           />
         </Section>
       )}

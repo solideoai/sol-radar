@@ -10,8 +10,8 @@ import { StatusBadge } from "@/components/bids/status-badge";
 import type { EvidenceContext } from "@/components/bids/evidence-store";
 import type { ReviewFlag, ScoreFactorView } from "@/server/bids";
 
-// SOL Score 분해(§5.4.5). 요소 5행은 점수표 순서로 고정이고 합계는 받은 points 의 합이다.
-// 점수 계산 버전·프로필 버전은 화면에 두지 않는다(2026-11-03 사용자 지시). 분석 기록(score_runs)에 남는다.
+// SOL Score 분해(§5.4.5). 요소 5행은 점수표 순서로 고정이다.
+// 점수 계산 버전·프로필 버전과 "합계 … (반올림)" 줄은 화면에 두지 않는다(2026-11-03 사용자 지시, ADR-080·081). 점수는 결정 패널이 보인다.
 type ScoreFactorsProps = {
   factors: ScoreFactorView[];
   reviewFlags: ReviewFlag[];
@@ -22,6 +22,11 @@ type ScoreFactorsProps = {
 
 // 설명이 이 길이를 넘으면 4줄로 접고 펼치기를 둔다.
 const EXPLANATION_FOLD_LENGTH = 100;
+
+// 저장된 설명(server/scoring/explanation.ts)의 끝 문장. 결정 패널 고지와 같은 말이라 화면에서만 빼고 읽는다(ADR-081). 저장 값은 그대로다.
+const CLOSING_SENTENCE = "최종 참여 결정은 사람이 합니다.";
+const readableExplanation = (text: string): string =>
+  text.endsWith(CLOSING_SENTENCE) ? text.slice(0, -CLOSING_SENTENCE.length).trimEnd() : text;
 
 function FactorRow({
   factor,
@@ -96,8 +101,8 @@ function ScoreFactors({
   const explanationId = useId();
   const [expanded, setExpanded] = useState(false);
   const rows = FACTOR_ORDER.flatMap((key) => factors.filter((f) => f.factor === key));
-  const sum = rows.reduce((total, f) => total + f.points, 0);
-  const foldable = explanation !== null && explanation.length > EXPLANATION_FOLD_LENGTH;
+  const shownExplanation = explanation === null ? null : readableExplanation(explanation);
+  const foldable = shownExplanation !== null && shownExplanation.length > EXPLANATION_FOLD_LENGTH;
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-2">
@@ -115,13 +120,13 @@ function ScoreFactors({
           필수자격 미충족으로 권고에 쓰지 않은 점수입니다
         </p>
       )}
-      {explanation !== null && (
+      {shownExplanation !== null && (
         <div className="flex flex-col items-start gap-1">
           <p
             id={explanationId}
             className={`type-body text-foreground ${foldable && !expanded ? "line-clamp-4" : ""}`}
           >
-            {explanation}
+            {shownExplanation}
           </p>
           {foldable && (
             <Button
@@ -150,11 +155,6 @@ function ScoreFactors({
           />
         ))}
       </ul>
-      <p className="type-caption text-muted-foreground">
-        <span className="tabular-nums">
-          합계 {formatPoints(sum)} → SOL Score {Math.round(sum)} (반올림)
-        </span>
-      </p>
     </section>
   );
 }

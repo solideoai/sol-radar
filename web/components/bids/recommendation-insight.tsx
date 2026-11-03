@@ -25,7 +25,8 @@ import type { InsightView } from "@/server/insight";
 
 // 공고 상세의 "추천 분석" 구역(ADR-066·078, 스펙 2026-11-03-recommendation-insight-detail §3·4.7). 결정 모델 참고 지표 다음 구역이다.
 // 구역은 상태·판단 이유 첫 문장·버튼만 보인다. 버튼을 누르면 팝업이 열리고, 결과가 없으면 그 자리에서 요청해 진행률 뒤 내용을 채운다.
-// 판정(점수·권고)은 규칙 엔진 그대로이고 Qwen 은 이유·해설만 정리한다. 고지 문장은 어느 상태에서나 보인다.
+// 판정(점수·권고)은 규칙 엔진 그대로이고 Qwen 은 이유·해설만 정리한다. 고지 문장(INSIGHT_NOTICE)은 팝업 머리에만 둔다.
+// 구역에서는 결정 패널의 "최종 참여 결정은 사람이 합니다"와 겹쳐 지웠다(2026-11-03 사용자 지시, ADR-081).
 // 요청·묻기 상태와 진행률은 여기서 갖는다. 팝업을 닫아도 분석은 이어지고 다시 열면 같은 숫자에서 이어진다.
 // 분석 run 이 바뀌면 부르는 쪽이 key 를 바꿔 새로 그린다(옛 run 의 설명을 새 run 에 붙이지 않는다).
 
@@ -53,6 +54,8 @@ type RecommendationInsightProps = {
   pollLimitMs: number;
   /** 지금 출력 형식 버전(INSIGHT_PROMPT_VERSION). 다르면 옛 형식으로 그린다. 서버 화면이 넘긴다. */
   currentPromptVersion: string;
+  /** 공고 상세의 분석 요약 띠가 "Mock 응답(데모 데이터)"를 이미 보이는지. 그러면 구역 상태 줄에서 되풀이하지 않는다(팝업은 그대로 밝힌다). */
+  mockShownAbove?: boolean;
 };
 
 /** 판단 이유 첫 문장. 뒤가 공백이거나 글 끝인 "." 까지다("3.5" 같은 숫자는 자르지 않는다). 없으면 전체. */
@@ -77,6 +80,7 @@ function sectionStateOf(
   previous: InsightView | null,
   stage: InsightStage,
   canRequest: boolean,
+  mockShownAbove: boolean,
 ): SectionState {
   if (stage === "waiting") {
     return {
@@ -116,7 +120,7 @@ function sectionStateOf(
     };
   }
   return {
-    status: authorshipText(insight),
+    status: authorshipText(insight, mockShownAbove),
     spinning: false,
     sentence: firstSentence(insight.payload.summary),
     button: VIEW_BUTTON,
@@ -133,6 +137,7 @@ function RecommendationInsight({
   initialPrevious,
   pollLimitMs,
   currentPromptVersion,
+  mockShownAbove = false,
 }: RecommendationInsightProps) {
   const headingId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -218,7 +223,7 @@ function RecommendationInsight({
     request();
   };
 
-  const section = sectionStateOf(insight, previous, stage, canRequest);
+  const section = sectionStateOf(insight, previous, stage, canRequest, mockShownAbove);
   const shownProgress = stage === "finishing" ? fillValue : stage === "delayed" ? 99 : progress;
   useEffect(() => {
     shownRef.current = shownProgress;
@@ -233,7 +238,6 @@ function RecommendationInsight({
       <h2 id={headingId} className="type-heading text-foreground">
         추천 분석
       </h2>
-      <p className="type-caption text-muted-foreground">{INSIGHT_NOTICE}</p>
       <p role="status" className="mt-3 flex items-center gap-2 type-label text-muted-foreground">
         {section.spinning && (
           <LoaderCircleIcon

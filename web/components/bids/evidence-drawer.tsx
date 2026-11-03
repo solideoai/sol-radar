@@ -180,7 +180,7 @@ function EvidenceList({
       <h2 id="evidence-list-title" className="font-heading type-heading text-foreground">
         근거 인용
         <span className="ml-2 type-label font-normal text-muted-foreground">
-          ({evidence.length}건 · 원문 대조 검증 통과)
+          ({evidence.length}건)
         </span>
       </h2>
       <ul className="divide-y divide-border">

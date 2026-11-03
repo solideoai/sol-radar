@@ -320,10 +320,11 @@ describe("추천 분석 요청과 진행률", () => {
 });
 
 describe("상세 화면 구역", () => {
-  it("상태·판단 이유 첫 문장·[추천 분석 보기] 만 보이고 목록·칩은 두지 않는다", async () => {
+  it("상태·판단 이유 첫 문장·[추천 분석 보기] 만 보이고 목록·칩·고지 문장은 두지 않는다", async () => {
     const host = renderPanel({ initialInsight: DONE_V2 });
     await expect.element(panel().getByRole("heading", { name: "추천 분석" })).toBeVisible();
-    await expect.element(panel().getByText(INSIGHT_NOTICE)).toBeVisible();
+    // 고지 문장은 팝업 머리에만 둔다. 구역에서는 결정 패널 고지와 겹쳐 지웠다(ADR-081).
+    expect(host.textContent).not.toContain(INSIGHT_NOTICE);
     await expect.element(panel().getByText(/작성$/)).toBeVisible();
     await expect.element(panel().getByText(FIRST_SENTENCE, { exact: true })).toBeVisible();
     expect(host.textContent).not.toContain(PAYLOAD.summary.slice(FIRST_SENTENCE.length + 1));
@@ -542,6 +543,17 @@ describe("팝업 내용", () => {
     expect(dialogElement()?.textContent).not.toMatch(/mock|생성 정보/);
   });
 
+  it("공고 상세 위쪽이 이미 Mock 응답을 밝혔으면(mockShownAbove) 구역은 되풀이하지 않고 팝업은 그대로 밝힌다", async () => {
+    const host = renderPanel({
+      initialInsight: { ...DONE_V2, modelName: "mock" },
+      mockShownAbove: true,
+    });
+    await expect.element(panel().getByText(/작성$/)).toBeVisible();
+    expect(host.textContent).not.toContain("Mock 응답");
+    await openWith("추천 분석 보기");
+    await expect.element(dialog().getByText(/Mock 응답\(데모 데이터\) · /)).toBeVisible();
+  });
+
   it("DONE·TEMPLATE 이면 대체 안내와 [다시 요청] 이 있고, 누르면 다시 POST 한다", async () => {
     renderPanel({ initialInsight: DONE_TEMPLATE });
     await openWith("추천 분석 보기");
@@ -650,7 +662,7 @@ describe("고지와 금지어", () => {
     }
   };
 
-  it("결과 상태에서는 구역·팝업 어디에도 금지어(% 포함)가 없고 고지가 보인다", async () => {
+  it("결과 상태에서는 구역·팝업 어디에도 금지어(% 포함)가 없고 고지는 팝업에 보인다", async () => {
     const cases: Partial<PanelProps>[] = [
       { initialInsight: null },
       { initialInsight: null, canRequest: false },
@@ -662,7 +674,8 @@ describe("고지와 금지어", () => {
     ];
     for (const props of cases) {
       const host = renderPanel(props);
-      await expect.element(panel().getByText(INSIGHT_NOTICE)).toBeVisible();
+      await expect.element(panel().getByRole("heading", { name: "추천 분석" })).toBeVisible();
+      expect(host.textContent).not.toContain(INSIGHT_NOTICE);
       expect(host.textContent).not.toMatch(FORBIDDEN);
       const viewButton = host.querySelector("button");
       if (viewButton?.textContent === "추천 분석 보기") {

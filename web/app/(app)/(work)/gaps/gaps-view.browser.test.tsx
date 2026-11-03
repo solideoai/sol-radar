@@ -58,11 +58,10 @@ const COPY: GapsCopy = {
     OUT_OF_DICTIONARY: "자격 코드 사전 밖",
   },
   scopeNotice:
-    "공고 API 의 구조화 필드(면허제한·참가가능지역)만으로 1차 선별했습니다. 첨부(제안요청서)의 자격 요건은 반영하지 않았습니다.",
+    "공고에 적힌 면허 제한·참가 가능 지역만으로 먼저 골랐습니다. 제안요청서 첨부의 자격 요건은 반영하지 않았습니다.",
   budgetNotice: BUDGET_NOTICE,
   assumptionNotice: ASSUMPTION_NOTICE,
-  sourceNotice:
-    "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터 미포함 · 발주계획·사전규격 미포함",
+  sourceNotice: "나라장터 입찰공고 기준 · 낙찰·계약·발주계획·사전규격 미포함",
   dictionaryNames: {
     SW_BUSINESS_REG: "소프트웨어사업자 신고확인서",
     DEFENSE_CONTRACTOR: "방산업체 지정",

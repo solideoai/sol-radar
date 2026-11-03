@@ -2,7 +2,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import { BID_LIST, FX01_VIEW } from "@/components/bids/test-data";
+import { BID_LIST, FX01_VIEW, FX02_VIEW } from "@/components/bids/test-data";
 import { BidDetailView, type DetailBid } from "./bid-detail-view";
 
 // 10-25 실수집 계획 B2: 공고 상세가 출처를 말하는 방식. 근거는 저장된 is_demo·source·source_url 뿐이다.
@@ -185,5 +185,56 @@ describe("분석 요약 띠의 기술 정보", () => {
     expect(host.textContent).not.toMatch(
       /분석 상세 정보|실행 모드|AI: |알고리즘|sol-v\d|프로필 rev|질문 세트|공급자|kev-qs|Qwen/,
     );
+  });
+});
+
+// 2026-11-03 사용자 지시(ADR-081): 같은 고지를 구역마다 되풀이하지 않고, 결정 모델 내부 숫자·자리 표시는 보이지 않는다.
+describe("공고 상세의 고지와 내부 숫자", () => {
+  const occurrences = (text: string | null, pattern: RegExp) => (text?.match(pattern) ?? []).length;
+
+  it("고지는 구역마다 한 번이고 신호 값·기준값·적합도·판정 근거 이름·합계 줄·자리 표시가 없다", async () => {
+    const host = render(
+      detail({
+        latestAnalysis: {
+          ...FX01_VIEW,
+          explanation: `${FX01_VIEW.explanation} 최종 참여 결정은 사람이 합니다.`,
+        },
+      }),
+    );
+    const kev = page.getByRole("region", { name: "결정 모델 참고 지표", exact: true });
+    await expect
+      .element(kev.getByText("모델 선택지 신뢰 분포 (충족·수주 확률 아님)", { exact: true }))
+      .toBeVisible();
+    await expect.element(kev.getByText("규칙 권고와 같음", { exact: true })).toBeVisible();
+    expect(host.textContent).not.toMatch(
+      /기준 0\.70|0\.05|0\.12|적합도 의견|담당자가 기록|결정 모델 확률은|충족 확률·낙찰 확률이 아니며|규칙 \+ 결정 모델 참고|반올림|원문 대조/,
+    );
+    // mock 고지는 분석 요약 띠 한 곳, "사람이 합니다"는 결정 패널 고지 한 곳이다(점수 설명의 끝 문장은 화면에서 뺀다).
+    expect(occurrences(host.textContent, /Mock 응답\(데모 데이터\)/g)).toBe(1);
+    expect(occurrences(host.textContent, /최종 참여 결정은 사람이 합니다/g)).toBe(1);
+    expect(
+      page.getByRole("list", { name: "단계 이력", exact: true }).element().textContent,
+    ).not.toContain("—");
+  });
+
+  it("신호가 기준 이상이면 숫자 없이 문장 한 줄만 보인다", async () => {
+    const host = render(detail({ latestAnalysis: FX02_VIEW }));
+    const kev = page.getByRole("region", { name: "결정 모델 참고 지표", exact: true });
+    await expect
+      .element(kev.getByText("사람 검토가 필요하다는 신호가 기준 이상입니다", { exact: true }))
+      .toBeVisible();
+    expect(host.textContent).not.toContain("필수자격 위험 신호가 기준 이상입니다");
+    expect(host.textContent).not.toMatch(/0\.74|기준 0\.70/);
+  });
+
+  it("분석 요약 띠가 mock 을 밝히지 않는 run 이면 결정 모델 칸이 직접 Mock 응답을 밝힌다", async () => {
+    const host = render(
+      detail({
+        latestAnalysis: { ...FX01_VIEW, model: { ...FX01_VIEW.model, provider: "local" } },
+      }),
+    );
+    const kev = page.getByRole("region", { name: "결정 모델 참고 지표", exact: true });
+    await expect.element(kev.getByText("Mock 응답(데모 데이터)", { exact: true })).toBeVisible();
+    expect(occurrences(host.textContent, /Mock 응답\(데모 데이터\)/g)).toBe(1);
   });
 });

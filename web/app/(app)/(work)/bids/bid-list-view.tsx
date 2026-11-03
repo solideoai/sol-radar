@@ -76,11 +76,6 @@ export function BidListView({
       {notice && <p className="type-label text-warning">{notice}</p>}
       <BidListMore
         key={`${basePath}:${query}`}
-        note={
-          new URLSearchParams(query).get("origin") === "demo" ? (
-            <p className="type-caption text-muted-foreground">DEMO · 예시 공고 기준</p>
-          ) : undefined
-        }
         basePath={basePath}
         watchedIds={watchedIds}
         initialItems={items}

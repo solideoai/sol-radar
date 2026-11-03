@@ -438,8 +438,9 @@ function figuresOf(overview: MarketOverview, reference: MarketReference): Figure
       value: count(totals.notices),
       hint: (
         <>
-          {weekLabel(overview.periodStartDate)} 이후 게시 · 취소 {count(totals.cancelledNotices)}건
-          제외
+          {weekLabel(overview.periodStartDate)} 이후 게시
+          {/* 빼낸 건수는 있을 때만 적는다("취소 0건 제외"는 두지 않는다, ADR-081). */}
+          {totals.cancelledNotices > 0 && ` · 취소 ${count(totals.cancelledNotices)}건 제외`}
           <br />
           IT 공고만
         </>
@@ -449,7 +450,10 @@ function figuresOf(overview: MarketOverview, reference: MarketReference): Figure
       label: "배정 예산 합",
       value: budget.text,
       title: budget.full,
-      hint: `예산 미확인 ${count(totals.unknownBudgetCount)}건 제외`,
+      hint:
+        totals.unknownBudgetCount > 0
+          ? `예산 미확인 ${count(totals.unknownBudgetCount)}건 제외`
+          : "",
     },
     {
       label: "마감 전 공고",

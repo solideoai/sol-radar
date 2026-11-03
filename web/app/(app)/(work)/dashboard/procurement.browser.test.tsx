@@ -244,6 +244,28 @@ describe("공공조달 업무 화면", () => {
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(360);
   });
 
+  it("출처가 없는 데모 공고는 출처 칸에 DEMO 를 한 번 보이고 '미확인'은 두지 않는다", async () => {
+    // 2026-11-03 사용자 지시(ADR-081): 데모 행의 "미확인" 출처 칸과 제목 칸 DEMO 가 겹쳤다.
+    await page.viewport(1440, 900);
+    const host = render(
+      <AppPage title="입찰 공고" contentClassName="max-w-360">
+        <OpportunityTable
+          items={[{ ...BID, id: "00000000-0000-4000-8000-000000000009", sourceFamily: null }, BID]}
+          now={NOW}
+        />
+      </AppPage>,
+    );
+    await expect.element(page.getByRole("table")).toBeVisible();
+    const [missing, known] = host.querySelectorAll("tbody tr");
+    if (!missing || !known) throw new Error("행이 없습니다");
+    expect(missing.querySelectorAll("td")[0]?.textContent).toContain("DEMO");
+    expect(missing.textContent?.match(/DEMO(?!-)/g)).toHaveLength(1);
+    expect(missing.textContent).not.toContain("미확인");
+    // 출처가 있는 데모 공고는 출처 배지를 그대로 두고 DEMO 는 제목 칸에 한 번이다.
+    expect(known.querySelector('[data-slot="source-badge"]')?.textContent).toBe("LH");
+    expect(known.textContent?.match(/DEMO(?!-)/g)).toHaveLength(1);
+  });
+
   it("1280px에서 11열은 표 안에서만 이동하고 LH 배지·0점·early 권고를 정확히 표시한다", async () => {
     await page.viewport(1280, 900);
     const host = render(
@@ -362,10 +384,10 @@ describe("공공조달 업무 화면", () => {
     };
     const figures: [string, string, string][] = [
       ["신규 발견", "1", "최근 24시간 · 입찰공고"],
-      ["마감 임박 (7일)", "1", "정확한 마감 확인 · 진행 중"],
-      ["분석 대기", "0", "현재 입력의 분석 결과 없음"],
-      ["추천 권고", "0", "현재 유효 분석 · 진행 중"],
-      ["진행 중 입찰 프로젝트", "0", "종료 제외 · 프로젝트 보기"],
+      ["마감 임박 (7일)", "1", "진행 중인 입찰공고"],
+      ["분석 대기", "0", "아직 분석하지 않은 공고"],
+      ["추천 권고", "0", "진행 중인 입찰공고"],
+      ["진행 중 입찰 프로젝트", "0", "프로젝트 보기"],
     ];
     for (const [label] of figures)
       await expect.element(strip.getByText(label, { exact: true })).toBeVisible();
@@ -381,9 +403,9 @@ describe("공공조달 업무 화면", () => {
       expect(getComputedStyle(valueCell).fontSize).toBe("33px");
     }
     expect(sameRow()).toBeLessThan(1);
-    expect(
-      strip.getByRole("link", { name: "종료 제외 · 프로젝트 보기" }).element().getAttribute("href"),
-    ).toBe("/projects");
+    expect(strip.getByRole("link", { name: "프로젝트 보기" }).element().getAttribute("href")).toBe(
+      "/projects",
+    );
     // 중복 후보 안내는 "우선 검토할 입찰" 설명 줄 끝의 회색 글자다.
     const duplicate = page.getByText(/중복 후보 2건은 별도 사업기회로 집계됩니다\.$/).element();
     expect(duplicate.className).toContain("text-muted-foreground");
@@ -414,6 +436,11 @@ describe("공공조달 업무 화면", () => {
     await expect
       .element(page.getByRole("link", { name: "발주 현황 보기", exact: true }))
       .toHaveAttribute("href", "/market");
+    // 출처별 서비스 상태(활성 서비스·연동 준비)는 수집 관리 화면의 운영 정보라 수집 관리 역할이 아니면 두지 않는다.
+    expect(
+      page.getByRole("heading", { name: "수집 소스 상태", exact: true }).elements(),
+    ).toHaveLength(0);
+    expect(document.body.textContent).not.toMatch(/출처 사본|별도 집계|현재 유효 분석|현재 입력의/);
     // 실수집 지표(B3): 시각은 한국 시각 절대 시각(시간대 표기 없음), 다음 수집은 "예정"으로 적는다.
     const stat = (label: string) => {
       const element = page

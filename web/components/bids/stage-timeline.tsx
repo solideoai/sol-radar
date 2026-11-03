@@ -5,6 +5,7 @@ import type { BidStage } from "@/server/bids";
 
 // 단계 이력 한 줄(§5.4.3). 지금 단계는 채운 원, 나머지는 빈 원. 지금 단계 옆에는 변경 이력 링크만 둔다.
 // 수집 번호("r1")는 내부 기록 번호라 보이지 않는다(2026-11-03 사용자 지시).
+// 거치지 않은 단계는 빈 원과 이름만 보이고 자리 표시 "—"를 두지 않는다(ADR-081).
 type StageTimelineProps = {
   stage: BidStage;
   stageLinks: { planRef: string | null; preSpecRef: string | null };
@@ -62,7 +63,7 @@ function StageTimeline({ stage, stageLinks, revisionsHref = null }: StageTimelin
                     변경 이력
                   </Link>
                 ) : current ? null : (
-                  (refs[step] ?? "—")
+                  refs[step]
                 )}
               </span>
             </li>

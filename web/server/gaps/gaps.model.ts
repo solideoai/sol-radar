@@ -160,16 +160,15 @@ export const GAP_BLOCKER_KIND_LABELS: Record<BlockerKind, string> = {
   OUT_OF_DICTIONARY: "자격 코드 사전 밖",
 };
 
-/** 화면 상단 고정 문구(§5 A2). 늘 보인다. */
+/** 화면 상단 고정 문구(§5 A2). 늘 보인다. 2026-11-03 "구조화 필드·1차 선별" 같은 내부 말을 쉬운 말로 고쳤다(ADR-081). */
 export const GAPS_SCOPE_NOTICE =
-  "공고 API 의 구조화 필드(면허제한·참가가능지역)만으로 1차 선별했습니다. 첨부(제안요청서)의 자격 요건은 반영하지 않았습니다.";
+  "공고에 적힌 면허 제한·참가 가능 지역만으로 먼저 골랐습니다. 제안요청서 첨부의 자격 요건은 반영하지 않았습니다.";
 export const GAPS_BUDGET_NOTICE =
   "예산 합계는 참가 자격이 열리는 공고의 배정 예산 합이며 수주 금액이나 확률이 아닙니다.";
 /** 보유 가정 결과 옆 고정 문구(§5 A3-3, 공고 상세 가정 재계산과 같은 말) */
 export const GAPS_ASSUMPTION_NOTICE = "가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다.";
 /** 데이터 출처 표시(§4) */
-export const GAPS_SOURCE_NOTICE =
-  "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터 미포함 · 발주계획·사전규격 미포함";
+export const GAPS_SOURCE_NOTICE = "나라장터 입찰공고 기준 · 낙찰·계약·발주계획·사전규격 미포함";
 
 /** searchParams → GapQuery. 모르는 값은 기본값(가정 없음)으로 둔다. */
 export function parseGapQuery(params: { assume?: string | string[] }): GapQuery {

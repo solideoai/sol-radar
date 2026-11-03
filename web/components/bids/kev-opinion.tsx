@@ -1,10 +1,8 @@
 import { useId } from "react";
-import { cn } from "cn";
-import { fitOutOfFive, formatPercent, formatSignal } from "@/components/bids/format";
+import { formatPercent, formatSignal } from "@/components/bids/format";
 import { KEV_RISK_LABEL, RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { MeterBar } from "@/components/bids/meter-bar";
 import { StatusBadge } from "@/components/bids/status-badge";
-import { Chip } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -17,8 +15,11 @@ import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } f
 import { recommendationWithObject } from "@/server/shared";
 
 // 결정 모델 참고 지표(§5.4.7, ADR-034 로 "Kev" 문구를 모델 중립으로 개정). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
-// 고지 3줄은 09 고정이다. 모델명·질문 세트·공급자는 화면에 두지 않는다(2026-11-03 사용자 지시, 09 개정). 분석 기록에 남는다.
-// provider 가 mock 이면 실제 모델처럼 보이면 안 되므로(ADR-034 15번) "Mock 응답(데모 데이터)" 한 줄을 더한다.
+// 확률이 아니라는 고지는 분포 제목 "(충족·수주 확률 아님)" 한 곳이다(09 고정. 겹치던 고지 줄 넷은 2026-11-03 사용자 지시로 지웠다, ADR-081).
+// 신호 값·기준값·적합도 의견·보정 상태 같은 내부 숫자는 보이지 않고, 신호가 기준 이상일 때만 문장 한 줄을 보인다. 값은 분석 기록에 남는다.
+// 모델명·질문 세트·공급자도 화면에 두지 않는다(ADR-080).
+// provider 가 mock 이면 실제 모델처럼 보이면 안 되므로(ADR-034 15번) "Mock 응답(데모 데이터)"를 밝힌다.
+// 공고 상세의 분석 요약 띠가 같은 글자를 이미 보이면(mockShownAbove) 여기서 되풀이하지 않는다.
 // 식별자(KevView·kev 필드·KEV_* 플래그·파일명)는 API·DB 호환 레이어라 바꾸지 않는다.
 type KevOpinionProps = {
   kev: KevView;
@@ -29,6 +30,8 @@ type KevOpinionProps = {
   assessments?: { assessment: RequirementAssessmentView; label: string }[];
   // 결정 모델을 썼는데 저장된 결과가 없는 run(kevRecordMissing). 꺼진 것과 구분해 "기록 없음"이라고 쓴다.
   notRecorded?: boolean;
+  // 분석 요약 띠가 이 run 의 "Mock 응답(데모 데이터)"를 이미 보이는지.
+  mockShownAbove?: boolean;
 };
 
 const SIGNAL_THRESHOLD = 0.7;
@@ -48,23 +51,22 @@ function Fallback({ children }: { children: React.ReactNode }) {
   return <p className="type-body text-foreground">{children}</p>;
 }
 
-function Signal({ label, value, threshold }: { label: string; value: number; threshold: number }) {
-  const over = value >= threshold;
-  return (
-    <p className={cn("type-label tabular-nums", over ? "text-warning" : "text-foreground")}>
-      {label} {formatSignal(value)}
-      <span className="text-muted-foreground"> · 기준 {formatSignal(threshold)} 이상</span>
-    </p>
-  );
-}
-
-function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: KevOpinionProps) {
+function Body({
+  kev,
+  reviewFlags,
+  recommendation,
+  ruleReason,
+  assessments,
+  mockShownAbove = false,
+}: KevOpinionProps) {
   const probabilities = kev.probabilities;
   const suggested = kev.suggestedOption;
   const disagree =
     reviewFlags.includes("MODEL_RULE_DISAGREEMENT") ||
     (suggested !== null && recommendation !== null && suggested !== recommendation);
   const threshold = kev.calibration?.threshold ?? SIGNAL_THRESHOLD;
+  const mandatoryOver = kev.mandatoryRisk !== null && kev.mandatoryRisk >= threshold;
+  const reviewOver = kev.needsHumanReview !== null && kev.needsHumanReview >= threshold;
   return (
     <div className="flex flex-col gap-3">
       {probabilities !== null && (
@@ -115,35 +117,21 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
           )}
         </div>
       )}
-      <div className="flex flex-col gap-0.5">
-        {kev.mandatoryRisk !== null && (
-          <Signal label="필수자격 위험 신호" value={kev.mandatoryRisk} threshold={threshold} />
-        )}
-        {kev.needsHumanReview !== null && (
-          <Signal label="사람 검토 필요 신호" value={kev.needsHumanReview} threshold={threshold} />
-        )}
-        {kev.fit !== null && (
-          <p className="type-label tabular-nums text-foreground">
-            적합도 의견 {fitOutOfFive(kev.fit.score)}/5
-          </p>
-        )}
-      </div>
+      {(mandatoryOver || reviewOver) && (
+        <div className="flex flex-col gap-0.5 type-label text-warning">
+          {mandatoryOver && <p>필수자격 위험 신호가 기준 이상입니다</p>}
+          {reviewOver && <p>사람 검토가 필요하다는 신호가 기준 이상입니다</p>}
+        </div>
+      )}
       <V02 kev={kev} assessments={assessments} />
-      <div className="flex flex-col gap-0.5 type-caption text-muted-foreground">
-        <p>
-          이 의견은 결정 모델이 {OPTIONS.map((option) => RECOMMENDATION_LABEL[option]).join(" / ")}{" "}
-          선택지에 매긴 확률 분포입니다.
-        </p>
-        <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
-        <p>최종 결정은 담당자가 기록합니다.</p>
-        {kev.provider === "mock" && <p>{MOCK_MODEL_TEXT}</p>}
-        <p>{"결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."}</p>
-      </div>
+      {kev.provider === "mock" && !mockShownAbove && (
+        <p className="type-caption text-muted-foreground">{MOCK_MODEL_TEXT}</p>
+      )}
     </div>
   );
 }
 
-// v0.2 필드(scores·risks·calibration)가 null 이 아니면 더 그린다.
+// v0.2 필드 중 수행 리스크와 항목별 분포만 더 그린다. 적합 의견(n/5)·보정 상태는 내부 값이라 보이지 않는다(ADR-081).
 const DISTRIBUTION_LABEL = [
   ["SATISFIED", "충족"],
   ["NOT_SATISFIED", "미충족"],
@@ -204,30 +192,12 @@ function AssessmentTable({
 }
 
 function V02({ kev, assessments }: { kev: KevView; assessments?: KevOpinionProps["assessments"] }) {
-  const { calibration, scores, risks } = kev;
+  const { risks } = kev;
   const showAssessments =
     kev.questionSetVersion === "kev-qs/v0.2" && assessments !== undefined && assessments.length > 0;
-  if (calibration === null && scores === null && risks === null && !showAssessments) return null;
+  if (risks === null && !showAssessments) return null;
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-3">
-      {calibration !== null && (
-        <Chip size="sm" className="self-start">
-          {calibration.status === "CALIBRATED"
-            ? `보정됨 · ${calibration.datasetVersion ?? "—"}`
-            : `미보정 · 기준 τ ${formatSignal(calibration.threshold)}`}
-        </Chip>
-      )}
-      {scores !== null && (
-        <div className="flex flex-col gap-0.5">
-          <p className="type-label tabular-nums text-foreground">
-            기술 적합 의견 {fitOutOfFive(scores.techFit.score)}/5
-          </p>
-          <p className="type-label tabular-nums text-foreground">
-            실적 연관 의견 {fitOutOfFive(scores.perfRelevance.score)}/5
-          </p>
-          <p className="type-caption text-muted-foreground">SOL Score에 더하지 않음</p>
-        </div>
-      )}
       {risks !== null && (
         <div className="flex flex-col gap-2">
           <h3 className="type-label text-foreground">수행 리스크</h3>

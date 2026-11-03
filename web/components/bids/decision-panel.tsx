@@ -64,10 +64,6 @@ type DecisionPanelProps = {
 const REASON_TOO_SHORT = "사유를 10자 이상 적어 주세요";
 const REASON_MAX = 2000;
 const OPTIONS = ["BID", "WATCH", "NO_BID"] as const satisfies readonly Recommendation[];
-const BASIS_LABEL = {
-  RULES_WITH_KEV_ASSIST: "규칙 + 결정 모델 참고",
-  RULES_ONLY: "규칙만",
-} as const;
 const isReviewRecommended = (flag: ReviewFlag) =>
   (REVIEW_RECOMMENDED_FLAGS as readonly ReviewFlag[]).includes(flag);
 
@@ -90,11 +86,6 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
           <span>{key === null ? EXTRA_STATUS_LABEL.NOT_ANALYZED : RECOMMENDATION_LABEL[key]}</span>
         </span>
       </div>
-      {analysis?.recommendationBasis != null && (
-        <p className="type-caption text-muted-foreground">
-          {BASIS_LABEL[analysis.recommendationBasis]}
-        </p>
-      )}
     </div>
   );
 }

@@ -71,11 +71,12 @@ export type InsightRunFacts = {
 export const isOldFormat = (view: InsightView, currentPromptVersion: string): boolean =>
   view.status === "DONE" && view.promptVersion !== currentPromptVersion;
 
-/** 작성 줄. 대체 결과·mock 응답은 그렇다고 앞에 밝힌다. */
-export function authorshipText(view: InsightView): string {
+/** 작성 줄. 대체 결과·mock 응답은 그렇다고 앞에 밝힌다. mockNoted 면 같은 화면 위쪽이 이미 mock 을 밝혀 앞말을 되풀이하지 않는다. */
+export function authorshipText(view: InsightView, mockNoted = false): string {
   const madeAt = formatKst(view.finishedAt ?? view.createdAt);
   if (view.source === "TEMPLATE") return `규칙 결과로 정리 · ${madeAt} 작성`;
-  if (view.modelName === MOCK_INSIGHT_MODEL) return `${MOCK_MODEL_TEXT} · ${madeAt} 작성`;
+  if (view.modelName === MOCK_INSIGHT_MODEL && !mockNoted)
+    return `${MOCK_MODEL_TEXT} · ${madeAt} 작성`;
   return `${madeAt} 작성`;
 }
 

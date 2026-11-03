@@ -221,7 +221,7 @@ function IngestMetrics({
         <MetricRow
           label="수집된 IT 공고"
           value={count(summary.totalOpportunities)}
-          hint="IT 입찰공고 · 출처 사본은 1건"
+          hint="IT 입찰공고"
         />
         <TimeRow
           label="마지막 수집 성공"
@@ -244,7 +244,7 @@ function IngestMetrics({
         <MetricRow
           label={`진행 중 ${RECOMMENDATION_LABEL.WATCH}`}
           value={metrics === null ? "—" : count(metrics.activeWatch)}
-          hint={metrics === null ? "지표 조회 실패" : "현재 유효 분석 · 진행 중"}
+          hint={metrics === null ? "지표 조회 실패" : "진행 중인 입찰공고"}
         />
       </dl>
     </section>
@@ -341,17 +341,17 @@ export function DashboardView({
     {
       label: "마감 임박 (7일)",
       value: count(summary.closingSoon),
-      hint: "정확한 마감 확인 · 진행 중",
+      hint: "진행 중인 입찰공고",
     },
     {
       label: "분석 대기",
       value: count(summary.pendingAnalysis),
-      hint: "현재 입력의 분석 결과 없음",
+      hint: "아직 분석하지 않은 공고",
     },
     {
       label: `${RECOMMENDATION_LABEL.BID} 권고`,
       value: count(summary.bidRecommended),
-      hint: "현재 유효 분석 · 진행 중",
+      hint: "진행 중인 입찰공고",
     },
     {
       label: "진행 중 입찰 프로젝트",
@@ -364,7 +364,7 @@ export function DashboardView({
             href="/projects"
             className="rounded-sm underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            종료 제외 · 프로젝트 보기
+            프로젝트 보기
           </Link>
         ),
     },
@@ -424,7 +424,7 @@ export function DashboardView({
         />
         <OpportunityPanel
           title="예정 사업 및 사전규격"
-          description="발주계획·조달요청·사전규격 · 별도 집계"
+          description="발주계획·조달요청·사전규격"
           items={early}
           query={earlyQuery}
           early
@@ -453,7 +453,10 @@ export function DashboardView({
             nextIngest={nextIngest}
             now={now}
           />
-          <OpportunitySourceStatus summary={sources} now={now} canManage={canRunIngestion} />
+          {/* 출처별 서비스 상태는 수집 관리 화면과 같은 운영 정보라 수집 관리 역할(ADMIN)에게만 보인다(2026-11-03 사용자 지시, ADR-081). */}
+          {canRunIngestion && (
+            <OpportunitySourceStatus summary={sources} now={now} canManage={canRunIngestion} />
+          )}
           <TopAgencies metrics={metrics} />
           <Portfolio summary={summary} />
         </div>
