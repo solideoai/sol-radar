@@ -41,7 +41,8 @@ export function AppPage({
             <div className="min-w-0">
               {eyebrow}
               {/* 띄어쓰기 없는 긴 제목(공고명 등)도 꺾여 단 폭을 넘지 않게 한다. */}
-              <h1 className="type-title wrap-anywhere text-foreground">{title}</h1>
+              {/* 두 줄로 꺾이는 긴 제목(공고명)은 줄 길이를 고르게 나눠 마지막 줄에 한두 글자만 남지 않게 한다. */}
+              <h1 className="type-title text-balance wrap-anywhere text-foreground">{title}</h1>
               {description ? (
                 // break-keep 이라 띄어쓰기 없는 긴 이름(팀 이름 40자)이 꺾이지 않아 좁은 폭에서 넘친다. 그런 낱말만 꺾는다.
                 <p className="mt-1 type-body wrap-anywhere text-muted-foreground">{description}</p>

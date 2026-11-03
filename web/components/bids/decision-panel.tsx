@@ -77,8 +77,13 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <span className="type-label text-muted-foreground">권고</span>
+        {/* 목록·대시보드의 권고 배지(StatusBadge emphasis)와 같은 모양을 한 단계 크게 쓴다. 미분석은 테두리 없이 회색 글자다. */}
         <span
-          className={cn("inline-flex items-center gap-1.5 font-heading type-heading", className)}
+          className={cn(
+            "inline-flex items-center gap-1.5 font-heading type-heading",
+            key !== null && "h-8 rounded-md border border-current bg-background px-2.5",
+            className,
+          )}
         >
           {Icon !== null && <Icon aria-hidden="true" className="size-4 shrink-0" />}
           <span>{key === null ? EXTRA_STATUS_LABEL.NOT_ANALYZED : RECOMMENDATION_LABEL[key]}</span>

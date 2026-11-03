@@ -1104,8 +1104,8 @@ export function BidDetailView({
             data-slot="bid-detail-rail"
             className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-18 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto"
           >
-            {projectEntry !== null && <BidProjectEntry entry={projectEntry} />}
-            {/* 새 분석이면 라디오 기본값(시스템 권고)도 새로 잡는다(P2). */}
+            {/* 판정(권고·SOL Score)이 레일 맨 위에 오게 결정 패널을 먼저 둔다. 입찰 프로젝트 칸은 그 아래다.
+                새 분석이면 라디오 기본값(시스템 권고)도 새로 잡는다(P2). */}
             <DecisionPanel
               key={decisionAnalysis?.id ?? "none"}
               analysis={decisionAnalysis}
@@ -1117,6 +1117,7 @@ export function BidDetailView({
               onSubmit={onSubmitReview}
               pending={progress !== null}
             />
+            {projectEntry !== null && <BidProjectEntry entry={projectEntry} />}
           </div>
         </div>
       </AppPage>
