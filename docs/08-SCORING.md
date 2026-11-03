@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -268,7 +268,8 @@ flowchart TD
 
 점수·결정 쪽에서 정하는 표시는 둘이다.
 - `KEV_MANDATORY_RISK`가 붙으면 "사람 검토 권장"을, `KEV_NEEDS_REVIEW`가 붙으면 결정 패널 상단에 "사람 검토 권장"을 띄운다. 자격 결과와 권고는 바꾸지 않는다.
-- `fit`(wire `score`는 0부터 세는 index 0~4)은 결정 모델 섹션에 "적합도 의견 n/5"(n = index + 1)로만 보인다. SOL Score에 합산하지 않는다.
+- `fit`(wire `score`는 0부터 세는 index 0~4)은 SOL Score에 합산하지 않는다. 결정 모델 섹션의 "적합도 의견 n/5" 표시는 2026-11-03에 뺐다(내부 값, [[16-DECISIONS|ADR-081]]). 저장 값은 그대로다.
+- `mandatoryRisk`·`needsHumanReview`는 값과 기준값을 화면에 두지 않는다. 기준(0.70) 이상이면 결정 모델 섹션에 "필수자격 위험 신호가 기준 이상입니다"·"사람 검토가 필요하다는 신호가 기준 이상입니다" 문장만 보인다(ADR-081).
 
 `recommendation` 분포는 설명 가능한 보조 의견으로만 쓴다. 규칙상 비추천·확인 필요를 추천으로 승격할 수 없다.
 
@@ -279,18 +280,18 @@ flowchart TD
 | 보류 / 비추천 | `BID` | 규칙 유지. 결정 모델은 승격 불가 | 위와 동일 |
 | 아무거나 | 결정 모델 없음(장애·비활성, gateway·Qwen은 정상) | 규칙 권고 그대로, `analysis.status=COMPLETED`(gateway나 Qwen까지 불가하면 `PARTIAL`, [[03-AI-PIPELINE\|03]] §8) | `RULES_ONLY` |
 
-결정 모델의 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 고정하고 본문에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄을 그대로 쓴다. 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
+결정 모델의 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 고정하고 이 제목이 구역의 확률 고지다. [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 예전 결정 모델 블록 3줄은 같은 말을 되풀이해 2026-11-03에 화면에서 내렸다([[16-DECISIONS|ADR-081]]). 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
 
 ### 5.4 결정 모델 v0.2 참고 지표와 플래그 (`kev-qs/v0.2`, ADR-020·034)
 
 `live`·`fixture` 모드는 결정 모델(Bosun v3.1 0.6B, ADR-034)에 `kev-qs/v0.2`를 묻는다. v0.1 4종(§5.3)에 `req.{itemId}.status`·`techFit`·`perfRelevance`·`risk.*` 5종이 더해진다. 질문 정의는 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.10, 플래그 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`의 조건은 03 §5.13이 정본이다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. 점수 쪽에서 지키는 것은 다음이다.
 
-- `techFit`·`perfRelevance`는 "모델 참고 지표"에 표시만 한다. `skillMatch`·`pastPerformance`에 더하지 않는다.
+- `techFit`·`perfRelevance`는 `skillMatch`·`pastPerformance`에 더하지 않는다. 화면의 "기술 적합 의견·실적 연관 의견 n/5"는 2026-11-03에 뺐다(내부 값, [[16-DECISIONS|ADR-081]]).
 - `req.{itemId}.status`는 결정 모델 담당 항목(§5.1)에 묻는다. `KEV_REQUIREMENT_DISAGREEMENT`는 규칙이 `SATISFIED`·`NOT_SATISFIED`인 항목에서만 생기고, 해당 항목 행과 `reviewFlags`에 보인다. 규칙이 `NEEDS_REVIEW`인 항목에는 플래그를 달지 않고 결정 모델 분포를 참고 지표로만 보인다.
 - `KEV_DELIVERY_RISK`는 "모델 참고 지표"의 리스크 목록에 보인다. 어떤 리스크인지는 `kev.risks`다.
-- **τ = 0.70, 미보정**(`kev_calibration=UNCALIBRATED`)으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정하고, 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다([[21-MODEL-TRAINING|21 모델 학습]]). 화면에 보정 상태를 함께 보인다.
+- **τ = 0.70, 미보정**(`kev_calibration=UNCALIBRATED`)으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정하고, 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다([[21-MODEL-TRAINING|21 모델 학습]]). 보정 상태는 저장만 하고 화면에 보이지 않는다(2026-11-03, [[16-DECISIONS|ADR-081]]).
 - v0.1 질문의 임계값(`mandatoryRisk`·`needsHumanReview` 0.70, §5.3)과 처리 표는 그대로다.
-- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."(literal 유지, ADR-034)이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]). 화면은 [[09-SECURITY|09]]의 모델 중립 문구("결정 모델 확률은 …")를 쓴다([[16-DECISIONS|16]] 닫힌 미결정 30, 30-2(a) 구현됨).
+- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."(literal 유지, ADR-034)이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]). 화면은 이 literal을 보이지 않고 분포 제목 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"을 고지로 쓴다([[09-SECURITY|09]]). [[16-DECISIONS|16]] 닫힌 미결정 30-2(a)로 넣은 화면 문구 "결정 모델 확률은 …"은 2026-11-03에 내렸다([[16-DECISIONS|ADR-081]]).
 - 결정 모델이 결과를 냈으면 `recommendationBasis=RULES_WITH_KEV_ASSIST`, 결정 모델이 없으면(비활성·장애) `RULES_ONLY`다(§5.3 표와 같다).
 - 결정 모델 출력이 할 수 있는 일은 `review_flags` 추가와 참고 지표 표시뿐이다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 절대 규칙).
 

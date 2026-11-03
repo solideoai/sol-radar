@@ -7,7 +7,7 @@ updated: 2026-11-03
 
 # 업무 화면 기술 정보 글자 빼기 (2026-11-03)
 
-사용자 요청: "사용자 입장에서 필요없는 정보들이 너무 많아. KST 이런 단어도 그렇고 모델명을 뭐 썼는지 그런 거랑 몇버전인지 그런 정보들." 전 화면 검토 보고(6묶음) 뒤 사용자가 "1"(1·2·3번 묶음: 모델·버전·실행 모드·KST·영문 코드)을 골랐다. 결정은 [[16-DECISIONS|ADR-080]], 화면 계약은 [[06-UI-UX|06 화면]] "화면 글자에서 뺀 기술 정보"다. 브랜치 `feat/plain-screen-text`(origin/main `23416ed8`에서 시작), 운영 반영 전.
+사용자 요청: "사용자 입장에서 필요없는 정보들이 너무 많아. KST 이런 단어도 그렇고 모델명을 뭐 썼는지 그런 거랑 몇버전인지 그런 정보들." 전 화면 검토 보고(6묶음) 뒤 사용자가 "1"(1·2·3번 묶음: 모델·버전·실행 모드·KST·영문 코드)을 골랐다. 결정은 [[16-DECISIONS|ADR-080]], 화면 계약은 [[06-UI-UX|06 화면]] "화면 글자에서 뺀 기술 정보"다. 브랜치 `feat/plain-screen-text`(origin/main `23416ed8`에서 시작). 같은 날 사용자 승인("1")으로 main `dd753687` 운영 반영.
 
 ## 바꾼 것
 
@@ -57,7 +57,7 @@ updated: 2026-11-03
 
 ## 하지 않은 것
 
-- 운영 반영(main push = Vercel 배포)은 하지 않았다. 화면 동결(2026-11-03) 뒤의 변경이고 촬영 화면이 바뀌므로 반영은 사람이 정한다.
+- 운영 반영(main push = Vercel 배포)은 사용자 승인("1") 뒤 했다. main fast-forward push `23416ed8..dd753687`, Vercel `dpl_7E8NZx4DRJrU9vVz8X5sFWP3Z3ET` READY, `/health/ready` 200. 운영 로그인 화면은 직접 보지 못했다. 남은 검토 보고 4·5·6번은 [[16-DECISIONS|ADR-081]]([검증 기록](../../declutter-notices/20261103/README.md))이다.
 - 검토 보고 4번(반복 고지·내부 숫자), 5번(일반 화면의 운영자 정보), 6번(DEMO 중복)은 손대지 않았다.
 - gateway 대체 문장(`services/ai/src/sol_ai/insight.py` `BASIS_TEXT`)의 "Bosun"은 원천을 고치지 않았다(고치면 회사 AI gateway 재생성이 필요하다).
 - 장표 그림(`docs/submission/slides/assets/`)과 slides-spec 의 옛 캡처 설명은 옛 화면 그대로다.

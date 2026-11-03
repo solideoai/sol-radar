@@ -761,10 +761,10 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 
 ### 5.13 표시와 플래그
 
-- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 화면 구역 제목은 "결정 모델 참고 지표"(모델 중립 문구. 2026-10-20 ADR-034 Q3로 "Kev 참고 지표"에서 바꿈, ADR-029 A6 D13 개정. 실제 모델명은 `KevAssist.model` 값으로 함께 보인다)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"를 함께 보인다([[06-UI-UX|06 UI]] §8, [[16-DECISIONS|ADR-029]] A6 D13). 질문별 분포 막대, 리스크 목록, 항목별 분류가 들어간다([[06-UI-UX|06 UI]]).
-- 고지 문구: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 내려 준다. 이 literal은 API·DB 호환(zod literal로 저장 행 파싱)을 위해 ADR-034 뒤에도 유지한다(ADR-034 5번). 화면은 이 literal을 그대로 보이지 않고 [[09-SECURITY|09]]의 모델 중립 문구("결정 모델 확률은 …")를 쓴다(`web/components/bids/kev-opinion.tsx`, [[16-DECISIONS|16]] 미결정 30-2).
-- 보정 상태를 표시한다: `UNCALIBRATED`(기본) / `CALIBRATED`(데이터셋 버전 표기). **미구현**: worker가 `calibration`을 늘 null로 저장해 지금은 표시되지 않는다(§5.7 구현 상태).
-- 임계값 τ는 처음에 0.70이고 "미보정"으로 표시한다. 베이스라인 평가 뒤 dev 분할로 다시 정한다. 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다.
+- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 화면 구역 제목은 "결정 모델 참고 지표"(모델 중립 문구. 2026-10-20 ADR-034 Q3로 "Kev 참고 지표"에서 바꿈, ADR-029 A6 D13 개정. 모델 이름은 2026-11-03부터 화면에 보이지 않는다, [[16-DECISIONS|ADR-080]])이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"를 함께 보인다([[06-UI-UX|06 UI]] §8, [[16-DECISIONS|ADR-029]] A6 D13). 질문별 분포 막대, 리스크 목록, 항목별 분류가 들어간다([[06-UI-UX|06 UI]]).
+- 고지 문구: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 내려 준다. 이 literal은 API·DB 호환(zod literal로 저장 행 파싱)을 위해 ADR-034 뒤에도 유지한다(ADR-034 5번). 화면은 이 literal을 보이지 않고 분포 제목 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"을 고지로 쓴다([[09-SECURITY|09]], `web/components/bids/kev-opinion.tsx`). 미결정 30-2로 넣은 화면 문구 "결정 모델 확률은 …"은 2026-11-03에 내렸다([[16-DECISIONS|ADR-081]]).
+- 보정 상태 `UNCALIBRATED`(기본) / `CALIBRATED`(데이터셋 버전)는 저장만 하고 화면에 보이지 않는다(2026-11-03, [[16-DECISIONS|ADR-081]]). worker는 지금 `calibration`을 늘 null로 저장한다(§5.7 구현 상태). 결정 모델 신호 값과 기준값도 화면에 두지 않고, 기준 이상이면 문장 한 줄만 보인다.
+- 임계값 τ는 처음에 0.70이고 미보정으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정한다. 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다.
 
 v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. v0.1 플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`, §5.5)는 그대로다. **미구현**: `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`는 값 집합·화면 라벨에만 있고 다는 코드가 없다. `PARSE_UNSUPPORTED`는 첨부 실패 경고(`ATTACHMENT_PARSE_FAILED`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)가 추출에 있거나 공고의 `attachmentsIncomplete`일 때 붙는다(`web/server/scoring/analyze.ts`·`qualification.ts`). `DOCUMENT_DOWNLOAD_FAILED`는 값 집합과 화면 라벨에만 있고 이 플래그를 붙이는 코드는 찾지 못했다.
 

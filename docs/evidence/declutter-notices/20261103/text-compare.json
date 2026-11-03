@@ -1,0 +1,291 @@
+[
+  {
+    "phrase": "충족 확률·낙찰 확률이 아니며",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "결정 모델 확률은",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "최종 결정은 담당자가 기록",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "판정은 규칙 엔진이 하고",
+    "before": 5,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "insight-dialog": 1,
+      "detail-0013": 1
+    },
+    "after": 1,
+    "after_pages": {
+      "insight-dialog": 1
+    }
+  },
+  {
+    "phrase": "최종 참여 결정은 사람이 합니다",
+    "before": 16,
+    "before_pages": {
+      "watchlist": 1,
+      "detail-0016": 3,
+      "detail-0003": 3,
+      "detail-0001": 3,
+      "bids-live": 1,
+      "insight-dialog": 1,
+      "bids": 1,
+      "detail-0013": 3
+    },
+    "after": 8,
+    "after_pages": {
+      "watchlist": 1,
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "bids-live": 1,
+      "insight-dialog": 1,
+      "bids": 1,
+      "detail-0013": 1
+    }
+  },
+  {
+    "phrase": "기준 0.70",
+    "before": 8,
+    "before_pages": {
+      "detail-0016": 2,
+      "detail-0003": 2,
+      "detail-0001": 2,
+      "detail-0013": 2
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "적합도 의견",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "규칙 + 결정 모델 참고",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "(반올림)",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "원문 대조 검증 통과",
+    "before": 4,
+    "before_pages": {
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "detail-0013": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "Mock 응답(데모 데이터)",
+    "before": 28,
+    "before_pages": {
+      "analysis": 18,
+      "detail-0016": 2,
+      "detail-0003": 2,
+      "detail-0001": 3,
+      "insight-dialog": 1,
+      "detail-0013": 2
+    },
+    "after": 23,
+    "after_pages": {
+      "analysis": 18,
+      "detail-0016": 1,
+      "detail-0003": 1,
+      "detail-0001": 1,
+      "insight-dialog": 1,
+      "detail-0013": 1
+    }
+  },
+  {
+    "phrase": "현재 유효 분석",
+    "before": 2,
+    "before_pages": {
+      "dashboard": 2
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "현재 입력의",
+    "before": 1,
+    "before_pages": {
+      "dashboard": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "출처 사본은 1건",
+    "before": 1,
+    "before_pages": {
+      "dashboard": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "별도 집계",
+    "before": 1,
+    "before_pages": {
+      "dashboard": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "종료 제외",
+    "before": 1,
+    "before_pages": {
+      "dashboard": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "수집 소스 상태",
+    "before": 1,
+    "before_pages": {
+      "dashboard": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "공고 API 의 구조화 필드",
+    "before": 1,
+    "before_pages": {
+      "gaps": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "수집분 기준",
+    "before": 2,
+    "before_pages": {
+      "market": 1,
+      "gaps": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "취소 0건 제외",
+    "before": 1,
+    "before_pages": {
+      "market": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "예산 미확인 0건 제외",
+    "before": 1,
+    "before_pages": {
+      "market": 1
+    },
+    "after": 0,
+    "after_pages": {}
+  },
+  {
+    "phrase": "점수 계산 대상",
+    "before": 38,
+    "before_pages": {
+      "people": 24,
+      "org-chart": 14
+    },
+    "after": 17,
+    "after_pages": {
+      "people": 3,
+      "org-chart": 14
+    }
+  },
+  {
+    "phrase": "미확인",
+    "before": 33,
+    "before_pages": {
+      "dashboard": 13,
+      "market": 1,
+      "bids": 15,
+      "detail-0013": 4
+    },
+    "after": 8,
+    "after_pages": {
+      "dashboard": 4,
+      "detail-0013": 4
+    }
+  },
+  {
+    "phrase": "DEMO · 예시 공고 기준",
+    "before": 3,
+    "before_pages": {
+      "watchlist": 1,
+      "dashboard": 1,
+      "bids": 1
+    },
+    "after": 1,
+    "after_pages": {
+      "dashboard": 1
+    }
+  }
+]

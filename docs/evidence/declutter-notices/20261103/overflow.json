@@ -1,0 +1,202 @@
+[
+  {
+    "key": "dashboard",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "gaps",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "gaps",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "gaps",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "gaps",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "gaps",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "people",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "people",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "people",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "people",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "people",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "watchlist",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "watchlist",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "watchlist",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "watchlist",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "watchlist",
+    "width": 1440,
+    "over": 0
+  }
+]
