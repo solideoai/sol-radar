@@ -569,6 +569,49 @@ describe("팝업 내용", () => {
     expect(dialogElement()?.textContent).not.toContain("Bosun");
   });
 
+  it("모델 글의 KEV 는 '결정 모델'로, 괄호 속 검토 신호 코드는 지워서 보인다(판단 이유·항목 모두)", async () => {
+    // 2026-11-03 운영 FX-01 결과(a31220fa)에 실제로 나온 문장 모양이다. 저장 값은 두고 화면에서만 바꾼다(사용자 지시).
+    const payload = {
+      ...PAYLOAD,
+      summary:
+        "규칙 엔진이 추천으로 판정했습니다. 의견 불일치 및 KEV 필수 리스크 플래그가 있습니다.",
+      improvements: [
+        { text: "Kev 의견을 확인하세요.", refIds: ["B4"] },
+        ...PAYLOAD.improvements.slice(1),
+      ],
+      factorNotes: [
+        { factor: "scaleFit" as const, text: "KEV 기준으로도 규모가 맞습니다.", refIds: [] },
+      ],
+      nextSteps: [
+        { text: "의견 불일치(MODEL_RULE_DISAGREEMENT)의 원인을 확인해야 합니다.", refIds: [] },
+        {
+          text: "KEV 필수 리스크(KEV_MANDATORY_RISK)에 해당하는 사항을 확인해야 합니다.",
+          refIds: [],
+        },
+      ],
+    };
+    const host = renderPanel({ initialInsight: { ...DONE_V2, payload } });
+    await expect.element(panel().getByText("규칙 엔진이 추천으로 판정했습니다.")).toBeVisible();
+    await openWith("추천 분석 보기");
+    await expect
+      .element(
+        dialog().getByText(
+          "규칙 엔진이 추천으로 판정했습니다. 의견 불일치 및 결정 모델 필수 리스크 플래그가 있습니다.",
+        ),
+      )
+      .toBeVisible();
+    await expect.element(dialog().getByText("결정 모델 의견을 확인하세요.")).toBeVisible();
+    await expect.element(dialog().getByText("결정 모델 기준으로도 규모가 맞습니다.")).toBeVisible();
+    await expect.element(dialog().getByText("의견 불일치의 원인을 확인해야 합니다.")).toBeVisible();
+    await expect
+      .element(dialog().getByText("결정 모델 필수 리스크에 해당하는 사항을 확인해야 합니다."))
+      .toBeVisible();
+    const shown = `${host.textContent ?? ""} ${dialogElement()?.textContent ?? ""}`;
+    for (const word of ["KEV", "Kev", "MODEL_RULE_DISAGREEMENT", "KEV_MANDATORY_RISK"]) {
+      expect(shown).not.toContain(word);
+    }
+  });
+
   it("TEMPLATE·INJECTION_SUSPECTED 면 지시문 의심 안내를 보이고 [다시 요청] 이 없다", async () => {
     // 보안 리뷰 중-2: 입력이 의심스러우면 모델을 부르지 않는다. 같은 입력이면 다시 요청해도 같은 결과다.
     renderPanel({

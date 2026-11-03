@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { cn } from "cn";
 import { formatKst, formatPoints } from "@/components/bids/format";
 import { MOCK_MODEL_TEXT } from "@/components/bids/kev-opinion";
-import { FACTOR_LABEL, FACTOR_ORDER } from "@/components/bids/labels";
+import { FACTOR_LABEL, FACTOR_ORDER, REVIEW_FLAG_LABEL } from "@/components/bids/labels";
 import { readableCheck } from "@/components/bids/qualification-reason";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,18 @@ import type {
 
 export const INSIGHT_NOTICE = "판정은 규칙 엔진이 하고, 최종 참여 결정은 사람이 합니다.";
 
-// 판단 이유는 gateway 가 만든 저장 글이라 모델 이름(Bosun)이 들어 있을 수 있다(규칙만으로 쓴 대체 문장 포함).
-// 저장 값은 그대로 두고 화면에서만 "결정 모델"로 읽게 한다(2026-11-03 사용자 지시: 화면에 모델 이름을 보이지 않는다).
-export const readableSummary = (summary: string): string =>
-  summary.replaceAll("Bosun", "결정 모델");
+// 판단 이유와 항목 문장은 gateway 가 만든 저장 글이라 결정 모델 이름(Bosun·KEV)과 검토 신호 코드가 들어 있을 수 있다
+// (규칙만으로 쓴 대체 문장 포함). 저장 값은 그대로 두고 화면에서만 바꾼다(2026-11-03 사용자 지시: 화면에 모델 이름을
+// 보이지 않는다, "화면에서만 KEV를 결정 모델로 바꿔"). 괄호 속 검토 신호 코드는 앞에 한국어 설명이 이미 있어 지운다:
+// "의견 불일치(MODEL_RULE_DISAGREEMENT)의" → "의견 불일치의", "KEV 필수 리스크(KEV_MANDATORY_RISK)에" → "결정 모델 필수 리스크에".
+const FLAG_CODE_IN_PARENS = new RegExp(
+  `\\s?\\((?:${Object.keys(REVIEW_FLAG_LABEL).join("|")})\\)`,
+  "g",
+);
+const MODEL_NAME = /\bBosun\b|\bK(?:EV|ev)\b/g;
+
+export const readableModelText = (text: string): string =>
+  text.replace(FLAG_CODE_IN_PARENS, "").replace(MODEL_NAME, "결정 모델");
 
 // TEMPLATE 대체 안내. INJECTION_SUSPECTED 는 입력이 의심스러워 모델을 일부러 부르지 않은 경우라 문구를 나누고,
 // 같은 입력이면 다시 요청해도 같은 결과라 [다시 요청]을 두지 않는다(보안 리뷰 중-2). 문구는 검토 표시 "문서 지시문 의심"과 맞춘다.
@@ -147,7 +155,7 @@ export function InsightResult({
       {lines.length > 0 && <InsightNotice lines={lines} action={action} />}
       <div className="divide-y divide-border">
         <Section title="판단 이유">
-          <p className="type-body text-foreground">{readableSummary(payload.summary)}</p>
+          <p className="type-body text-foreground">{readableModelText(payload.summary)}</p>
         </Section>
         {!oldFormat && (
           <Section title="점수 요소별 해설">
@@ -216,7 +224,7 @@ function ItemList({ items, refs }: { items: InsightItem[]; refs: InsightRef[] })
     <ul className="flex flex-col gap-4">
       {items.map((item, index) => (
         <li key={`${index}-${item.text}`} className="flex flex-col gap-1.5">
-          <p className="type-body text-foreground">{item.text}</p>
+          <p className="type-body text-foreground">{readableModelText(item.text)}</p>
           <RefChips refIds={item.refIds} refs={refs} />
         </li>
       ))}
@@ -251,7 +259,7 @@ function FactorNotes({
             </span>
             <FactorPoints factor={factors.find((factor) => factor.factor === key) ?? null} />
           </div>
-          <p className="type-body text-foreground">{note.text}</p>
+          <p className="type-body text-foreground">{readableModelText(note.text)}</p>
           <RefChips refIds={note.refIds} refs={refs} />
         </li>
       ))}
@@ -357,7 +365,7 @@ function CheckNotes({
             </div>
             <dl className="flex flex-col gap-1.5">
               {readable !== null && <NoteRow term="걸린 것" detail={readable.reason} />}
-              <NoteRow term="확인할 것" detail={note.text} />
+              <NoteRow term="확인할 것" detail={readableModelText(note.text)} />
             </dl>
             <RefChips refIds={note.refIds} refs={refs} />
           </li>
