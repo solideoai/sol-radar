@@ -740,7 +740,7 @@ docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-
 - ingest 전용 Worker(`sol-radar-ingest`)의 `up`·`--force-recreate`·`--unschedule`(이 Worker 반영에는 필요 없다)
 - `program_notices`·`program_notice_runs`의 일괄 `update`·`delete`(필요하면 범위를 정해 따로 승인받는다)
 
-## 11. SOL Score 재채점 `sol-v0.2.0`·`sol-v0.2.1` (ADR-071)
+## 11. SOL Score 재채점 `sol-v0.2.0`·`sol-v0.2.1`·`sol-v0.2.2` (ADR-071)
 
 공고마다 화면에 보이는 분석 run의 저장 입력(`input_snapshot`)을 새 알고리즘으로 다시 계산해 새 run으로 넣는다. Qwen·Bosun·AI gateway·Redis를 부르지 않는다. 옛 run은 이력으로 남는다. 조직 slug는 `org-01`이다(IT 일괄 분석과 같다).
 
@@ -804,3 +804,9 @@ $A run --rm --no-deps analysis-worker node --conditions=react-server --import ts
 ```
 
 기대: dry-run의 `CHANGED` id에 DEMO run이 없다(DEMO 18건은 바뀌지 않는다). 쓰기 뒤 `written`이 `targets - unchanged`와 같고 `failed=0`, exit 0. 되돌리기는 11.5와 같다(멱등 키 `…rescore-sol-v0.2.1-…`).
+
+### 11.8 `sol-v0.2.2` 자격 판정 반영 (ADR-071 개정, 2026-11-03)
+
+점수는 그대로이고 자격 판정 하나만 바뀐다: 공고 인용이 붙지 않은 추출 자격이라도 회사가 보유하면 충족이다. 웹에는 목록 보류 배지 아래 "자격 확인" 표시가 같이 들어간다(마이그레이션 없음). 순서·승인·명령은 11.7과 같다(Analysis Worker → redis-api → Vercel web, 각각 **[승인]**, 그 뒤 `--changed-only --dry-run` → 쓰기). 새 코드는 `sol-v0.2.0`·`sol-v0.2.1` 스냅샷을 모두 읽는다.
+
+기대(2026-11-03 운영 DB 읽기로 추정): `CHANGED` 72건 안팎, 권고 변화 3건(보류 → 추천 2, 보류 → 비추천 1), DEMO run 없음. 쓰기 뒤 `failed=0`, exit 0. 되돌리기는 11.5와 같다(멱등 키 `…rescore-sol-v0.2.2-…`).

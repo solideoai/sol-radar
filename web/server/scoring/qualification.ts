@@ -480,12 +480,19 @@ function extractionChecks(
           base,
           needsReview("NOTICE_CONFLICTED", "API 면허제한과 추출된 자격이 달라 원문 확인이 필요함"),
         );
+      const verdict = judgeLicense(entry.code, context.profile, context.today);
       if (entry.evidence.length === 0)
+        // 인용이 없어도 회사가 보유하면 요건이 있든 없든 충족이다(sol-v0.2.2). 그 밖에는 공고 근거가 없어 확인 필요다.
         return finish(
           base,
-          needsReview("NOTICE_INFO_MISSING", "이 자격 항목을 뒷받침하는 공고 인용이 없음"),
+          verdict.outcome === "SATISFIED"
+            ? {
+                ...verdict,
+                reason: `공고 인용은 찾지 못했지만 회사가 보유해 충족(${verdict.reason})`,
+              }
+            : needsReview("NOTICE_INFO_MISSING", "이 자격 항목을 뒷받침하는 공고 인용이 없음"),
         );
-      return finish(base, judgeLicense(entry.code, context.profile, context.today));
+      return finish(base, verdict);
     });
 }
 

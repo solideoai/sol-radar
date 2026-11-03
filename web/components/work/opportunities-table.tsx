@@ -16,6 +16,7 @@ import {
   opportunityHref,
 } from "@/components/work/opportunities-copy";
 import { OpportunitySourcesDialog } from "@/components/work/opportunities-sources-dialog";
+import { OpportunityRecommendation } from "@/components/work/opportunity-recommendation";
 import { OpportunityConflictNotice } from "@/components/work/opportunities-conflict-notice";
 import { useIsMobile } from "@/lib/use-mobile";
 import type { OpportunityItem } from "@/server/opportunities";
@@ -213,10 +214,9 @@ export function OpportunityTable({
                       {item.sourceConflict ? (
                         <span className="text-warning">검토 필요</span>
                       ) : !isEarly && item.latestAnalysis?.recommendation ? (
-                        <StatusBadge
-                          kind="recommendation"
-                          value={item.latestAnalysis.recommendation}
-                          variant="inline"
+                        <OpportunityRecommendation
+                          recommendation={item.latestAnalysis.recommendation}
+                          qualificationReview={item.latestAnalysis.qualificationReview}
                         />
                       ) : (
                         "—"
@@ -383,10 +383,9 @@ export function OpportunityTable({
                         {item.sourceConflict ? (
                           <span className="type-caption text-warning">검토 필요</span>
                         ) : !isEarly && item.latestAnalysis?.recommendation ? (
-                          <StatusBadge
-                            kind="recommendation"
-                            value={item.latestAnalysis.recommendation}
-                            variant="inline"
+                          <OpportunityRecommendation
+                            recommendation={item.latestAnalysis.recommendation}
+                            qualificationReview={item.latestAnalysis.qualificationReview}
                           />
                         ) : (
                           "—"

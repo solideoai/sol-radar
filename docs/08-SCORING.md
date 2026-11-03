@@ -18,7 +18,7 @@ updated: 2026-11-01
 
 SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 결정 모델 출력은 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
 
-알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.1` 하나다(2026-10-29 `sol-v0.1.0` → `sol-v0.2.0`, 2026-10-30 자격 판정만 바꿔 `sol-v0.2.1`, [[16-DECISIONS|ADR-071]]). 저장된 `sol-v0.2.0` 스냅샷도 읽어 현재 규칙으로 계산한다(가정 재계산·추천 분석·인력 배치·재채점). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 실행 모드가 아니라 DB가 정한다. 로컬·시험·`demo:reset`은 가상 솔리데오 프로필(§6.1)이고, 운영(D1)은 공개 자료 프로필에 회사가 확인한 자격 3건을 더한 revision 6이다([[16-DECISIONS|ADR-052]], [[16-DECISIONS|ADR-059]] 2차 개정).
+알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.2` 하나다(2026-10-29 `sol-v0.1.0` → `sol-v0.2.0`, 2026-10-30·2026-11-03 자격 판정만 바꿔 `sol-v0.2.1`·`sol-v0.2.2`, [[16-DECISIONS|ADR-071]]). 저장된 `sol-v0.2.0`·`sol-v0.2.1` 스냅샷도 읽어 현재 규칙으로 계산한다(가정 재계산·추천 분석·인력 배치·재채점). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 실행 모드가 아니라 DB가 정한다. 로컬·시험·`demo:reset`은 가상 솔리데오 프로필(§6.1)이고, 운영(D1)은 공개 자료 프로필에 회사가 확인한 자격 3건을 더한 revision 6이다([[16-DECISIONS|ADR-052]], [[16-DECISIONS|ADR-059]] 2차 개정).
 
 추출값을 그대로 쓰지 않고 규칙 쪽이 만드는 파생값 두 개:
 
@@ -47,7 +47,7 @@ solScore      = clamp(round(sum(points)), 0, 100)                          # 정
 ```
 
 > [!warning] 미검증 가정
-> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(지금 `sol-v0.2.1`, 가중치·임계값은 `sol-v0.1.0`과 같다)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
+> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(지금 `sol-v0.2.2`, 가중치·임계값은 `sol-v0.1.0`과 같다)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
 
 ## 3. 정규화 함수 (의사코드)
 
@@ -241,6 +241,8 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 
 자격 코드 사전(`web/server/scoring/qualification-codes.ts`, gateway `services/ai/dictionaries/qualification-codes.yaml`)은 `sol-v0.2.1`에서 운영 공고 표기(2026-10-30 실측)로 별칭을 늘렸다. "중소기업·소상공인 확인서"와 그 표기 변형(가운뎃점·`/`·"또는"·"중·소기업")·"중소기업자"는 `SME_CONFIRMATION`, "직접생산증명서"는 `DIRECT_PRODUCTION`이다. "소기업·소상공인 확인서"는 중기업이 낼 수 없을 수 있어 넣지 않았다(사람이 본다).
 
+`sol-v0.2.2`(2026-11-03)부터 추출 자격 항목에 공고 인용이 붙지 않아도 회사가 그 코드를 보유(`SATISFIED`)하면 충족이다. 인용이 안 붙는 경우는 인용 문장에 항목 이름이 그대로 없고 항목 수와 인용 수가 달라 항목에 짝지을 수 없을 때다(`evidenceForItem`). 요건이 실제로 있든 없든 회사가 이미 가졌으므로 권고를 막을 이유가 없다. 사유에는 "공고 인용은 찾지 못했지만 회사가 보유해 충족"을 적는다. 회사가 보유하지 않았거나 기록이 없으면 공고 근거가 없으니 미충족이라 하지 않고 그대로 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)다(`web/server/scoring/qualification.ts` `extractionChecks`, 시험 `web/server/scoring/v022-qualification.test.ts`).
+
 ### 5.2 결정 정책 v0.1
 
 ```mermaid
@@ -300,7 +302,7 @@ flowchart TD
 
 1. **평가**: 평가셋 test 분할에서 신뢰성 기준을 통과한다. 기준은 사용자가 정한다(제안값은 [[21-MODEL-TRAINING|21 모델 학습]] §4.4).
 2. **오류 분석**: 오답을 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠, 반영하려는 판단이 모델 쪽에서 믿을 만한지 확인한다(21 §4.4).
-3. **새 알고리즘 버전(`sol-v0.3.0` 이후. `sol-v0.2.0`은 ADR-071 빈 값 처리, `sol-v0.2.1`은 자격 판정이 썼다)**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
+3. **새 알고리즘 버전(`sol-v0.3.0` 이후. `sol-v0.2.0`은 ADR-071 빈 값 처리, `sol-v0.2.1`·`sol-v0.2.2`는 자격 판정이 썼다)**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
 4. **ADR**: [[16-DECISIONS|16 ADR]]에 결정을 기록한다. 결정은 사람이 한다.
 
 ### 5.6 가정 재계산 (ADR-037)
@@ -426,7 +428,7 @@ ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점�
 
 ## 다기관 공고와 SOL Score 경계
 
-[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.2.1`(ADR-071, 가중치·임계값은 v0.1.0과 같다)·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
+[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.2.2`(ADR-071, 가중치·임계값은 v0.1.0과 같다)·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
 
 새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰 가능한 추천(`BID`)으로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
 

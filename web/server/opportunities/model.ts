@@ -72,6 +72,8 @@ export const opportunityItemSchema = z.object({
       status: z.enum(["QUEUED", "RUNNING", "COMPLETED", "PARTIAL", "FAILED"]),
       solScore: z.number().nullable(),
       recommendation: recommendationSchema.nullable(),
+      // 필수 자격 확인 필요 때문에 점수와 무관하게 보류인지(08 §5.2). 목록이 사유를 배지 옆에 적는다.
+      qualificationReview: z.boolean().optional(),
     })
     .nullable(),
   latestDecision: recommendationSchema.nullable(),

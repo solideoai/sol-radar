@@ -40,7 +40,7 @@ const SORT_COLUMNS = {
 const ascending = (sort: OpportunityQuery["sort"]) =>
   sort === "deadlineAt:asc" || sort === "recommended";
 const quoted = (s: unknown) => `"${String(s).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-const itemOf = (r: Row) =>
+const itemOf = (r: Row, qualificationReviewIds: ReadonlySet<string>) =>
   opportunityItemSchema.parse({
     id: r.id,
     bidId: r.bid_id,
@@ -72,6 +72,7 @@ const itemOf = (r: Row) =>
           status: r.analysis_status,
           solScore: r.sol_score,
           recommendation: r.recommendation,
+          qualificationReview: qualificationReviewIds.has(r.analysis_id),
         }
       : null,
     latestDecision: r.latest_decision,
@@ -137,6 +138,31 @@ export function filtered(client: Client, orgId: string, q: OpportunityQuery, asO
   }
   return r;
 }
+// 보류 가운데 필수 자격 확인 필요 때문에 점수와 무관하게 보류인 분석의 id(08 §5.2 결정 경로 QUALIFICATION_NEEDS_REVIEW).
+// 이 쪽의 보류만 고르므로 쪽마다 한 번 읽는다. 못 읽으면 사유 표시만 빠지고 목록은 그대로 보인다.
+async function qualificationReviewIdsOf(
+  client: Client,
+  orgId: string,
+  rows: Row[],
+): Promise<ReadonlySet<string>> {
+  const ids = rows.flatMap((r) =>
+    r.recommendation === "WATCH" && r.analysis_id ? [r.analysis_id] : [],
+  );
+  if (ids.length === 0) return new Set();
+  const r = await client
+    .from("qualification_checks")
+    .select("score_run_id")
+    .eq("org_id", orgId)
+    .in("score_run_id", ids)
+    .eq("mandatory", true)
+    .eq("outcome", "NEEDS_REVIEW");
+  if (r.error) {
+    console.error(JSON.stringify({ event: "opportunity_qualification_review_failed" }));
+    return new Set();
+  }
+  return new Set(r.data.map((check) => check.score_run_id));
+}
+
 async function versionOf(client: Client, orgId: string) {
   const r = await client.rpc("procurement_dataset_version", { p_org_id: orgId });
   if (r.error || !r.data) throw fail();
@@ -197,8 +223,9 @@ export async function listOpportunities(
           secret,
         )
       : null;
+  const qualificationReviewIds = await qualificationReviewIdsOf(client, orgId, rows);
   return {
-    items: rows.map(itemOf),
+    items: rows.map((row) => itemOf(row, qualificationReviewIds)),
     total: total.count ?? 0,
     asOf,
     pageInfo: { cursor: q.cursor, nextCursor, hasNext },

@@ -5,10 +5,10 @@ import { z } from "zod";
 // docs/03 §4.1(RequirementExtraction)·§5.7(KevAssist), docs/05 §4.4(CompanyProfile), docs/08 §7(AnalysisInput).
 // 잘못된 입력(필수 누락·타입 오류·범위 밖 점수·알 수 없는 state)은 여기서 거절한다. 값을 "고쳐서 살리지" 않는다.
 
-export const ALGORITHM_VERSION = "sol-v0.2.1" as const;
+export const ALGORITHM_VERSION = "sol-v0.2.2" as const;
 // 저장된 스냅샷을 읽을 때(가정 재계산·추천 분석·인력 배치·재채점) 받는 버전. 계산은 늘 현재 규칙이다.
-// sol-v0.2.0 은 입력 모양·가중치·임계값이 같고 자격 판정(사전 별칭·면허제한 여러 행)만 다르다.
-export const READABLE_ALGORITHM_VERSIONS = ["sol-v0.2.0", ALGORITHM_VERSION] as const;
+// sol-v0.2.0·sol-v0.2.1 은 입력 모양·가중치·임계값이 같고 자격 판정만 다르다.
+export const READABLE_ALGORITHM_VERSIONS = ["sol-v0.2.0", "sol-v0.2.1", ALGORITHM_VERSION] as const;
 export const ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input/v0.1" as const;
 
 // 가중치·임계값은 algorithm_version 에 묶인 config 다(08 §2·§5.2·§5.3). 값을 바꾸려면 버전을 올리고
@@ -16,6 +16,7 @@ export const ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input/v0.1" as const;
 // sol-v0.2.0(ADR-071)은 가중치·임계값이 v0.1.0 과 같고 빈 값 처리·기술 항목 거르기만 바뀌었다(08 §3).
 // sol-v0.2.1(ADR-071 개정)은 점수가 같고 자격 판정만 바뀌었다: 자격 사전 별칭(중소기업·소상공인 확인서 등)과
 // 면허제한 여러 행을 모두 보유하면 충족(08 §5.1).
+// sol-v0.2.2(ADR-071 개정)도 점수가 같고 자격 판정만 바뀌었다: 공고 인용을 찾지 못한 추출 자격이라도 회사가 보유하면 충족(08 §5.1).
 export const SCORING_CONFIG = {
   algorithmVersion: ALGORITHM_VERSION,
   thresholds: { bid: 75, watch: 50, kevTau: 0.7 },

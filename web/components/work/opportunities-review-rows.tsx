@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatKrwCompact, formatKstShort } from "@/components/bids/format";
 import { SourceBadge } from "@/components/bids/source-badge";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { OpportunityRecommendation } from "@/components/work/opportunity-recommendation";
 import { isUnverifiedOrigin } from "@/components/bids/notice-origin";
 import { OPPORTUNITY_STAGES, opportunityHref } from "@/components/work/opportunities-copy";
 import { OpportunitySourcesDialog } from "@/components/work/opportunities-sources-dialog";
@@ -91,10 +92,9 @@ export function OpportunityReviewRows({
                 {item.sourceConflict ? (
                   <span className="type-caption text-warning">검토 필요</span>
                 ) : item.latestAnalysis?.recommendation ? (
-                  <StatusBadge
-                    kind="recommendation"
-                    value={item.latestAnalysis.recommendation}
-                    variant="inline"
+                  <OpportunityRecommendation
+                    recommendation={item.latestAnalysis.recommendation}
+                    qualificationReview={item.latestAnalysis.qualificationReview}
                   />
                 ) : (
                   <span className="type-caption text-muted-foreground">분석 대기</span>

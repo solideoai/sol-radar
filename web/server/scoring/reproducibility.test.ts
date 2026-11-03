@@ -15,7 +15,7 @@ describe("재현성 · 같은 입력 → 같은 해시 → byte-동일 결과", 
       expect(JSON.stringify(second)).toBe(JSON.stringify(first));
       expect(second.inputSnapshotHash).toBe(first.inputSnapshotHash);
       expect(first.inputSnapshotHash).toMatch(/^[0-9a-f]{64}$/);
-      expect(first.algorithmVersion).toBe("sol-v0.2.1");
+      expect(first.algorithmVersion).toBe("sol-v0.2.2");
     });
   }
 
