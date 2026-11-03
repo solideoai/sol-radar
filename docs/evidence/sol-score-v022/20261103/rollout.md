@@ -42,3 +42,10 @@ updated: 2026-11-03
 - S-LIVE 촬영 공고 동국대(`R26BK01791870`, 마감 2026-11-06 11:00)의 최신 run은 `2c69dc11`(`sol-v0.2.2`, `LIVE`, 49 비추천, `review_flags` `KEV_MANDATORY_RISK`)다. 이전 run `ed2e57d4`는 49 보류·`MODEL_RULE_DISAGREEMENT`였다. 남은 확인 필요가 회사 보유 중소기업확인서(`SME_CONFIRMATION`, 공고 인용 없음) 하나뿐이어서 충족이 됐고, 50점 미만이라 비추천이다. 결정 모델 출력(비추천 0.87)은 그대로라 이제 규칙과 같다.
 - 운영 화면(로그인 상태, Playwright): `/bids?origin=live` 1440·390에서 보류 배지 아래 "자격 확인" 15곳, 가로 넘침 없음([1440](prod-bids-live-1440.png)·[390](prod-bids-live-390.png)). 동국대 상세 1440: 권고 비추천 49, 자격 "공고 인용은 찾지 못했지만 회사가 보유해 충족", 사람 검토 권장 칸 `KEV_MANDATORY_RISK`([그림](prod-s-live-dongguk-1440.png)).
 - 로그 원문: 회사 `/data/www/ai_workspace/rescore-v022-write-20261103.log`.
+
+## 발표 장표 숫자용 운영 DB 읽기 (2026-11-03 12:40 KST)
+
+- 최신 프로필(revision 6) run 가운데 공고마다 최신 1건의 `algorithm_version`: `sol-v0.2.0` 156 · `sol-v0.2.1` 162 · `sol-v0.2.2` 72(모두 `COMPLETED`). 화면 run 382건은 이 가운데 목록에 보이는 공고만 센 값이다.
+- `bid_documents` 처리 상태: `PARSED` 10,373 · `PARTIAL` 153 · `UNSUPPORTED` 79 · `FAILED` 7 · `PENDING` 40 · 처리 상태 없음 4,553. 11-01 20:2x 값은 `PARSED` 7,708이었다([11-01 기록](../../ingestion/20261101-ops-reads.md)).
+- 카카오: `kakao_send_claims` 27행, 마지막 claim 2026-11-01 17:44(KST), `enabled=true` 연결 0건. 추천 카톡 24통 SENT 뒤로 발송이 없다.
+- 발표 장표(`docs/submission/slides/index.html`, git 밖)의 #16 운영 표·#30 실제 공고 장·#13 순서도 그림·#14 규칙 엔진을 이 값과 위 재채점 결과로 고쳤다.
