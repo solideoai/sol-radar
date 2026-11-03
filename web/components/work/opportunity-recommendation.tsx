@@ -12,8 +12,8 @@ export function OpportunityRecommendation({
 }) {
   const showReason = recommendation === "WATCH" && qualificationReview === true;
   return (
-    <span className="inline-flex flex-col items-start gap-0.5">
-      <StatusBadge kind="recommendation" value={recommendation} variant="inline" />
+    <span className="inline-flex flex-col items-start gap-1">
+      <StatusBadge kind="recommendation" value={recommendation} variant="emphasis" />
       {showReason && (
         <span
           className="type-caption whitespace-nowrap text-muted-foreground"

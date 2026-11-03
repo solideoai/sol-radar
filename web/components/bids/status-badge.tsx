@@ -24,7 +24,9 @@ import type {
 // 상태는 아이콘 + 글자 + 색 셋으로 나타낸다(스펙 §3.3). 글자·아이콘·색은 labels.ts 표에서만 가져온다.
 // 상태 색은 글자·아이콘·테두리에만 쓰고 바탕은 채우지 않는다.
 
-type BadgeVariant = "badge" | "inline";
+// emphasis 는 권고(추천·보류·비추천) 전용이다. 목록·대시보드·상세 어디서나 같은 모양으로 판정이 먼저 읽히게 한다.
+// 바탕은 채우지 않고 상태 색을 글자·아이콘·테두리에만 쓴다(tokens.json $comment).
+type BadgeVariant = "badge" | "inline" | "emphasis";
 
 type StatusBadgeProps = { variant?: BadgeVariant; showCode?: boolean } & (
   | { kind: "recommendation"; value: Recommendation }
@@ -92,6 +94,13 @@ const resolve = (props: StatusBadgeProps): Resolved | null => {
 const BADGE_BOX =
   "inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption";
 const INLINE_BOX = "inline-flex items-center gap-1 whitespace-nowrap type-caption";
+const EMPHASIS_BOX =
+  "inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-current bg-background px-2 type-label font-semibold";
+const BOX: Record<BadgeVariant, string> = {
+  badge: BADGE_BOX,
+  inline: INLINE_BOX,
+  emphasis: EMPHASIS_BOX,
+};
 
 function StatusBadge(props: StatusBadgeProps) {
   const resolved = resolve(props);
@@ -101,12 +110,12 @@ function StatusBadge(props: StatusBadgeProps) {
     props.kind === "flag" ? FLAG_ICON[props.value] : STATUS_ICON[resolved.key as StatusKey];
   const code = showCode ? resolved.code : undefined;
   return (
-    <span className={cn(variant === "badge" ? BADGE_BOX : INLINE_BOX, className)}>
+    <span className={cn(BOX[variant], className)}>
       {Icon !== null && (
         <Icon
           aria-hidden="true"
           className={cn(
-            "size-3.5 shrink-0",
+            variant === "emphasis" ? "size-4 shrink-0" : "size-3.5 shrink-0",
             (resolved.key === "QUEUED" || resolved.key === "RUNNING") &&
               "animate-spin motion-reduce:animate-none",
           )}

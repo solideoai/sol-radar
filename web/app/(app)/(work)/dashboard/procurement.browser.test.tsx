@@ -271,14 +271,15 @@ describe("공공조달 업무 화면", () => {
     expect(box.width).toBeGreaterThanOrEqual(76);
     expect(Math.abs((box.left + box.right) / 2 - (glyph.left + glyph.right) / 2)).toBeLessThan(1);
     expect(Math.abs((box.top + box.bottom) / 2 - (glyph.top + glyph.bottom) / 2)).toBeLessThan(3);
+    // 열 순서: 출처·기관·단계·제목·SOL Score·권고·분야·예산·마감·분석 상태·최종 결정(판정을 제목 바로 뒤에 둔다).
     const rows = host.querySelectorAll("tbody tr");
-    expect(rows[0]?.querySelectorAll("td")[7]?.textContent).toBe("0");
-    expect(rows[1]?.querySelectorAll("td")[7]?.textContent).toBe("—");
-    expect(rows[1]?.querySelectorAll("td")[8]?.textContent).toBe("—");
+    expect(rows[0]?.querySelectorAll("td")[4]?.textContent).toBe("0");
+    expect(rows[1]?.querySelectorAll("td")[4]?.textContent).toBe("—");
+    expect(rows[1]?.querySelectorAll("td")[5]?.textContent).toBe("—");
     expect(rows[0]?.querySelectorAll("td")[9]?.textContent).toBe("분석 중");
-    expect(rows[2]?.querySelectorAll("td")[5]?.textContent).toBe("확인 필요");
-    expect(rows[2]?.querySelectorAll("td")[6]?.textContent).toBe("확인 필요");
-    expect(rows[2]?.querySelectorAll("td")[8]?.textContent).toBe("검토 필요");
+    expect(rows[2]?.querySelectorAll("td")[7]?.textContent).toBe("확인 필요");
+    expect(rows[2]?.querySelectorAll("td")[8]?.textContent).toBe("확인 필요");
+    expect(rows[2]?.querySelectorAll("td")[5]?.textContent).toBe("검토 필요");
     expect(rows[2]?.querySelectorAll("td")[10]?.textContent).toBe("보류");
     // 공고번호·게시일은 열을 늘리지 않고 제목 칸의 보조 줄로 보이며 칸 밖으로 넘치지 않는다.
     const titleCell = rows[0]?.querySelectorAll("td")[3];

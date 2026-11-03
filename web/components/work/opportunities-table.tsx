@@ -21,17 +21,19 @@ import { OpportunityConflictNotice } from "@/components/work/opportunities-confl
 import { useIsMobile } from "@/lib/use-mobile";
 import type { OpportunityItem } from "@/server/opportunities";
 
+// 판정(SOL Score·권고)을 제목 바로 뒤에 둔다. 표가 가로로 넘치는 폭(1280·1440)에서도 판정은 스크롤 없이 보이고,
+// 밀려나는 것은 분석 상태·최종 결정 같은 보조 열이다. 열 폭 합은 그대로 1,184px 다.
 const COLUMNS = [
   ["출처", 100],
   ["기관", 120],
   ["단계", 80],
   ["제목", 228],
+  ["SOL Score", 88],
+  ["권고", 96],
   ["분야", 96],
   ["예산", 88],
   ["마감", 88],
-  ["SOL Score", 88],
-  ["권고", 88],
-  ["분석 상태", 112],
+  ["분석 상태", 104],
   ["최종 결정", 96],
 ] as const;
 
@@ -184,25 +186,11 @@ export function OpportunityTable({
                   <p className="type-caption text-warning">출처 미확인</p>
                 )}
                 {item.sourceConflict && <OpportunityConflictNotice />}
+                {/* 표와 같이 판정(SOL Score·권고)을 첫 줄에, 예산·마감을 다음 줄에 둔다. */}
                 <dl className="grid grid-cols-2 gap-3 type-body">
-                  <div className="min-w-0">
-                    <dt className="type-caption text-muted-foreground">예산</dt>
-                    <dd
-                      className="mt-1 tabular-nums"
-                      title={item.sourceConflict ? undefined : budget.full}
-                    >
-                      {item.sourceConflict ? "확인 필요" : budget.text}
-                    </dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="type-caption text-muted-foreground">마감</dt>
-                    <dd className="mt-1">
-                      <OpportunityDeadline item={item} now={now} />
-                    </dd>
-                  </div>
                   <div>
                     <dt className="type-caption text-muted-foreground">SOL Score</dt>
-                    <dd className="mt-1 tabular-nums">
+                    <dd className="mt-1 type-heading tabular-nums">
                       {isEarly || item.latestAnalysis?.solScore == null
                         ? "—"
                         : Math.round(item.latestAnalysis.solScore)}
@@ -221,6 +209,21 @@ export function OpportunityTable({
                       ) : (
                         "—"
                       )}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="type-caption text-muted-foreground">예산</dt>
+                    <dd
+                      className="mt-1 tabular-nums"
+                      title={item.sourceConflict ? undefined : budget.full}
+                    >
+                      {item.sourceConflict ? "확인 필요" : budget.text}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="type-caption text-muted-foreground">마감</dt>
+                    <dd className="mt-1">
+                      <OpportunityDeadline item={item} now={now} />
                     </dd>
                   </div>
                 </dl>
@@ -256,7 +259,8 @@ export function OpportunityTable({
             role="region"
             aria-label="입찰 공고 표, 가로 스크롤 가능"
             aria-describedby={hasOverflow ? hintId : undefined}
-            className="w-full overflow-x-auto rounded-lg border border-border outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            // relative: 칸 안의 sr-only 글자(absolute)가 이 상자를 기준으로 잡혀 함께 잘린다. 없으면 768px 에서 페이지가 가로로 넘쳤다.
+            className="relative w-full overflow-x-auto rounded-lg border border-border outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <table
               className={cn(
@@ -341,7 +345,7 @@ export function OpportunityTable({
                             id={`opportunity-title-${item.id}`}
                             href={opportunityHref(item.bidId, listQuery)}
                             title={item.title}
-                            className="line-clamp-2 rounded-sm wrap-anywhere outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                            className="line-clamp-2 rounded-sm font-medium wrap-anywhere outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                           >
                             {item.title}
                           </Link>
@@ -352,6 +356,25 @@ export function OpportunityTable({
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="px-2 text-right type-heading text-foreground tabular-nums">
+                        {isEarly
+                          ? "—"
+                          : item.latestAnalysis?.solScore == null
+                            ? "—"
+                            : Math.round(item.latestAnalysis.solScore)}
+                      </TableCell>
+                      <TableCell className="px-2">
+                        {item.sourceConflict ? (
+                          <span className="type-caption text-warning">검토 필요</span>
+                        ) : !isEarly && item.latestAnalysis?.recommendation ? (
+                          <OpportunityRecommendation
+                            recommendation={item.latestAnalysis.recommendation}
+                            qualificationReview={item.latestAnalysis.qualificationReview}
+                          />
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell>
                         <Categories item={item} />
@@ -371,25 +394,6 @@ export function OpportunityTable({
                       </TableCell>
                       <TableCell>
                         <OpportunityDeadline item={item} now={now} />
-                      </TableCell>
-                      <TableCell className="px-2 text-right tabular-nums">
-                        {isEarly
-                          ? "—"
-                          : item.latestAnalysis?.solScore == null
-                            ? "—"
-                            : Math.round(item.latestAnalysis.solScore)}
-                      </TableCell>
-                      <TableCell>
-                        {item.sourceConflict ? (
-                          <span className="type-caption text-warning">검토 필요</span>
-                        ) : !isEarly && item.latestAnalysis?.recommendation ? (
-                          <OpportunityRecommendation
-                            recommendation={item.latestAnalysis.recommendation}
-                            qualificationReview={item.latestAnalysis.qualificationReview}
-                          />
-                        ) : (
-                          "—"
-                        )}
                       </TableCell>
                       <TableCell>
                         <OpportunityAnalysis item={item} />

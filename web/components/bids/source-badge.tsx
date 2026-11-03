@@ -29,7 +29,10 @@ export function SourceBadge({
       aria-label={family === null ? "출처 미확인" : undefined}
       className={cn(
         "inline-flex h-7 min-w-[76px] shrink-0 items-center justify-center rounded-md border px-2 type-caption font-medium whitespace-nowrap",
-        family === null ? "border-border bg-background text-foreground" : SOURCE_COLORS[family],
+        // 출처를 모르는 칸은 회색 글자로 낮춘다. 진한 글자의 빈 칸은 행마다 버튼처럼 보였다.
+        family === null
+          ? "border-border bg-background font-normal text-muted-foreground"
+          : SOURCE_COLORS[family],
         className,
       )}
     >
