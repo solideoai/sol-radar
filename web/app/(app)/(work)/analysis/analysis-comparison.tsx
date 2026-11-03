@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import { formatKst } from "@/components/bids/format";
+import { readableCheck } from "@/components/bids/qualification-reason";
 import { FACTOR_LABEL, MISSING_REASON_LABEL, REVIEW_FLAG_LABEL } from "@/components/bids/labels";
 import type { AnalysisHistoryItem, AnalysisView, FactorKey } from "@/server/bids";
 import { BIDS_DESCRIPTION } from "@/app/(app)/(work)/bids/bids-copy";
@@ -86,16 +87,19 @@ function QualificationValue({ view }: { view: AnalysisView }) {
             검사 항목 {view.qualification.checks.length}건
           </summary>
           <ul className="mt-2 space-y-3">
-            {view.qualification.checks.map((check) => (
-              <li key={check.id} className="space-y-1">
-                <p>
-                  {check.requirementName}
-                  {check.mandatory ? " · 필수" : ""}
-                </p>
-                <StatusBadge kind="qualification" value={check.outcome} variant="inline" />
-                <p className="type-caption text-muted-foreground">{check.reason}</p>
-              </li>
-            ))}
+            {view.qualification.checks.map((check) => {
+              const { name, reason } = readableCheck(check);
+              return (
+                <li key={check.id} className="space-y-1">
+                  <p>
+                    {name}
+                    {check.mandatory ? " · 필수" : ""}
+                  </p>
+                  <StatusBadge kind="qualification" value={check.outcome} variant="inline" />
+                  <p className="type-caption text-muted-foreground">{reason}</p>
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { NEEDS_REVIEW_REASON_LABEL } from "@/components/bids/labels";
+import { readableCheck } from "@/components/bids/qualification-reason";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { evidenceLabel } from "@/components/bids/evidence-drawer";
 import type { EvidenceContext, EvidenceRef } from "@/components/bids/evidence-store";
@@ -26,9 +27,13 @@ type QualificationChecklistProps = {
   notice?: React.ReactNode;
 };
 
-// 09 "근거 부족"
-const INSUFFICIENT_DATA_TEXT =
-  "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다.";
+// 09 "근거 부족"(2026-11-03 개정). 자격은 점수에 들어가지 않고 추천을 막는다는 것을 말한다. 내부 코드는 쓰지 않는다.
+// 필수 자격이 아닌 행은 권고를 막지 않으므로 둘째 문장이 다르다(08 §5.2: 판정은 필수 행만 본다).
+const NO_EVIDENCE_TEXT = {
+  mandatory:
+    "근거를 확인하지 못했습니다. 이 필수 자격을 확인하기 전에는 점수가 높아도 추천이 나오지 않습니다.",
+  optional: "근거를 확인하지 못했습니다. 필수 자격이 아니라 권고에는 영향이 없습니다.",
+} as const;
 const ASSUMPTION_HINT = "보유 가정을 켜면 저장하지 않고 권고와 점수를 다시 계산합니다.";
 const ASSUMPTION_LIMIT = "가정은 10개까지 켤 수 있습니다.";
 
@@ -102,6 +107,7 @@ function CheckRow({
 }) {
   const nameId = useId();
   const needsReview = check.outcome === "NEEDS_REVIEW";
+  const { name, reason } = readableCheck(check);
   return (
     <li className="flex flex-col gap-1 py-3">
       {/* 이름이 길어 꺾여도 스위치는 첫 줄 오른쪽 위에 남는다(§4.2·§9). */}
@@ -114,7 +120,7 @@ function CheckRow({
             variant="inline"
           />
           <span id={nameId} className="min-w-0 wrap-anywhere type-body text-foreground">
-            {check.requirementName}
+            {name}
           </span>
           <span className="flex flex-wrap gap-x-2 type-caption text-muted-foreground">
             {check.mandatory && <span>필수</span>}
@@ -124,14 +130,10 @@ function CheckRow({
         {assumption !== undefined && <AssumptionSwitch nameId={nameId} control={assumption} />}
       </div>
       <p className="type-label text-muted-foreground">
-        {needsReview && check.reasonCode !== null && (
-          <>
-            {NEEDS_REVIEW_REASON_LABEL[check.reasonCode]}{" "}
-            <span className="font-mono type-caption">{check.reasonCode}</span>
-            {" · "}
-          </>
-        )}
-        {check.reason}
+        {needsReview &&
+          check.reasonCode !== null &&
+          `${NEEDS_REVIEW_REASON_LABEL[check.reasonCode]} · `}
+        {reason}
       </p>
       {check.profileEvidence.length > 0 && (
         <p className="type-label text-muted-foreground wrap-anywhere">
@@ -153,9 +155,7 @@ function CheckRow({
                 variant="link"
                 size="sm"
                 className="h-auto min-h-8 max-w-full justify-start px-0 text-left whitespace-normal wrap-anywhere"
-                onClick={() =>
-                  onOpenEvidence({ title: check.requirementName, evidence: check.evidence })
-                }
+                onClick={() => onOpenEvidence({ title: name, evidence: check.evidence })}
               >
                 {evidenceText(ev, documents)}
               </Button>
@@ -166,7 +166,9 @@ function CheckRow({
       {needsReview &&
         check.reasonCode !== "STAGE_NOT_APPLICABLE" &&
         check.evidence.length === 0 && (
-          <p className="type-label text-foreground">{INSUFFICIENT_DATA_TEXT}</p>
+          <p className="type-label text-foreground">
+            {NO_EVIDENCE_TEXT[check.mandatory ? "mandatory" : "optional"]}
+          </p>
         )}
       {/* 띠가 화면 위쪽 밖에 생겼을 때 결과로 가는 길(D8). 켠 행에만 둔다. */}
       {assumption?.checked === true && (

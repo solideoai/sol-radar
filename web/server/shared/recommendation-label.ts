@@ -1,4 +1,5 @@
 import type { ReviewDecision } from "./review-input";
+import { NEEDS_REVIEW_REASON_LABEL } from "./review-reason-label";
 
 // ADR-062 권고·결정 화면 표기. 값(BID·WATCH·NO_BID)은 DB·API·쿼리·결정 모델 입출력 그대로이고 사람이 읽는 글자만 바꾼다.
 // 화면(components/bids/labels.ts)·서버 설명 문장(scoring)·알림(인앱·카카오)이 이 표 하나에서 가져온다.
@@ -44,3 +45,21 @@ export const relabelLegacyExplanation = (text: string): string =>
     (out, [legacy, current]) => out.replaceAll(legacy, current),
     text,
   );
+
+// 지금 템플릿(scoring/explanation.ts qualificationSentence)이 넣는 사유 코드 묶음: "필수자격 확인 필요(NOTICE_INFO_MISSING, AMBIGUOUS_MATCH)".
+const REVIEW_REASON_CODES = /필수자격 확인 필요\(([A-Z_]+(?:, [A-Z_]+)*)\)/g;
+
+const isReviewReasonCode = (code: string): code is keyof typeof NEEDS_REVIEW_REASON_LABEL =>
+  Object.hasOwn(NEEDS_REVIEW_REASON_LABEL, code);
+
+/**
+ * 저장된 설명 문장 → 화면 문장. 옛 권고 표기(위 표)를 바꾸고, 자격 확인 사유 코드를 화면 이름으로 바꾼다.
+ * DB 는 바꾸지 않는다. 표에 없는 코드는 그대로 둔다(2026-11-03 사용자 지시: 화면에 내부 코드를 보이지 않는다).
+ */
+export const readableExplanation = (text: string): string =>
+  relabelLegacyExplanation(text).replace(REVIEW_REASON_CODES, (_match, codes: string) => {
+    const labels = codes
+      .split(", ")
+      .map((code) => (isReviewReasonCode(code) ? NEEDS_REVIEW_REASON_LABEL[code] : code));
+    return `필수자격 확인 필요(${labels.join(", ")})`;
+  });

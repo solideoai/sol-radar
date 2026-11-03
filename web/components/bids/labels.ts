@@ -26,6 +26,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   FACTOR_LABEL as SHARED_FACTOR_LABEL,
+  NEEDS_REVIEW_REASON_LABEL as SHARED_NEEDS_REVIEW_REASON_LABEL,
   RECOMMENDATION_LABEL as SHARED_RECOMMENDATION_LABEL,
 } from "@/server/shared";
 import type {
@@ -114,15 +115,11 @@ export const STATUS_ICON = {
   UNDECIDED: { icon: null, className: "text-muted-foreground" },
 } as const satisfies Record<StatusKey, { icon: LucideIcon | null; className: string }>;
 
-// §5.4.4
-export const NEEDS_REVIEW_REASON_LABEL = {
-  NOTICE_INFO_MISSING: "공고에서 요구를 찾지 못함",
-  NOTICE_CONFLICTED: "공고 값이 서로 다름",
-  COMPANY_EVIDENCE_MISSING: "회사 증빙 없음",
-  AMBIGUOUS_MATCH: "대응 불확실",
-  PARSE_UNSUPPORTED: "첨부를 읽지 못함",
-  STAGE_NOT_APPLICABLE: "발주계획 단계(자격 요건 없음)",
-} as const satisfies Record<NeedsReviewReason, string>;
+// §5.4.4. 정본은 @/server/shared 다. 저장된 설명 문장의 사유 코드도 같은 표로 바꾼다.
+export const NEEDS_REVIEW_REASON_LABEL = SHARED_NEEDS_REVIEW_REASON_LABEL satisfies Record<
+  NeedsReviewReason,
+  string
+>;
 
 // §5.4.5 요소 라벨. 순서는 점수표(08 §2) 순이다. 정본은 @/server/shared 다. 추천 분석 요청(서버)과 같은 표를 쓴다.
 export const FACTOR_LABEL = SHARED_FACTOR_LABEL satisfies Record<FactorKey, string>;

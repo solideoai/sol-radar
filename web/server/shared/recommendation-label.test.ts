@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { recommendationWithObject, relabelLegacyExplanation } from "./recommendation-label";
+import {
+  readableExplanation,
+  recommendationWithObject,
+  relabelLegacyExplanation,
+} from "./recommendation-label";
 
 // 지난 판본 scoring/explanation.ts 의 buildExplanation 이 실제로 만든 문장(ADR-062 전 표기).
 const LEGACY_FX01_979C25F0 =
@@ -27,5 +31,16 @@ describe("권고 표기(ADR-062)", () => {
     expect(
       (["BID", "WATCH", "NO_BID"] as const).map((value) => recommendationWithObject(value)),
     ).toEqual(["추천을", "보류를", "비추천을"]);
+  });
+});
+
+describe("readableExplanation", () => {
+  it("옛 권고 표기와 자격 확인 사유 코드를 화면 이름으로 바꾸고, 모르는 코드는 그대로 둔다", () => {
+    expect(readableExplanation(LEGACY_FX04_E22DE09E)).toContain(
+      "필수자격 확인 필요(공고 정보를 확인하지 못함). 정보 부족은 미충족이 아니며 사람이 확인합니다. 자격 확인이 끝나기 전에는 점수 85점과 무관하게 보류입니다.",
+    );
+    expect(
+      readableExplanation("필수자격 확인 필요(NOTICE_INFO_MISSING, AMBIGUOUS_MATCH, NEW_CODE)."),
+    ).toBe("필수자격 확인 필요(공고 정보를 확인하지 못함, 같은 자격인지 불확실, NEW_CODE).");
   });
 });
