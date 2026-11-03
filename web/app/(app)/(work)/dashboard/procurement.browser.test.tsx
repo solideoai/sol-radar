@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { AppPage } from "@/components/app-page";
 import { SOURCE_LABELS } from "@/components/bids/source-badge";
+import { OpportunityReviewRows } from "@/components/work/opportunities-review-rows";
 import { OpportunityTable } from "@/components/work/opportunities-table";
 import type {
   OpportunityItem,
@@ -264,6 +265,18 @@ describe("공공조달 업무 화면", () => {
     // 출처가 있는 데모 공고는 출처 배지를 그대로 두고 DEMO 는 제목 칸에 한 번이다.
     expect(known.querySelector('[data-slot="source-badge"]')?.textContent).toBe("LH");
     expect(known.textContent?.match(/DEMO(?!-)/g)).toHaveLength(1);
+  });
+
+  it("대시보드 우선 검토 줄도 출처 없는 데모 공고는 DEMO 한 번이고 '미확인'이 없다", async () => {
+    const host = render(
+      <OpportunityReviewRows
+        items={[{ ...BID, id: "00000000-0000-4000-8000-000000000009", sourceFamily: null }]}
+        query="origin=demo"
+      />,
+    );
+    await expect.element(page.getByRole("listitem")).toBeVisible();
+    expect(host.textContent?.match(/DEMO(?!-)/g)).toHaveLength(1);
+    expect(host.textContent).not.toContain("미확인");
   });
 
   it("1280px에서 11열은 표 안에서만 이동하고 LH 배지·0점·early 권고를 정확히 표시한다", async () => {

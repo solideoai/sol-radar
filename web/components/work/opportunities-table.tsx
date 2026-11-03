@@ -5,8 +5,7 @@ import { CircleDashedIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { dDay, formatKrwCompact, formatKst, formatKstShort } from "@/components/bids/format";
-import { SourceBadge } from "@/components/bids/source-badge";
-import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { StatusBadge } from "@/components/bids/status-badge";
 import { isUnverifiedOrigin } from "@/components/bids/notice-origin";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -18,6 +17,7 @@ import {
 import { OpportunitySourcesDialog } from "@/components/work/opportunities-sources-dialog";
 import { OpportunityRecommendation } from "@/components/work/opportunity-recommendation";
 import { OpportunityConflictNotice } from "@/components/work/opportunities-conflict-notice";
+import { OpportunitySourceCell, TitleDemoBadge } from "@/components/work/opportunity-source-cell";
 import { useIsMobile } from "@/lib/use-mobile";
 import type { OpportunityItem } from "@/server/opportunities";
 
@@ -66,15 +66,6 @@ export function OpportunityDeadline({ item, now }: { item: OpportunityItem; now:
 }
 
 // 제목 칸의 보조 줄: 공고번호·게시일. 열을 늘리지 않으려고 제목 아래 한 줄로 두고, 넘치면 말줄임한다(1280px).
-// 출처 칸. 출처가 없는 데모 공고는 "미확인" 대신 DEMO 배지를 둔다(사업 공고 표 program-table.tsx 와 같다).
-// 출처가 있는 데모 공고는 출처 배지를 두고 DEMO 는 제목 칸에 둔다. 어느 쪽이든 행마다 DEMO 는 한 번이다.
-// 목록 위 "DEMO · 예시 공고 기준" 줄은 두지 않는다(2026-11-03 사용자 지시, ADR-081).
-const demoInSourceCell = (item: OpportunityItem) => item.isDemo && item.sourceFamily === null;
-
-function SourceCell({ item }: { item: OpportunityItem }) {
-  return demoInSourceCell(item) ? <DemoBadge dense /> : <SourceBadge family={item.sourceFamily} />;
-}
-
 function NoticeMeta({ item }: { item: OpportunityItem }) {
   const { noticeId, publishedAt } = item;
   return (
@@ -165,8 +156,8 @@ export function OpportunityTable({
             return (
               <li key={item.id} className={cn("min-w-0 space-y-3 p-4", busy && "opacity-60")}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <SourceCell item={item} />
-                  {item.isDemo && !demoInSourceCell(item) && <DemoBadge dense />}
+                  <OpportunitySourceCell item={item} />
+                  <TitleDemoBadge item={item} />
                   <span className="type-caption text-muted-foreground">
                     {OPPORTUNITY_STAGES[item.stage] ?? item.stage}
                   </span>
@@ -318,7 +309,7 @@ export function OpportunityTable({
                       )}
                       <TableCell className="py-2">
                         <div className="flex flex-col items-start gap-1">
-                          <SourceCell item={item} />
+                          <OpportunitySourceCell item={item} />
                           <OpportunitySourcesDialog item={item} listQuery={listQuery} />
                         </div>
                       </TableCell>
@@ -340,7 +331,7 @@ export function OpportunityTable({
                       </TableCell>
                       <TableCell className="whitespace-normal">
                         <div className="flex flex-col items-start gap-1">
-                          {item.isDemo && !demoInSourceCell(item) && <DemoBadge dense />}
+                          <TitleDemoBadge item={item} />
                           {isUnverifiedOrigin(item) && (
                             <span
                               data-part="unverified-origin"
