@@ -2,7 +2,13 @@
 
 import { LoaderCircleIcon } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { INSIGHT_DONE_HOLD_MS, insightProgress } from "@/components/bids/insight-progress";
+import {
+  INSIGHT_DONE_HOLD_MS,
+  INSIGHT_EXPECTED_MS,
+  insightFillMs,
+  insightFillValue,
+  insightProgress,
+} from "@/components/bids/insight-progress";
 import {
   RecommendationInsightDialog,
   type InsightStage,
@@ -25,7 +31,9 @@ import type { InsightView } from "@/server/insight";
 export { INSIGHT_NOTICE };
 export type { InsightRunFacts };
 
-const PROGRESS_TICK_MS = 1_000;
+// 숫자가 1씩 오르게 0.1초마다 다시 센다(예상 시간 10초 동안 1초에 9씩). 100 까지 채울 때는 더 잘게 센다.
+const PROGRESS_TICK_MS = 100;
+const FILL_TICK_MS = 20;
 
 type RecommendationInsightProps = {
   bidId: string;
@@ -40,7 +48,7 @@ type RecommendationInsightProps = {
   initialInsight: InsightView | null;
   /** 최신이 FAILED 일 때 그 run 의 마지막 모델 결과. 그 밖에는 null. */
   initialPrevious: InsightView | null;
-  /** PENDING 을 묻는 최대 시간(INSIGHT_POLL_LIMIT_MS). 진행률 100 의 기준 T 이기도 하다(계획 Q4). 서버 화면이 넘긴다. */
+  /** PENDING 을 묻는 최대 시간(INSIGHT_POLL_LIMIT_MS). 진행률이 99 에 닿는 때이기도 하다(계획 Q4). 서버 화면이 넘긴다. */
   pollLimitMs: number;
   /** 지금 출력 형식 버전(INSIGHT_PROMPT_VERSION). 다르면 옛 형식으로 그린다. 서버 화면이 넘긴다. */
   currentPromptVersion: string;
@@ -128,13 +136,20 @@ function RecommendationInsight({
   const [open, setOpen] = useState(false);
   // 결과를 받은 순간 팝업이 열려 있는지(묻기 루프가 부르는 onDone 이 읽는다).
   const openRef = useRef(false);
-  const [holding, setHolding] = useState(false);
+  // 팝업이 열린 채로 DONE 을 받은 때와 그때 보이던 값. 그 값에서 100 까지 채우고 잠깐 보인 뒤 내용으로 바꾼다.
+  const [finish, setFinish] = useState<{ from: number; at: number } | null>(null);
+  const [fillValue, setFillValue] = useState(100);
   // 팝업에 이미 보인 진행률. 계산 값이 이보다 작아도(시작점이 행의 createdAt 으로 옮겨짐) 줄여 보이지 않는다.
   const [progress, setProgress] = useState(0);
+  // 마지막으로 그린 진행률. DONE 을 받은 순간의 값을 읽는다(그린 뒤 effect 가 적는다).
+  const shownRef = useRef(0);
 
-  // 팝업이 열린 채로 DONE 을 받으면 100% 를 잠깐 보인 뒤 내용으로 바꾼다. 닫혀 있으면 구역만 바뀐다.
+  // 닫혀 있으면 구역만 바뀐다.
   const onDone = useCallback(() => {
-    if (openRef.current) setHolding(true);
+    if (!openRef.current) return;
+    const from = shownRef.current;
+    setFillValue(from);
+    setFinish({ from, at: Date.now() });
   }, []);
   const { insight, previous, phase, startedAt, request, recheck } = useInsightRequest({
     bidId,
@@ -146,20 +161,22 @@ function RecommendationInsight({
   });
 
   const waiting = phase === "requesting" || phase === "polling";
-  const stage: InsightStage = holding
-    ? "finishing"
-    : waiting
-      ? "waiting"
-      : phase === "delayed" || insight?.status === "PENDING"
-        ? "delayed"
-        : "settled";
+  const stage: InsightStage =
+    finish !== null
+      ? "finishing"
+      : waiting
+        ? "waiting"
+        : phase === "delayed" || insight?.status === "PENDING"
+          ? "delayed"
+          : "settled";
 
   const progressAt = useCallback(
-    (now: number) => (startedAt === null ? 0 : insightProgress(now - startedAt, pollLimitMs)),
+    (now: number) =>
+      startedAt === null ? 0 : insightProgress(now - startedAt, INSIGHT_EXPECTED_MS, pollLimitMs),
     [pollLimitMs, startedAt],
   );
 
-  // 팝업이 열려 있고 기다리는 동안 1초마다 다시 센다. 묻기 간격(2초·5초)과 따로 돈다.
+  // 팝업이 열려 있고 기다리는 동안 0.1초마다 다시 센다. 묻기 간격(2초·5초)과 따로 돈다.
   useEffect(() => {
     if (!open || !waiting) return;
     const timer = setInterval(
@@ -169,17 +186,28 @@ function RecommendationInsight({
     return () => clearInterval(timer);
   }, [open, progressAt, waiting]);
 
+  // DONE 을 받은 값에서 100 까지 고르게 채우고(한 번에 건너뛰지 않는다), 100 을 잠깐 보인 뒤 내용으로 바꾼다.
   useEffect(() => {
-    if (!holding) return;
-    const timer = setTimeout(() => setHolding(false), INSIGHT_DONE_HOLD_MS);
-    return () => clearTimeout(timer);
-  }, [holding]);
+    if (finish === null) return;
+    const fill = setInterval(
+      () => setFillValue(insightFillValue(finish.from, Date.now() - finish.at)),
+      FILL_TICK_MS,
+    );
+    const done = setTimeout(
+      () => setFinish(null),
+      insightFillMs(finish.from) + INSIGHT_DONE_HOLD_MS,
+    );
+    return () => {
+      clearInterval(fill);
+      clearTimeout(done);
+    };
+  }, [finish]);
 
   const changeOpen = (next: boolean) => {
     openRef.current = next;
     setOpen(next);
     if (next) setProgress((shown) => Math.max(shown, progressAt(Date.now())));
-    else setHolding(false);
+    else setFinish(null);
   };
   // 새 요청은 0% 부터 센다. [다시 확인]은 같은 요청이라 이어 센다.
   const startRequest = () => {
@@ -188,7 +216,10 @@ function RecommendationInsight({
   };
 
   const section = sectionStateOf(insight, previous, stage, canRequest);
-  const shownProgress = stage === "finishing" ? 100 : stage === "delayed" ? 99 : progress;
+  const shownProgress = stage === "finishing" ? fillValue : stage === "delayed" ? 99 : progress;
+  useEffect(() => {
+    shownRef.current = shownProgress;
+  });
 
   return (
     <section
