@@ -111,7 +111,7 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 
 ## 6. 데모 스크립트(녹화 클립)
 
-상세 클릭 경로와 fixture는 [[19-DEMO-SCENARIO|19 데모 시나리오]]에 있다. 발표 시간표의 정본은 [[slides-spec|덱 제작 명세]] §1(18장 + 추가 장 14a · 20:00)이다. 아래 표는 클립 안 장면 순서이고, 조작자는 19의 단계를 따른다.
+상세 클릭 경로와 fixture는 [[19-DEMO-SCENARIO|19 데모 시나리오]]에 있다. 발표 시간표의 정본은 [[slides-spec|덱 제작 명세]] §1(18장 + 추가 장 14a · 14b · 14c · 20:00)이다. 아래 표는 클립 안 장면 순서이고, 조작자는 19의 단계를 따른다.
 
 > [!note] 발표 형식과 D1 (2026-10-27 사용자 결정, [[16-DECISIONS|ADR-054]])
 > 본편은 덱 20분 + 녹화 클립이다. 아래 표는 클립의 장면 순서다. D1 운영 사이트(`https://www.solideos-radar.com` + `?origin=demo`, 운영 DB의 DEMO 데이터)는 촬영 경로이자 질의응답 때의 라이브다. 발표 전 `pnpm demo:reset`은 하지 않는다. S5·S6은 로컬 Compose에서 찍은 클립으로 보인다.
@@ -227,7 +227,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이고 구
 |---|---|---|---|---|
 | 저장소 링크(README가 [[00-README\|00 인덱스]] 역할, 기동 절차는 [[10-DEPLOYMENT\|10 배포]]) | `README.md`, `docs/00-README.md` | 있음 | 완성도·확장성 | 미확인 |
 | 아키텍처 다이어그램: Next.js(`web/`) + Supabase + Compose + AI gateway + 회사 GPU 추론 엔드포인트(Qwen·Bosun, HTTPS)([[02-ARCHITECTURE]], ADR-017·020·025) + 데이터 흐름 | `docs/submission/architecture.md` | 초안 | 확장성·실용성 | 미확인 |
-| 발표 덱 20분(§1 → §2 → §3.2 → 데모 클립 → §7 → 이후 계획) | `docs/submission/slides-spec.md` → 슬라이드 파일 | 슬라이드 명세 있음. 발표는 HTML 장표 `docs/submission/slides/index.html`(git에 없음)로 한다(2026-11-03 사용자 결정). pptx 덱 `docs/submission/deck/`은 쓰지 않는다. 영상은 촬영 전 | 4항목 전부 | 미확인 |
+| 발표 덱 20분(§1 → §2 → §3.2 → 데모 클립 → §7 → 이후 계획) | `docs/submission/slides-spec.md` → 슬라이드 파일 | 슬라이드 명세 있음. 발표는 HTML 장표 `docs/submission/slides/index.html`(2026-11-03 `d6ecbb47` 로 git 에 넣음)로 한다(2026-11-03 사용자 결정). pptx 덱 `docs/submission/deck/`은 쓰지 않는다. 영상은 촬영 전 | 4항목 전부 | 미확인 |
 | 녹화 클립(덱 안 본편·제출용) | `docs/submission/slides-spec.md` 부록 A → 영상 파일 | 스토리보드 초안. 카카오 수신 장면은 2026-11-01 녹화했다(영상은 사용자 보관, `docs/evidence/kakao-notify/20261101-recording.md`). 나머지 촬영 날짜는 [[12-ROADMAP\|12 로드맵]] 남은 일정 제안 표 | 완성도·실용성 | 미확인 |
 | 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록 있음. 실제 API 응답·첨부 다운로드 증거(C1 ①②, 2026-10-19), S-LIVE 격리 로컬 run 1건(`PARTIAL`, `demo-day/20261020-1434/`), Qwen probe(`phase-5/qwen-probe-20261021-2343.json`), 운영 DEMO 재분석(`company-public-profile/20261027/prod-rollout.md`), 운영 gateway `/health`와 실공고 3건 분석(`company-rollout/20261029/ai-gateway-rollout.md`)이 있다. 운영 FX-02 이전 실모델 run(2026-10-24, 66 보류)은 운영 DB에 있고 증거 파일은 없다 | 실용성 | 미확인 |
 | 실험 결과 표(E0·E1'·E2·E3·E4, 임팩트 n=3) | `docs/submission/experiment-tables.md`, `docs/evidence/eval/`, `docs/evidence/impact/`(폴더 아직 없음) | 빈 템플릿. 발표 뒤 측정([[16-DECISIONS\|ADR-067]]) | 창의성·실용성 | 미확인 |
