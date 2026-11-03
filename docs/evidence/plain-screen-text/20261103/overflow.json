@@ -1,0 +1,277 @@
+[
+  {
+    "key": "dashboard",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "dashboard",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "bids",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "detail-fx01",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "detail-fx03",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "revisions-fx01",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "revisions-fx01",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "revisions-fx01",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "revisions-fx01",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "revisions-fx01",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "analysis",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "analysis",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "analysis",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "analysis",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "analysis",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "company",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "company",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "company",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "company",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "company",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "market",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "workforce",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "workforce",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "workforce",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "workforce",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "workforce",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "calendar",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "calendar",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "calendar",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "calendar",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "calendar",
+    "width": 1440,
+    "over": 0
+  },
+  {
+    "key": "settings-org",
+    "width": 360,
+    "over": 0
+  },
+  {
+    "key": "settings-org",
+    "width": 390,
+    "over": 0
+  },
+  {
+    "key": "settings-org",
+    "width": 768,
+    "over": 0
+  },
+  {
+    "key": "settings-org",
+    "width": 1280,
+    "over": 0
+  },
+  {
+    "key": "settings-org",
+    "width": 1440,
+    "over": 0
+  }
+]

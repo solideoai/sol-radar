@@ -301,7 +301,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`인지 확인한다. 숫자가 다르면 중단. 사전 분석은 14번에서 만든다.
 7. `curl -s http://localhost:3000/health/ready`: `status` ok, `checks.db`·`checks.redis`·`checks.storage` ok, `checks.ai`가 모드와 맞는다(`mock` → `mock`, `live`·`fixture` → `local`). AI만 불가면 `degraded`(200)로 통과. db·redis·storage 중 하나라도 불가면 503이므로 중단. `health-ready.json`으로 저장. **[live·fixture]** gateway `GET /health`의 `runMode`와 `kev.registryMatch=true`도 `gateway-health.json`으로 저장([[05-API-SPEC|05 API]], [[14-OBSERVABILITY|14 관측성]]).
 8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다. `Authorization: Bearer`로 `GET /api/v1/bids?origin=demo` 19건 → `POST /api/v1/bids/:id/analyses` 202 → poll이 10초 안에 `COMPLETED`(`mock` 기준, [[19-DEMO-SCENARIO|19]] S4). Bearer 요청은 CSRF 헤더 검사 대상이 아니다.
-9. 브라우저(1440px, 줌 100%)에서 로그인 → 분석 1건의 요약 띠 "분석 실행 모드: mock"·"AI: mock"(`live`·`fixture`면 "AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c")과 `?origin=demo`의 DEMO 배지 확인 → 목록 19건, 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세가 자격·점수·근거·결정 모델 참고 지표까지 렌더. `run-mode-header.png`로 저장.
+9. 브라우저(1440px, 줌 100%)에서 로그인 → 분석 1건의 "Mock 응답(데모 데이터)" 표시(`mock` 모드일 때. 실행 모드·모델 이름 글자는 2026-11-03 [[16-DECISIONS|ADR-080]]로 화면에서 뺐고 `/health/ready` `checks.ai`로 확인한다)과 `?origin=demo`의 DEMO 배지 확인 → 목록 19건, 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세가 자격·점수·근거·결정 모델 참고 지표까지 렌더. `run-mode-header.png`로 저장.
 10. 장애 대체 리허설(아래 "장애 주입"): ai-gateway 중지 → FX-01 재분석 `PARTIAL` → 시작 → `healthy` → 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속도 한다: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway를 재시작(또는 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)이고 mock 결과가 아닌지 확인 → 값을 되돌려 재시작하고 G2 curl로 재접속 확인 → `COMPLETED`. 재접속 소요 시간을 기록한다.
 11. 테넌트 격리: `org-02` VIEWER(`viewer@other.invalid`) token으로 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`. 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. `isolation-404.json`으로 저장([[19-DEMO-SCENARIO|19]] S7).
 12. 리허설로 생긴 리뷰·알림·분석 run 초기화: `pnpm demo:reset`. 마지막 줄이 6번과 같은지 본다. 이 뒤 `score_runs`는 0건이다.
@@ -321,8 +321,8 @@ S6에서 쓰는 AI 장애 주입은 대체 경로의 **ai-gateway 컨테이너 �
 
 | 단계 | 명령 | 기대 결과 |
 |---|---|---|
-| 주입 | `docker compose -f infra/compose.yaml stop ai-gateway` | Worker 호출이 연결 거부로 바로 실패(재시도 없음). FX-01 재분석이 1~2초 안에 `PARTIAL`(화면은 2초 폴링이라 수 초), `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 분석 요약 띠 "· 응답 없음(규칙만)", `/health/ready` `degraded`·`checks.ai: unavailable` |
-| 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 `healthy` | FX-01 재분석 `COMPLETED`, 요약 띠 `AI: mock`. 분석 1건으로는 circuit이 열리지 않아 대기 없음 |
+| 주입 | `docker compose -f infra/compose.yaml stop ai-gateway` | Worker 호출이 연결 거부로 바로 실패(재시도 없음). FX-01 재분석이 1~2초 안에 `PARTIAL`(화면은 2초 폴링이라 수 초), `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: 부분 완료)"([[09-SECURITY\|09 보안]] 원문), `/health/ready` `degraded`·`checks.ai: unavailable` |
+| 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 `healthy` | FX-01 재분석 `COMPLETED`. 분석 1건으로는 circuit이 열리지 않아 대기 없음 |
 
 `AI_FAULT_INJECT` env 토글과 mock 장애 fixture는 시험(골든 `G6`)에서만 쓴다. 값(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)은 [[03-AI-PIPELINE|03]] §3이다. 실모델 모드의 엔드포인트 미접속은 리허설 항목이다(기동 절차 10번).
 

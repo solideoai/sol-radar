@@ -133,11 +133,11 @@ flowchart TD
 
 | `SOL_RUN_MODE` | 공고 | AI | 회사 프로필 | 화면 표시 | 쓰는 곳 |
 |---|---|---|---|---|---|
-| `live` | 실제 공고(`is_demo=false`), 첨부 다운로드 · 파싱(회사 Documents Worker 운영) | 회사 vLLM API Qwen3.8-Flash-Next(`Qwen3.8-Flash-Next-AWQ-INT4`, HTTPS) · 회사 GPU 서버 Bosun v3.1 0.6B(루프백) 실추론(`AI_PROVIDER=local`). 운영 분석은 DEMO 가상 공고 19건(2026-10-24 FX-02 66 보류, 10-27 17건, 10-28 FX-03 53 보류), 실공고 개별 3건과 IT 실공고 371건 일괄 분석(2026-10-29, 모두 보류). 저장 입력을 규칙 `sol-v0.2.0`(10-30)·`sol-v0.2.1`(11-01)·`sol-v0.2.2`(11-03)로 다시 계산했다. 11-03 기준 화면 run 은 DEMO 18건 추천 10·보류 8, 실공고 364건 추천 9·보류 344·비추천 11 | 운영은 공개 자료 솔리데오 revision 6(회사 확인 자격 3건 포함, `is_demo=false`, ADR-052·ADR-059) | 공고 상세 분석 요약 띠 "분석 실행 모드: live"·"AI: local · …", "공개 자료 회사 프로필로 분석" | 운영 회사 런타임. 실공고 S-LIVE 녹화는 남았다 |
-| `fixture` | fixture 20건(`is_demo=true`, `DEMO` 배지) | 실추론 그대로 | 가상 솔리데오 | 분석 요약 띠 "분석 실행 모드: fixture"·"AI: local" | 공공 API 장애 시 대체, 한국어 state 평가(E2) |
-| `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | 분석 요약 띠 "분석 실행 모드: mock"·"AI: mock" | CI, 골든 94/72/68, 격리 로컬 리허설 |
+| `live` | 실제 공고(`is_demo=false`), 첨부 다운로드 · 파싱(회사 Documents Worker 운영) | 회사 vLLM API Qwen3.8-Flash-Next(`Qwen3.8-Flash-Next-AWQ-INT4`, HTTPS) · 회사 GPU 서버 Bosun v3.1 0.6B(루프백) 실추론(`AI_PROVIDER=local`). 운영 분석은 DEMO 가상 공고 19건(2026-10-24 FX-02 66 보류, 10-27 17건, 10-28 FX-03 53 보류), 실공고 개별 3건과 IT 실공고 371건 일괄 분석(2026-10-29, 모두 보류). 저장 입력을 규칙 `sol-v0.2.0`(10-30)·`sol-v0.2.1`(11-01)·`sol-v0.2.2`(11-03)로 다시 계산했다. 11-03 기준 화면 run 은 DEMO 18건 추천 10·보류 8, 실공고 364건 추천 9·보류 344·비추천 11 | 운영은 공개 자료 솔리데오 revision 6(회사 확인 자격 3건 포함, `is_demo=false`, ADR-052·ADR-059) | "공개 자료 회사 프로필로 분석" | 운영 회사 런타임. 실공고 S-LIVE 녹화는 남았다 |
+| `fixture` | fixture 20건(`is_demo=true`, `DEMO` 배지) | 실추론 그대로 | 가상 솔리데오 | `DEMO` 배지, "가상 회사 프로필로 분석" | 공공 API 장애 시 대체, 한국어 state 평가(E2) |
+| `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | `DEMO` 배지, "Mock 응답(데모 데이터)" | CI, 골든 94/72/68, 격리 로컬 리허설 |
 
-- 상단바에는 실행 모드·AI 표시가 없다(2026-10-26 제거). 데이터 출처는 상단바 `DEMO` 배지(보는 출처가 demo일 때만)와 행 `DEMO` 배지로 보인다.
+- 화면에는 실행 모드·AI 표시가 없다(상단바 2026-10-26, 공고 상세 분석 요약 띠 2026-11-03 제거, [[16-DECISIONS|ADR-080]]). 실행 모드는 `score_runs.run_mode`에 남는다. 데이터 출처는 상단바 `DEMO` 배지(보는 출처가 demo일 때만)와 행 `DEMO` 배지로 보인다.
 - 발표는 D1이다(ADR-054). 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 열고 `demo:reset`은 하지 않는다. 클립은 이 경로에서 찍고, 변경 감지(S5)와 장애 대체(S6)만 로컬 Compose(`mock`)에서 찍는다([[19-DEMO-SCENARIO|19]] §4). 회사 런타임이 `live`라 FX-02 [재분석]은 실모델 결과다. 운영 회사 프로필이 공개 자료 프로필(revision 6)이라 예상은 11-03 전 재분석이면 59 보류, 11-03 이후면 53 보류(SOL Score v0.2, fixture 추출 계산값, `docs/evidence/sol-score-v02/20261030/fx02-forecast.md`)이고, 골든 72는 `mock`(가상 프로필) 시험 기준이다([[16-DECISIONS|ADR-059]]·[[16-DECISIONS|ADR-071]]).
 - 모드마다 바뀌는 것은 **입력(공고 출처)과 모델 호출 방식**뿐이다. 스키마 검증·인용 검증·규칙 엔진·점수 알고리즘(`sol-v0.2.1`)·저장·화면 경로는 세 모드가 같다.
 - 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)는 `pnpm check:env`와 gateway가 기동을 거부한다. 자동 대체는 없다. 모드 전환은 env 교체와 worker·gateway 재시작으로 사람이 한다.

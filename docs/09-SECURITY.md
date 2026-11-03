@@ -153,10 +153,7 @@ API `KevAssist.disclaimer`와 DB는 호환을 위해 literal "Kev 확률은 선�
 [Mock 대체 배너 — AI_FALLBACK_TO_MOCK=true에서 실제로 대체된 run, reviewFlags MOCK_FALLBACK]
 모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)
 ```
-```text
-[분석 실행 모드 표시 — 공고 상세 분석 요약 띠]
-분석 실행 모드: live | fixture | mock
-```
+업무 화면에는 분석 실행 모드(`live`·`fixture`·`mock`)를 따로 적지 않는다(2026-11-03 사용자 지시, [[16-DECISIONS|ADR-080]]). mock 결과는 아래 결정 모델 블록과 추천 분석의 "Mock 응답(데모 데이터)" 표시로 밝힌다(7번 원칙). 실행 모드는 `score_runs.run_mode`에 남고, 데이터 수집 관리 화면(`/admin/ingestion`, ADMIN 전용)은 수집 실행 모드를 그대로 보인다.
 ```text
 [첨부 미처리 배지]
 첨부 원문 확인    ← DOCUMENT_DOWNLOAD_FAILED · PARSE_UNSUPPORTED
@@ -166,13 +163,14 @@ API `KevAssist.disclaimer`와 DB는 호환을 위해 literal "Kev 확률은 선�
 [결정 모델 참고 지표 영역의 recommendation 블록 — kev-qs/v0.1, 모든 모드·데모 S3. 06·08의 "결정 모델 블록 3줄". ADR-034로 "Kev"를 모델 중립 문구로 개정]
 이 의견은 결정 모델이 추천 / 보류 / 비추천 선택지에 매긴 확률 분포입니다.
 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
-최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSetVersion} · 공급자: {kev.provider}
+최종 결정은 담당자가 기록합니다.
 ```
-`kev.provider`가 `mock`이면 위 셋째 줄의 `모델: {kev.model}` 자리에 "Mock 응답(데모 데이터)"를 쓰고 모델명을 쓰지 않는다([[16-DECISIONS|ADR-034]] 15번).
+`kev.provider`가 `mock`이면 넷째 줄에 "Mock 응답(데모 데이터)"를 더한다([[16-DECISIONS|ADR-034]] 15번). 모델 이름·질문 세트·공급자는 화면에 보이지 않는다(2026-11-03 사용자 지시, [[16-DECISIONS|ADR-080]]). 그 값은 `score_runs`의 `kev_model`·`question_set_version`·`ai_provider`·`model_metadata`에 그대로 남아 감사에 쓴다(아래 "감사 가능성").
 ```text
 [AI 불가 배너]
-AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)
+AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: 부분 완료)
 ```
+상태 값 `PARTIAL`은 화면에 영문 그대로 쓰지 않는다(2026-11-03, [[16-DECISIONS|ADR-080]]).
 ```text
 [근거 부족 — 필수 자격]
 근거를 확인하지 못했습니다. 이 필수 자격을 확인하기 전에는 점수가 높아도 추천이 나오지 않습니다.
