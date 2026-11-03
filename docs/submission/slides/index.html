@@ -546,7 +546,7 @@
         position: absolute;
         left: 120px;
         right: 120px;
-        top: 296px;
+        top: 270px;
         display: grid;
         grid-template-columns: 30fr 25fr 20fr 15fr 10fr;
         column-gap: 6px;
@@ -571,11 +571,11 @@
         margin-left: 8px;
       }
       .tbl.score-tbl {
-        top: 440px;
+        top: 392px;
       }
       .tbl.score-tbl td {
         font-size: 25px;
-        padding: 15px 24px 15px 0;
+        padding: 11px 24px 11px 0;
       }
       .tbl.score-tbl td.pt {
         font-weight: 700;
@@ -589,6 +589,48 @@
       .foot.sm {
         font-size: 25px;
         bottom: 60px;
+      }
+
+      /* 권고 순서: 자격이 먼저, 점수는 그다음 */
+      .gate {
+        position: absolute;
+        left: 120px;
+        right: 120px;
+        bottom: 64px;
+      }
+      .gate > p {
+        margin: 0 0 18px;
+        font-size: 28px;
+        color: var(--muted);
+      }
+      .gate > p b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .gate ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1.3fr;
+        column-gap: 20px;
+      }
+      .gate li {
+        background: var(--soft);
+        border-radius: 12px;
+        padding: 18px 28px 20px;
+      }
+      .gate li > span {
+        display: block;
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .gate li b {
+        display: block;
+        margin-top: 6px;
+        font-size: 30px;
+        font-weight: 700;
       }
 
       /* 흐름 */
@@ -1874,14 +1916,33 @@
             </tr>
           </tbody>
         </table>
-        <p class="foot">
-          필수 자격을 먼저 보고, 통과하면 <b>75점 이상 추천 · 50점 이상 보류</b>입니다.
-        </p>
+        <div
+          class="gate"
+          role="img"
+          aria-label="권고 순서: 필수 자격이 미충족이면 비추천, 필수 자격을 확인하지 못하면 점수와 상관없이 보류, 자격을 통과하면 SOL Score 75점 이상 추천, 50점 이상 보류"
+        >
+          <p>권고는 점수보다 <b>필수 자격을 먼저</b> 봅니다.</p>
+          <ol>
+            <li><span>1 필수 자격 미충족</span><b class="c-bad">비추천</b></li>
+            <li><span>2 필수 자격 확인 필요</span><b class="c-warn">점수와 상관없이 보류</b></li>
+            <li>
+              <span>3 자격 통과 뒤 SOL Score</span
+              ><b
+                ><span class="c-ok">75점 이상 추천</span> ·
+                <span class="c-warn">50점 이상 보류</span></b
+              >
+            </li>
+          </ol>
+        </div>
         <aside class="notes">
           <p>
             SOL Score 는 우리 회사와 공고가 얼마나 맞는지를 다섯 요소로 나눠 더한 100점입니다. 기술
             30, 실적 25, 인력 20, 규모 15, 전략 10 입니다. 각 요소는 0에서 1 사이 값으로 계산해
             최대점을 곱합니다.
+          </p>
+          <p>
+            참가 자격은 점수에 더하지 않고 점수보다 먼저 거르는 관문입니다. 그래서 점수가 높아도
+            필수 자격을 확인하지 못하면 보류입니다.
           </p>
           <p>
             모르는 값은 점수를 올리는 쪽으로 채우지 않습니다. 요소 전체를 모르면 중립 0.5 나 0 으로
@@ -1899,6 +1960,11 @@
             인력 = 투입 가능 인력 ÷ 필요 인력 × 제안 준비 기간 계수(마감까지 10영업일 이상이면 1.0).
             규모 = 공고 예산 ÷ 최대 수행 실적 금액(1.5배 이하 만점, 3배 이하 60%). 전략 = 선호 분야
             60% + 선호 발주기관 40%, 제외 분야 · 키워드면 0. 요소 점수 = 최대점 × 정규화 값(0~1).
+          </p>
+          <p>
+            질문이 오면 - 점수가 높은데 보류인 공고는 공고 상세의 참가 자격 목록에 '확인 필요'
+            항목이 있습니다. 운영 실제 공고는 나라장터 API 하루 호출 한도 때문에 면허 · 지역 제한을
+            받아 오지 못한 공고도 '확인 필요'로 남아 보류가 됩니다.
           </p>
           <p>
             근거: docs/08-SCORING.md §2~§5, web/server/scoring/analysis-result.model.ts(가중치),
