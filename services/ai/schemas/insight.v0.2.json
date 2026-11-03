@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["summary", "factorNotes", "checkNotes", "strengths", "improvements", "nextSteps"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": { "type": "string", "minLength": 1, "maxLength": 800 },
+    "factorNotes": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["factor", "text", "refIds"],
+        "additionalProperties": false,
+        "properties": {
+          "factor": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "refIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "pattern": "^[BC][1-9][0-9]?$" }
+          }
+        }
+      }
+    },
+    "checkNotes": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["label", "text", "refIds"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "refIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "pattern": "^[BC][1-9][0-9]?$" }
+          }
+        }
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["text", "refIds"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "refIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "pattern": "^[BC][1-9][0-9]?$" }
+          }
+        }
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["text", "refIds"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "refIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "pattern": "^[BC][1-9][0-9]?$" }
+          }
+        }
+      }
+    },
+    "nextSteps": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["text", "refIds"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "refIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "pattern": "^[BC][1-9][0-9]?$" }
+          }
+        }
+      }
+    }
+  }
+}

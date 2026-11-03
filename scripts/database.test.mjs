@@ -2506,10 +2506,12 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         POLICY,
         "다른 조직",
       );
+      // prompt_version 은 worker 만 쓴다. 화면 역할이 버전을 꾸며 중복 제약을 피하지 못한다(20261103000100).
       for (const fields of [
         { requested_by: WHO.admin },
         { status: "DONE" },
         { payload: INSIGHT_PAYLOAD },
+        { prompt_version: "insight/v0.2" },
       ])
         await assert.rejects(
           requestInsight(db, fields),
@@ -2597,7 +2599,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         0,
       );
     });
-    it("모델 설명(DONE·MODEL)이 있는 run 에는 화면 역할이 PENDING 을 직접 넣지 못한다 — DONE·TEMPLATE(INJECTION_SUSPECTED 포함)·FAILED 뒤에는 넣는다 (20261029000200)", async (t) => {
+    it("지금 버전 모델 설명(DONE·MODEL·insight/v0.2)이 있는 run 에는 화면 역할이 PENDING 을 직접 넣지 못한다 — DONE·TEMPLATE(INJECTION_SUSPECTED 포함)·FAILED 뒤에는 넣는다 (20261029000200·20261103000100)", async (t) => {
       const db = await solDb(t);
       // 시드의 DONE·TEMPLATE 뒤.
       await as(db, "analyst");
@@ -2626,11 +2628,41 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         await close(
           db,
           third.id,
-          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', model_name = 'qwen', prompt_hash = 'p-3', finished_at = now()`,
+          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', model_name = 'qwen', prompt_hash = 'p-3', prompt_version = 'insight/v0.2', finished_at = now()`,
         ),
         1,
       );
       // 정책이 같은 표를 읽으면 재귀라 제외 제약이 막는다(23P01).
+      for (const who of ["admin", "sales", "analyst"]) {
+        await as(db, who);
+        await assert.rejects(requestInsight(db), (error) => {
+          assert.equal(error.code, "23P01", who);
+          assert.match(error.message, /recommendation_insights_pending_or_model_once/);
+          return true;
+        });
+      }
+    });
+    it("옛 버전(insight/v0.1)·버전 없는 모델 설명 뒤에는 ADMIN·SALES·ANALYST 가 새 PENDING 을 넣고, 같은 run 이 지금 버전으로 닫히면 23P01 이다 (20261103000100)", async (t) => {
+      const db = await solDb(t);
+      const closeModel = (id, version) =>
+        close(
+          db,
+          id,
+          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', model_name = 'qwen', prompt_hash = 'p-${id}', prompt_version = ${version}, finished_at = now()`,
+        );
+      await as(db, "analyst");
+      const [legacy] = await requestInsight(db);
+      // 버전 열을 더하기 전의 모델 설명(prompt_version 없음)과 옛 버전 설명은 막지 않는다.
+      assert.equal(await closeModel(legacy.id, "null"), 1);
+      for (const who of ["admin", "sales", "analyst"]) {
+        await as(db, who);
+        const [row] = await requestInsight(db);
+        assert.equal(row.status, "PENDING", who);
+        assert.equal(await closeModel(row.id, "'insight/v0.1'"), 1, who);
+      }
+      await as(db, "admin");
+      const [current] = await requestInsight(db);
+      assert.equal(await closeModel(current.id, "'insight/v0.2'"), 1);
       for (const who of ["admin", "sales", "analyst"]) {
         await as(db, who);
         await assert.rejects(requestInsight(db), (error) => {

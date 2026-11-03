@@ -19,7 +19,7 @@ const EXCLUSION_VIOLATION = "23P01";
 const ONE_PENDING = "recommendation_insights_one_pending";
 const PENDING_OR_MODEL_ONCE = "recommendation_insights_pending_or_model_once";
 const INSIGHT_COLUMNS =
-  "id, score_run_id, status, source, payload, fallback_reason, model_name, error_code, created_at, finished_at";
+  "id, score_run_id, status, source, payload, fallback_reason, model_name, prompt_version, error_code, created_at, finished_at";
 
 type InsightRow = {
   id: string;
@@ -29,6 +29,7 @@ type InsightRow = {
   payload: unknown;
   fallback_reason: string | null;
   model_name: string | null;
+  prompt_version: string | null;
   error_code: string | null;
   created_at: string;
   finished_at: string | null;
@@ -44,6 +45,7 @@ const toInsightView = (row: InsightRow): InsightView => ({
   fallbackReason:
     row.fallback_reason === null ? null : insightFallbackReasonSchema.parse(row.fallback_reason),
   modelName: row.model_name,
+  promptVersion: row.prompt_version,
   errorCode: row.error_code === null ? null : insightErrorCodeSchema.parse(row.error_code),
   createdAt: row.created_at,
   finishedAt: row.finished_at,
@@ -71,6 +73,25 @@ export const insightRepo: InsightRepo = {
       .select(INSIGHT_COLUMNS)
       .eq("org_id", orgId)
       .eq("score_run_id", runId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data === null ? null : toInsightView(data);
+  },
+
+  // 버전은 거르지 않는다. 새 형식 재요청이 실패했을 때 화면이 옛 결과를 계속 보이는 데 쓴다(ADR-078 Q2).
+  async latestModelInsight(orgId, runId) {
+    const { data, error } = await (
+      await getSupabase()
+    )
+      .from("recommendation_insights")
+      .select(INSIGHT_COLUMNS)
+      .eq("org_id", orgId)
+      .eq("score_run_id", runId)
+      .eq("status", "DONE")
+      .eq("source", "MODEL")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(1)

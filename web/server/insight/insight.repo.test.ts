@@ -64,9 +64,30 @@ const row = (id: string, runId: string, createdAt: string, status = "FAILED") =>
   payload: null,
   fallback_reason: null,
   model_name: null,
+  prompt_version: null,
   error_code: status === "FAILED" ? "STALE" : null,
   created_at: createdAt,
   finished_at: status === "FAILED" ? createdAt : null,
+});
+const PAYLOAD = {
+  summary: "규칙 결과로 정리한 추천 분석",
+  strengths: [],
+  improvements: [],
+  refs: [],
+};
+const done = (
+  id: string,
+  runId: string,
+  createdAt: string,
+  source: "MODEL" | "TEMPLATE",
+  promptVersion: string | null,
+) => ({
+  ...row(id, runId, createdAt, "DONE"),
+  source,
+  payload: PAYLOAD,
+  model_name: "qwen",
+  prompt_version: promptVersion,
+  finished_at: createdAt,
 });
 
 beforeEach(() => {
@@ -89,11 +110,37 @@ describe("insightRepo", () => {
       payload: null,
       fallbackReason: null,
       modelName: null,
+      promptVersion: null,
       errorCode: null,
       createdAt: "2026-10-29T02:00:00.000Z",
       finishedAt: null,
     });
     expect(await insightRepo.latestInsight("0f000000-0000-4000-8000-000000000002", RUN)).toBeNull();
+  });
+
+  it("latestModelInsight 는 그 run 의 DONE·MODEL 가운데 최신 1건(버전 무관)이고 prompt_version 을 옮긴다 — TEMPLATE·FAILED·다른 run·다른 조직은 무시한다", async () => {
+    const OTHER_RUN = "c1000000-0000-4000-8000-000000000002";
+    rows.push(
+      done("model-v01", RUN, "2026-10-29T01:00:00.000Z", "MODEL", "insight/v0.1"),
+      done("model-legacy", RUN, "2026-10-29T00:30:00.000Z", "MODEL", null),
+      done("template", RUN, "2026-10-29T02:00:00.000Z", "TEMPLATE", "insight/v0.2"),
+      row("failed", RUN, "2026-10-29T03:00:00.000Z"),
+      done("other-run", OTHER_RUN, "2026-10-29T04:00:00.000Z", "MODEL", "insight/v0.2"),
+    );
+    expect(await insightRepo.latestModelInsight(ORG, RUN)).toMatchObject({
+      id: "model-v01",
+      status: "DONE",
+      source: "MODEL",
+      promptVersion: "insight/v0.1",
+      payload: PAYLOAD,
+    });
+    expect(await insightRepo.latestModelInsight(ORG, OTHER_RUN)).toMatchObject({
+      id: "other-run",
+      promptVersion: "insight/v0.2",
+    });
+    expect(
+      await insightRepo.latestModelInsight("0f000000-0000-4000-8000-000000000002", RUN),
+    ).toBeNull();
   });
 
   it("insertPending 은 같은 run 의 PENDING 유일 위반·모델 설명 제외 위반만 null 로 바꾸고, 다른 오류는 던진다", async () => {

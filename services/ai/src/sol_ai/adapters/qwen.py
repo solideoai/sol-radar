@@ -51,9 +51,12 @@ INFERENCE = {"temperature": 0, "top_p": 1, "max_tokens": 4096, "seed": 42}
 CHAT_TEMPLATE_KWARGS = {"enable_thinking": False}
 # 미검증 가정(G4): vLLM 이 이 모양의 guided JSON 을 받는지는 실서버 기동 때 확인한다
 RESPONSE_FORMAT_NAME = "requirement_extraction"
-# 추천 분석(POST /insight): 요약 400자 + 항목 8개 × 200자라 출력 상한을 줄인다. 요청 본문은 번역과 같은 64KiB 까지
-INSIGHT_MAX_TOKENS = 1024
+# 추천 분석(POST /insight) 출력 v0.2(ADR-078): 판단 이유 800자 + 요소·자격 해설, 강점·보완, 확인할 것. 보통 2,000~2,700자이고
+# 상한을 다 채우면 약 3,300자다. 한국어 글자에 JSON 키·근거 번호까지 더하면 3072토큰을 넘을 수 있고, 잘리면 전체가 템플릿이 된다.
+# 그래서 추출과 같은 4096토큰으로 둔다(계획 C2, 사전 리뷰 Product W1). 요청 본문은 번역과 같은 64KiB 까지
+INSIGHT_MAX_TOKENS = 4096
 INSIGHT_MAX_REQUEST_BYTES = 64 * 1024
+INSIGHT_ITEM_GROUPS = ("strengths", "improvements", "factorNotes", "checkNotes", "nextSteps")
 BAD_REQUEST_STATUSES = frozenset({400, 422})
 _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
 _CODE_FENCE = re.compile(r"^\s*```[a-zA-Z0-9_-]*\s*\n(.*?)\n\s*```\s*$", re.DOTALL)
@@ -235,6 +238,17 @@ def _utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _only(array: dict, values: list[str], key: str | None = None) -> None:
+    """guided 배열 스키마가 values 안의 글만 받게 한다. key 가 있으면 항목 객체의 그 칸, 없으면 배열 항목 자체다.
+
+    values 가 비면 그 배열은 빈 배열만 받는다.
+    """
+    holder, name = (array["items"]["properties"], key) if key else (array, "items")
+    holder[name] = {"type": "string", "enum": values} if values else {"type": "string"}
+    if not values:
+        array["maxItems"] = 0
+
+
 class LocalQwen:
     provider = "local"
 
@@ -373,16 +387,21 @@ class LocalQwen:
     def insight(self, request: InsightRequest, *, deadline: Deadline) -> str:
         """translate 와 같은 연결·대체 규칙(guided → 400·422 면 unguided 1회). 새 Deadline·내용 재시도는 없다.
 
-        user 는 요청 JSON 에서 requestId·injectionSuspected 를 뺀 것이다. guided 스키마의 refIds 는 요청 refs 의 id 로 좁힌다.
+        user 는 요청 JSON 에서 requestId·injectionSuspected 를 뺀 것이다. guided 스키마의 refIds 는 요청 refs 의 id 로,
+        요소 해설의 factor 는 요청 요소 키로, 자격 해설의 label 은 미충족·확인 필요 자격 이름으로 좁힌다.
         """
         system = INSIGHT_PROMPT_FILE.read_text(encoding="utf-8")
         schema = json.loads(INSIGHT_SCHEMA_FILE.read_text(encoding="utf-8"))
+        groups = schema["properties"]
         ref_ids = [ref.id for ref in request.refs]
-        for group in ("strengths", "improvements"):
-            ids = schema["properties"][group]["items"]["properties"]["refIds"]
-            ids["items"] = {"type": "string", "enum": ref_ids} if ref_ids else {"type": "string"}
-            if not ref_ids:
-                ids["maxItems"] = 0
+        for group in INSIGHT_ITEM_GROUPS:
+            _only(groups[group]["items"]["properties"]["refIds"], ref_ids)
+        _only(
+            groups["factorNotes"],
+            [*dict.fromkeys(f.factor for f in request.rules.factors)],
+            "factor",
+        )
+        _only(groups["checkNotes"], [c.label for c in request.rules.review_checks()], "label")
         user = json.dumps(request.model_input(), ensure_ascii=False)
         for guided in (True, False):
             body = self._body(user, guided=guided, system=system, schema=schema, name="insight")

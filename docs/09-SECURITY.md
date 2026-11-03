@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -192,7 +192,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 공고 자유 텍스트는 `/extract`의 `translations`, 기업 값은 기존 시간 예산 안의 `/kev` 보충 번역을 쓴다(숫자·식별자·조건 검증 통과분). 필요한 번역 누락 시 실제 Bosun을 호출하지 않고 `TRANSLATION_INCOMPLETE` 검토 플래그와 경로 진단을 남긴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. [[16-DECISIONS\|16]] 미결정 27)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
-|추천 분석(`/insight`, [[16-DECISIONS\|ADR-066]])|사람이 [추천 분석]을 눌렀을 때만 Qwen을 부른다. 분석 run이 인젝션 의심이면 Worker가 공고 인용을 빼고 `injectionSuspected`를 보내고, gateway는 그 값이나 자기 guard가 모델 입력에서 지시문을 찾으면 모델을 부르지 않고 규칙 결과 문장(TEMPLATE, `INJECTION_SUSPECTED`)으로 답한다. 화면은 이 경우 [다시 요청]을 두지 않는다. 모델 출력은 모양·글자 수·숨은 문자·없는 근거 번호·금지어(승률·확률·가능성·수주 금액·점유율·경쟁사·% 등, `FORBIDDEN_WORDS`)·다른 판정 이름·참여를 권하거나 말리는 표현·입력에 없는 숫자를 검사하고, 하나라도 걸리면 TEMPLATE로 바꾼다. 판정 이름을 다시 쓰지 않으므로 규칙 판정을 바꾸지 못한다. 프롬프트·모델 출력은 로그에 남기지 않는다(`services/ai/src/sol_ai/insight.py`, 시험 `services/ai/tests/test_insight.py`). 요청은 사용자 기준 분당 3회, 같은 run에 모델 설명이 있으면 다시 부르지 않는다(DB 제약 `recommendation_insights_pending_or_model_once`)|
+|추천 분석(`/insight`, [[16-DECISIONS\|ADR-066]]·[[16-DECISIONS\|ADR-078]])|사람이 [추천 분석]을 눌렀을 때만 Qwen을 부른다. 분석 run이 인젝션 의심이면 Worker가 공고 인용을 빼고 `injectionSuspected`를 보내고, gateway는 그 값이나 자기 guard가 모델 입력에서 지시문을 찾으면 모델을 부르지 않고 규칙 결과 문장(TEMPLATE, `INJECTION_SUSPECTED`)으로 답한다. 화면은 이 경우 [다시 요청]을 두지 않는다. 모델 출력은 모양·글자 수·숨은 문자·없는 근거 번호·금지어(승률·확률·가능성·수주 금액·점유율·경쟁사·% 등, `FORBIDDEN_WORDS`)·다른 판정 이름·참여를 권하거나 말리는 표현·입력에 없는 숫자를 검사한다. 모양·숨은 문자가 틀리거나 판단 이유가 걸리면 전체를 TEMPLATE로 바꾸고, 세부 항목(요소 해설·자격 해설·강점·보완할 점·확인할 것)이 걸리면 그 항목만 뺀다(출력 `insight/v0.2`, [[03-AI-PIPELINE\|03]] §2.1). 판정 이름을 다시 쓰지 않으므로 규칙 판정을 바꾸지 못한다. 프롬프트·모델 출력과 검사에서 뺀 항목의 내용은 로그에 남기지 않는다(`services/ai/src/sol_ai/insight.py`, 시험 `services/ai/tests/test_insight.py`). 요청은 사용자 기준 분당 3회다. 같은 run 에서 지금 출력 버전(`insight/v0.2`)의 모델 설명은 한 번만 만들고, 그 뒤 요청은 모델을 다시 부르지 않는다(DB 제약 `recommendation_insights_pending_or_model_once`, `20261103000100`). 옛 버전 결과만 있는 run 은 새 형식으로 한 번 더 요청할 수 있다. 버전 열 `prompt_version`은 Worker(service role)만 쓰고 화면 역할에는 열 권한이 없어, 사용자가 버전을 꾸며 이 제약을 피할 수 없다|
 
 ### 감사 가능성
 아래 테이블이 모든 AI 실행과 수집을 재현 가능하게 남긴다 (컬럼 정의는 [[04-DATABASE|04 DB]] §3):

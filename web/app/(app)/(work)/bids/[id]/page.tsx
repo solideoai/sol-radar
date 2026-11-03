@@ -18,7 +18,12 @@ import {
   type BidDetail,
 } from "@/server/bids";
 import { getAwardReference } from "@/server/award-reference";
-import { getInsight, INSIGHT_POLL_LIMIT_MS, INSIGHT_REQUEST_ROLES } from "@/server/insight";
+import {
+  getInsight,
+  INSIGHT_POLL_LIMIT_MS,
+  INSIGHT_PROMPT_VERSION,
+  INSIGHT_REQUEST_ROLES,
+} from "@/server/insight";
 import { getWatchSummary } from "@/server/watchlist";
 import { getMembersPage } from "@/server/organization";
 import { assessmentLabel } from "./assessment-labels";
@@ -97,14 +102,14 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   const previousScored = scoredLatest
     ? null
     : (historyItems.find((analysis) => SCORED.has(analysis.status)) ?? null);
-  // 추천 분석 패널은 최신 run 이 점수 run 일 때만 그리므로 그 run 의 최신 1건만 읽는다.
+  // 추천 분석 패널은 최신 run 이 점수 run 일 때만 그리므로 그 run 의 최신 1건(과 실패면 이전 모델 결과)만 읽는다.
   // 보조 값이라 읽지 못하면 없음으로 그린다.
-  const initialInsight = scoredLatest
+  const insightRead = scoredLatest
     ? await getInsight(work, id, latest.id).catch(() => {
         console.error(JSON.stringify({ event: "bid_detail_insight_failed", bidId: id }));
-        return null;
+        return { insight: null, previous: null };
       })
-    : null;
+    : { insight: null, previous: null };
 
   const members =
     membersPage.status === "team"
@@ -138,8 +143,10 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       changedAt={changedAt}
       awardReference={awardReference}
       insight={{
-        initial: initialInsight,
+        initial: insightRead.insight,
+        previous: insightRead.previous,
         pollLimitMs: INSIGHT_POLL_LIMIT_MS,
+        currentPromptVersion: INSIGHT_PROMPT_VERSION,
         canRequest: INSIGHT_REQUEST_ROLES.some((role) => role === work.role),
       }}
     />

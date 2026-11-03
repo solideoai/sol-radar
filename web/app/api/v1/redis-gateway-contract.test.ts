@@ -458,6 +458,7 @@ describe("recommendation insight: POST relay, GET on RLS", () => {
     payload: null,
     fallback_reason: null,
     model_name: null,
+    prompt_version: null,
     error_code: null,
     created_at: "2026-10-29T01:00:00.000Z",
     finished_at: null,
@@ -470,6 +471,7 @@ describe("recommendation insight: POST relay, GET on RLS", () => {
       repo: {
         findRun: async () => ({ id: RUN, bidId: BID, status: "COMPLETED" }),
         latestInsight: async () => null,
+        latestModelInsight: async () => null,
         insertPending: async () => INSIGHT,
       },
       enqueue,
@@ -532,10 +534,13 @@ describe("recommendation insight: POST relay, GET on RLS", () => {
           payload: null,
           fallbackReason: null,
           modelName: null,
+          promptVersion: null,
           errorCode: null,
           createdAt: "2026-10-29T01:00:00.000Z",
           finishedAt: null,
         },
+        // 최신이 FAILED 일 때만 마지막 모델 설명이 붙는다(ADR-078 Q2).
+        previous: null,
       });
       // 다른 공고 경로로 같은 run 을 물으면 404 다.
       const otherBid = "b1000000-0000-4000-8000-000000000002";

@@ -1,20 +1,27 @@
 import "server-only";
 import type {
   InsightContext,
+  InsightReadData,
   InsightReadResult,
   InsightRepo,
   InsightRequestDeps,
   InsightRequestResult,
   InsightRunRef,
 } from "./insight-request.model";
-import { INSIGHT_REQUEST_ROLES, type InsightStatus, type InsightView } from "./insight.model";
+import {
+  INSIGHT_PROMPT_VERSION,
+  INSIGHT_REQUEST_ROLES,
+  type InsightStatus,
+  type InsightView,
+} from "./insight.model";
 import { insightRepo } from "./insight.repo";
 
 // ── 서비스: 추천 분석 요청(POST)과 조회(GET) ──
 // 로그인·CSRF·가입 완료·업무 조직은 Route Handler 입구(businessRoute)가 이미 봤다.
-// 중복은 run 기준으로 막는다(Idempotency-Key 는 쓰지 않는다). run 에 PENDING 이 있거나 검증을 통과한 모델 설명(DONE·MODEL)이
-// 있으면 새 행을 만들지 않고 그 행을 돌려준다. FAILED·TEMPLATE 뒤의 요청은 새 행이다.
-// DB 도 같은 규칙을 지킨다: PENDING 은 run 당 하나(23505), 모델 설명이 있는 run 에는 PENDING 을 못 넣는다(23P01).
+// 중복은 run 기준으로 막는다(Idempotency-Key 는 쓰지 않는다). run 에 PENDING 이 있거나 지금 버전(INSIGHT_PROMPT_VERSION)의
+// 검증을 통과한 모델 설명(DONE·MODEL)이 있으면 새 행을 만들지 않고 그 행을 돌려준다.
+// FAILED·TEMPLATE·옛 버전(또는 버전 없는) 모델 설명 뒤의 요청은 새 행이다(ADR-078).
+// DB 도 같은 규칙을 지킨다: PENDING 은 run 당 하나(23505), 지금 버전 모델 설명이 있는 run 에는 PENDING 을 못 넣는다(23P01).
 
 const COMPLETED_RUN_STATUSES = ["COMPLETED", "PARTIAL"];
 
@@ -41,9 +48,12 @@ const runNotFound = {
 const isCompletedRunOf = (run: InsightRunRef | null, bidId: string): boolean =>
   run !== null && run.bidId === bidId && COMPLETED_RUN_STATUSES.includes(run.status);
 
-// 검증을 통과한 모델 설명은 큐 없이 그대로 돌려준다(모델을 다시 부르지 않는다).
+// 지금 버전의 검증을 통과한 모델 설명은 큐 없이 그대로 돌려준다(모델을 다시 부르지 않는다).
+// 버전 기준은 DB 제약(recommendation_insights_pending_or_model_once)·화면의 옛 형식 판단과 같다.
 const isModelDone = (insight: InsightView): boolean =>
-  insight.status === "DONE" && insight.source === "MODEL";
+  insight.status === "DONE" &&
+  insight.source === "MODEL" &&
+  insight.promptVersion === INSIGHT_PROMPT_VERSION;
 
 // 로그 콜백이 던져도 응답을 바꾸지 않는다.
 function reportInfraError(
@@ -134,7 +144,10 @@ export async function requestInsight(
   return accepted(earlier.id, earlier.status, true);
 }
 
-/** GET: 그 run 의 최신 1건. 모든 업무 역할이 읽는다(RLS 가 조직을 거른다). */
+/**
+ * GET: 그 run 의 최신 1건과, 최신이 FAILED 일 때만 마지막 모델 설명(previous). 모든 업무 역할이 읽는다(RLS 가 조직을 거른다).
+ * previous 는 FAILED 일 때만 묻는다(그 밖에는 쿼리하지 않는다).
+ */
 export async function readInsight(
   ctx: Pick<InsightContext, "orgId">,
   bidId: string,
@@ -146,16 +159,18 @@ export async function readInsight(
     repo.latestInsight(ctx.orgId, runId),
   ]);
   if (!isCompletedRunOf(run, bidId)) return runNotFound;
-  return { ok: true, status: 200, data: { insight } };
+  const previous =
+    insight?.status === "FAILED" ? await repo.latestModelInsight(ctx.orgId, runId) : null;
+  return { ok: true, status: 200, data: { insight, previous } };
 }
 
-/** 공고 상세 첫 화면의 값. run 이 그 공고의 완료 run 이 아니면 null 이다. */
+/** 공고 상세 첫 화면의 값. GET 본문과 같은 모양이고, run 이 그 공고의 완료 run 이 아니면 둘 다 null 이다. */
 export async function getInsight(
   ctx: Pick<InsightContext, "orgId">,
   bidId: string,
   runId: string,
   deps: { repo?: InsightRepo } = {},
-): Promise<InsightView | null> {
+): Promise<InsightReadData> {
   const result = await readInsight(ctx, bidId, runId, deps);
-  return result.ok ? result.data.insight : null;
+  return result.ok ? result.data : { insight: null, previous: null };
 }

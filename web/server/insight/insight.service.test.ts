@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { InsightRateLimiter, InsightRepo, InsightRequestDeps } from "./insight-request.model";
-import type { InsightView } from "./insight.model";
+import { INSIGHT_PROMPT_VERSION, type InsightView } from "./insight.model";
 import { getInsight, requestInsight } from "./insight.service";
 
 const ORG = "0f000000-0000-4000-8000-000000000001";
@@ -20,6 +20,7 @@ const view = (overrides: Partial<InsightView> = {}): InsightView => ({
   payload: null,
   fallbackReason: null,
   modelName: null,
+  promptVersion: null,
   errorCode: null,
   createdAt: "2026-10-29T01:00:00.000Z",
   finishedAt: null,
@@ -31,6 +32,7 @@ function depsWith(repo: Partial<InsightRepo> = {}) {
     repo: {
       findRun: vi.fn(async () => ({ id: RUN, bidId: BID, status: "COMPLETED" })),
       latestInsight: vi.fn(async (): Promise<InsightView | null> => null),
+      latestModelInsight: vi.fn(async (): Promise<InsightView | null> => null),
       insertPending: vi.fn(async (): Promise<string | null> => NEW),
       ...repo,
     },
@@ -79,9 +81,11 @@ describe("requestInsight", () => {
     expect(deps.enqueue).toHaveBeenCalledTimes(3);
   });
 
-  it("DONE·MODEL 이 있으면 그대로 돌려주고 큐에 넣지 않는다", async () => {
+  it("지금 버전의 DONE·MODEL 이 있으면 그대로 돌려주고 큐에 넣지 않는다", async () => {
     const deps = depsWith({
-      latestInsight: vi.fn(async () => view({ status: "DONE", source: "MODEL" })),
+      latestInsight: vi.fn(async () =>
+        view({ status: "DONE", source: "MODEL", promptVersion: INSIGHT_PROMPT_VERSION }),
+      ),
     });
     expect(await requestInsight(ctx, BID, RUN, deps)).toMatchObject({
       status: 202,
@@ -95,6 +99,12 @@ describe("requestInsight", () => {
   it.each([
     ["FAILED", view({ status: "FAILED", errorCode: "GATEWAY_UNAVAILABLE" })],
     ["DONE·TEMPLATE", view({ status: "DONE", source: "TEMPLATE" })],
+    // 옛 형식 모델 설명은 새 형식으로 다시 요청할 수 있다(ADR-078). DB 제약도 지금 버전만 막는다.
+    [
+      "옛 버전(insight/v0.1) DONE·MODEL",
+      view({ status: "DONE", source: "MODEL", promptVersion: "insight/v0.1" }),
+    ],
+    ["버전 없는 DONE·MODEL", view({ status: "DONE", source: "MODEL", promptVersion: null })],
   ])("%s 뒤에는 새 행을 만든다", async (_label, latest) => {
     const deps = depsWith({ latestInsight: vi.fn(async () => latest) });
     expect(await requestInsight(ctx, BID, RUN, deps)).toMatchObject({
@@ -165,11 +175,26 @@ describe("requestInsight", () => {
 });
 
 describe("getInsight", () => {
-  it("그 공고의 완료 run 이면 최신 1건, 아니면 null", async () => {
-    const latest = view({ status: "DONE", source: "MODEL" });
+  it("그 공고의 완료 run 이면 최신 1건이고 previous 는 null(최신이 FAILED 가 아니면 묻지 않는다), 아니면 둘 다 null", async () => {
+    const latest = view({ status: "DONE", source: "MODEL", promptVersion: INSIGHT_PROMPT_VERSION });
     const { repo } = depsWith({ latestInsight: vi.fn(async () => latest) });
-    expect(await getInsight(ctx, BID, RUN, { repo })).toEqual(latest);
+    expect(await getInsight(ctx, BID, RUN, { repo })).toEqual({ insight: latest, previous: null });
     expect(repo.latestInsight).toHaveBeenCalledWith(ORG, RUN);
-    expect(await getInsight(ctx, OLD, RUN, { repo })).toBeNull();
+    expect(await getInsight(ctx, OLD, RUN, { repo })).toEqual({ insight: null, previous: null });
+    expect(repo.latestModelInsight).not.toHaveBeenCalled();
+  });
+
+  it("최신이 FAILED 이면 previous 는 그 run 의 마지막 DONE·MODEL 이다(새 형식 재요청 실패 뒤 옛 결과를 계속 보인다)", async () => {
+    const failed = view({ id: NEW, status: "FAILED", errorCode: "GATEWAY_UNAVAILABLE" });
+    const earlier = view({ status: "DONE", source: "MODEL", promptVersion: "insight/v0.1" });
+    const { repo } = depsWith({
+      latestInsight: vi.fn(async () => failed),
+      latestModelInsight: vi.fn(async () => earlier),
+    });
+    expect(await getInsight(ctx, BID, RUN, { repo })).toEqual({
+      insight: failed,
+      previous: earlier,
+    });
+    expect(repo.latestModelInsight).toHaveBeenCalledWith(ORG, RUN);
   });
 });

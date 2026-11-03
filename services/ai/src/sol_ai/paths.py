@@ -15,8 +15,8 @@ QUESTION_SETS_DIR = AI_ROOT / "kev" / "question-sets"
 REGISTRY_FILE = AI_ROOT / "models" / "registry.yaml"
 STATE_TEMPLATES_DIR = AI_ROOT / "kev" / "state-templates"
 THRESHOLDS_FILE = AI_ROOT / "kev" / "thresholds.v0.1.json"
-INSIGHT_PROMPT_FILE = AI_ROOT / "prompts" / "insight.v0.1.md"
-INSIGHT_SCHEMA_FILE = AI_ROOT / "schemas" / "insight.v0.1.json"
+INSIGHT_PROMPT_FILE = AI_ROOT / "prompts" / "insight.v0.2.md"
+INSIGHT_SCHEMA_FILE = AI_ROOT / "schemas" / "insight.v0.2.json"
 
 
 def fixtures_dir(override: str | None) -> Path:

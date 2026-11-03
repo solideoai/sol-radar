@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Json } from "@/lib/database.types";
-import { FACTOR_KEYS, analysisInputSchema, analyze, type AnalysisInput } from "@/server/scoring";
+import {
+  FACTOR_KEYS,
+  analysisInputSchema,
+  analyze,
+  staffAvailabilityInput,
+  type AnalysisInput,
+} from "@/server/scoring";
 import { FACTOR_LABEL } from "@/server/shared";
 import type { InsightGatewayResponse } from "./gateway.model";
 import {
@@ -195,8 +201,8 @@ describe("toInsightRequest", () => {
 
 describe("toInsightPayload", () => {
   it("항목이 가리키지 않은 refs 를 뺀다", () => {
-    const { refs } = toInsightRequest(runSource(), REQUEST_ID);
-    const payload = toInsightPayload(response(), refs);
+    const { request } = toInsightRequest(runSource(), REQUEST_ID);
+    const payload = toInsightPayload(response(), request);
     expect(payload.refs.map((ref) => ref.id)).toEqual(["B2", "C1"]);
     expect(payload).toMatchObject({
       summary: "공고 요구 기술과 회사 보유 기술이 맞습니다.",
@@ -205,12 +211,50 @@ describe("toInsightPayload", () => {
     });
   });
 
+  // ADR-078 v0.2: 요소 해설·자격 해설·확인할 것이 가리킨 근거도 남긴다.
+  it("새 칸(요소 해설·자격 해설·확인할 것)이 가리킨 refs 를 남기고 아무도 가리키지 않은 refs 는 뺀다", () => {
+    const { request } = toInsightRequest(runSource(), REQUEST_ID);
+    const factorNotes = [
+      { factor: request.rules.factors[0].factor, text: "요구 기술이 맞습니다.", refIds: ["B1"] },
+    ];
+    const checkNotes = [{ label: "참가 자격", text: "확인이 필요합니다.", refIds: ["C1"] }];
+    const nextSteps = [{ text: "참여 조건을 확인합니다.", refIds: ["B3"] }];
+    const payload = toInsightPayload(
+      response({ strengths: [], factorNotes, checkNotes, nextSteps }),
+      request,
+    );
+    expect(payload.refs.map((ref) => ref.id)).toEqual(["B1", "B3", "C1"]);
+    expect(payload).toMatchObject({ factorNotes, checkNotes, nextSteps });
+  });
+
+  it("응답에 새 칸 키가 없으면(옛 gateway) payload 에도 그 키가 없다", () => {
+    const { request } = toInsightRequest(runSource(), REQUEST_ID);
+    const payload = toInsightPayload(response(), request);
+    for (const key of ["factorNotes", "checkNotes", "nextSteps"]) {
+      expect(payload).not.toHaveProperty(key);
+    }
+  });
+
+  // 섹션 7 인력 가용은 모델 문장이 아니라 인력 요소가 쓰는 규칙 값이다(계획 "계획이 정하는 것").
+  it("staffing 은 인력 요소 입력(staffAvailabilityInput)과 같은 값이고 사업 기간을 모르면 null 이다", () => {
+    const source = runSource();
+    const { bid, extraction, team, config } = source.input;
+    const rule = staffAvailabilityInput(bid, extraction, team, config.today);
+    expect(rule).not.toBeNull();
+    const known = toInsightRequest(source, REQUEST_ID).request;
+    expect(toInsightPayload(response(), known).staffing).toEqual(rule);
+
+    const input = { ...source.input, team: { ...team, members: [] } };
+    const unknown = toInsightRequest({ ...source, input }, REQUEST_ID).request;
+    expect(toInsightPayload(response(), unknown)).toHaveProperty("staffing", null);
+  });
+
   it("요청에 없던 근거 번호를 가리키면 던진다", () => {
-    const { refs } = toInsightRequest(runSource(), REQUEST_ID);
+    const { request } = toInsightRequest(runSource(), REQUEST_ID);
     expect(() =>
       toInsightPayload(
         response({ improvements: [{ text: "보완이 필요합니다.", refIds: ["B99"] }] }),
-        refs,
+        request,
       ),
     ).toThrow();
   });

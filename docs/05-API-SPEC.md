@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -63,8 +63,8 @@ updated: 2026-11-01
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
 |POST|`/analyses/:id/what-if`|`ADMIN, SALES, ANALYST, VIEWER`|가정 재계산([[16-DECISIONS\|ADR-037]], 데모 강화 컷). 저장된 입력 스냅샷에 보유 가정을 얹어 규칙 엔진으로 다시 계산하고 아무것도 저장하지 않는다. 읽기 계산이라 역할 제한이 없다. 계약은 §4.5 "가정 재계산"|`WhatIfRequest` → `200 WhatIfResult`|
-|POST|`/bids/:id/analyses/:runId/insight`|`ADMIN, SALES, ANALYST`|추천 분석 요청([[16-DECISIONS\|ADR-066]], 비동기). 본문 없음. 계약은 §4.5 "추천 분석"|`202 InsightAccepted`|
-|GET|`/bids/:id/analyses/:runId/insight`|`ADMIN, SALES, ANALYST, VIEWER`|그 run 의 최신 추천 분석 1건(polling)|`{ insight: InsightView \| null }`|
+|POST|`/bids/:id/analyses/:runId/insight`|`ADMIN, SALES, ANALYST`|추천 분석 요청([[16-DECISIONS\|ADR-066]]·[[16-DECISIONS\|ADR-078]], 비동기). 본문 없음. 계약은 §4.5 "추천 분석"|`202 InsightAccepted`|
+|GET|`/bids/:id/analyses/:runId/insight`|`ADMIN, SALES, ANALYST, VIEWER`|그 run 의 최신 추천 분석 1건(polling)과, 최신이 실패면 마지막 모델 설명|`{ insight: InsightView \| null, previous: InsightView \| null }`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
 |GET|`/bids/:id/reviews`|`ADMIN, SALES, ANALYST, VIEWER`|검토 이력|`Review[]`|
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
@@ -394,14 +394,14 @@ interface WhatIfResult {                                    // 200 본문(그대
 - DB에 아무것도 쓰지 않는다(`score_runs`·`bid_reviews`·`audit_logs`·알림·outbox 불변). 결정 모델·gateway·큐를 부르지 않는다. 속도 제한·`Idempotency-Key` 대상이 아니다. 권한은 4개 업무 역할 모두다.
 - 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`.
 
-#### 추천 분석 (ADR-066)
+#### 추천 분석 (ADR-066·ADR-078)
 
-공고 상세의 [추천 분석]이 부른다. Qwen 이 판단 이유·강점·보완할 점을 근거 번호와 함께 쓰고, 판정(`score`·`recommendation`)은 바꾸지 않는다. 타입 정본은 `web/server/insight/insight.model.ts`(`InsightView`·`InsightAccepted`·`insightPayloadSchema`)다.
+공고 상세의 [추천 분석]이 부른다. Qwen 이 판단 이유·점수 요소별 해설·자격 요건 해설·강점·보완할 점·참여 전 확인할 것을 근거 번호와 함께 쓰고, 판정(`score`·`recommendation`)은 바꾸지 않는다. 타입 정본은 `web/server/insight/insight.model.ts`(`InsightView`·`InsightAccepted`·`insightPayloadSchema`·`INSIGHT_PROMPT_VERSION`)다. 출력 `insight/v0.2`와 `promptVersion`([[16-DECISIONS|ADR-078]])은 2026-11-03 기준 운영 반영 전이다.
 
-- POST 처리 순서: 인증·CSRF(§1) → 경로 id 가 UUID 가 아니면 `404` → 역할(`ADMIN`·`SALES`·`ANALYST` 아니면 `403 FORBIDDEN`) → run(없음·다른 조직·다른 공고·`COMPLETED`·`PARTIAL` 아님이면 `404 {resource:"analysis"}`) → 그 run 의 최신 행이 `DONE`·`MODEL` 이면 큐 없이 그대로 돌려준다(`deduplicated: true`, 횟수를 세지 않는다) → 속도 제한(사용자당 분당 3회, 큐에 넣는 요청은 모두 센다, `429 RATE_LIMITED`) → 최신 행이 `PENDING` 이면 같은 행을 다시 큐에 넣는다(`deduplicated: true`) → 아니면 `PENDING` insert(같은 run 의 `PENDING` 이 먼저 들어가 23505 이거나 모델 설명이 먼저 생겨 23P01 이면 그 행을 돌려준다) → BullMQ `insight` job → `202 {insightId, status, deduplicated, pollUrl}`. 큐·Redis 장애는 `503`. frontend relay 는 202 의 `pollUrl` 이 요청 경로와 같을 때만 받는다.
+- POST 처리 순서: 인증·CSRF(§1) → 경로 id 가 UUID 가 아니면 `404` → 역할(`ADMIN`·`SALES`·`ANALYST` 아니면 `403 FORBIDDEN`) → run(없음·다른 조직·다른 공고·`COMPLETED`·`PARTIAL` 아님이면 `404 {resource:"analysis"}`) → 그 run 의 최신 행이 지금 버전(`promptVersion` = `INSIGHT_PROMPT_VERSION`, `insight/v0.2`)의 `DONE`·`MODEL` 이면 큐 없이 그대로 돌려준다(`deduplicated: true`, 횟수를 세지 않는다). 옛 버전(`insight/v0.1`)이나 버전 없는 `DONE`·`MODEL` 이면 아래로 이어가 새 `PENDING` 을 만든다 → 속도 제한(사용자당 분당 3회, 큐에 넣는 요청은 모두 센다, `429 RATE_LIMITED`) → 최신 행이 `PENDING` 이면 같은 행을 다시 큐에 넣는다(`deduplicated: true`) → 아니면 `PENDING` insert(같은 run 의 `PENDING` 이 먼저 들어가 23505 이거나 지금 버전 모델 설명이 먼저 생겨 23P01 이면 그 행을 돌려준다) → BullMQ `insight` job → `202 {insightId, status, deduplicated, pollUrl}`. 큐·Redis 장애는 `503`. frontend relay 는 202 의 `pollUrl` 이 요청 경로와 같을 때만 받는다.
 - `Idempotency-Key` 는 쓰지 않는다. 중복은 run 기준으로 막는다(relay 재시도도 같은 행이 된다).
-- GET 은 모든 배포 역할에서 사용자 세션(RLS)으로 직접 읽는다(relay 없음). run 이 `COMPLETED`·`PARTIAL` 이 아니면 `404`.
-- `InsightView`: `id`, `scoreRunId`, `status`, `source`(`MODEL`·`TEMPLATE`·null), `payload`(`summary`·`strengths[{text, refIds}]`·`improvements[]`·`refs[{id, kind, label, quotedText}]`, DONE 만), `fallbackReason`, `modelName`, `errorCode`(`GATEWAY_UNAVAILABLE`·`GATEWAY_INVALID`·`SOURCE_INVALID`·`STALE`), `createdAt`, `finishedAt`.
+- GET 은 모든 배포 역할에서 사용자 세션(RLS)으로 직접 읽는다(relay 없음). run 이 `COMPLETED`·`PARTIAL` 이 아니면 `404`. 본문은 `{ insight, previous }` 다. `insight` 는 그 run 의 최신 1건(없으면 null)이다. `previous` 는 최신 행이 `FAILED` 일 때만 그 run 의 마지막 `DONE`·`MODEL`(버전 무관)이고, 그 밖에는 null 이다. 새 형식 재요청이 실패해도 화면이 옛 결과를 계속 보이게 하려는 것이다. 공고 상세 첫 화면 값(`getInsight`)도 같은 모양이다.
+- `InsightView`: `id`, `scoreRunId`, `status`, `source`(`MODEL`·`TEMPLATE`·null), `payload`(`summary`·`strengths[{text, refIds}]`·`improvements[]`·`factorNotes[{factor, text, refIds}]`?·`checkNotes[{label, text, refIds}]`?·`nextSteps[{text, refIds}]`?·`staffing{from, to, availableFte, eligibleStaff}`?·`refs[{id, kind, label, quotedText}]`, DONE 만. `?` 칸은 옛 v0.1 결과에 없다. 상한은 [[03-AI-PIPELINE|03]] §2.1), `fallbackReason`, `modelName`, `promptVersion`(`insight/v0.2`·`insight/v0.1`·null. PENDING·FAILED·옛 gateway 결과는 null), `errorCode`(`GATEWAY_UNAVAILABLE`·`GATEWAY_INVALID`·`SOURCE_INVALID`·`STALE`), `createdAt`, `finishedAt`.
 - 구현: `web/app/api/v1/bids/[id]/analyses/[runId]/insight/route.ts`, `web/server/insight/insight.service.ts`, 큐 생산자 `web/app/_lib/insight-queue.ts`.
 
 ### 4.6 검토·알림·대시보드·수집
@@ -881,6 +881,6 @@ Next 설정의 기존 별칭(`/account`, `/favicon.ico`)과 trailing slash 정�
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트, 카카오톡 추천 공고
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-052(회사 공개 프로필·EXECUTIVE 역할), ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
+- [[16-DECISIONS|16 ADR]] — ADR-052(회사 공개 프로필·EXECUTIVE 역할), ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완), ADR-066·ADR-078(추천 분석 요청·GET `previous`·출력 버전)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화

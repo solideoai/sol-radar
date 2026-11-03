@@ -13,6 +13,11 @@ export const INSIGHT_STALE_MS = 10 * 60 * 1000;
 export const INSIGHT_POLL_LIMIT_MS = 3 * 60 * 1000;
 /** 추천 분석을 요청할 수 있는 업무 역할(분석 실행과 같다). */
 export const INSIGHT_REQUEST_ROLES = ["ADMIN", "SALES", "ANALYST"] as const;
+/**
+ * 지금 출력 형식 버전(ADR-078). 같은 run 이라도 이 버전의 DONE·MODEL 이 없으면 다시 요청할 수 있다.
+ * gateway INSIGHT_PROMPT_VERSION·마이그레이션 제약 글자와 같아야 한다(scripts/insight-prompt-version.test.mjs).
+ */
+export const INSIGHT_PROMPT_VERSION = "insight/v0.2";
 
 export const insightStatusSchema = z.enum(["PENDING", "DONE", "FAILED"]);
 export type InsightStatus = z.infer<typeof insightStatusSchema>;
@@ -62,12 +67,50 @@ export const insightItemSchema = z.object({
 });
 export type InsightItem = z.infer<typeof insightItemSchema>;
 
-/** recommendation_insights.payload. 항목이 가리키는 근거는 refs 에 있어야 한다. */
+/** 점수 요소별 해설. factor 는 요청 rules.factors[].factor(FACTOR_KEYS) 중 하나다. */
+export const insightFactorNoteSchema = insightItemSchema.extend({
+  factor: z.string().min(1).max(40),
+});
+export type InsightFactorNote = z.infer<typeof insightFactorNoteSchema>;
+
+/** 자격 요건 해설. label 은 요청 rules.qualificationChecks[].label(미충족·확인 필요) 중 하나다. */
+export const insightCheckNoteSchema = insightItemSchema.extend({
+  label: z.string().min(1).max(80),
+});
+export type InsightCheckNote = z.infer<typeof insightCheckNoteSchema>;
+
+/** 사업 기간 인력 가용. 모델이 아니라 worker 가 규칙 값(인력 요소 입력)으로 채운다. 날짜는 "YYYY-MM-DD". */
+export const insightStaffingSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  availableFte: z.number().min(0),
+  eligibleStaff: z.number().int().min(0),
+});
+export type InsightStaffing = z.infer<typeof insightStaffingSchema>;
+
+/** 상한(ADR-078 v0.2). gateway 응답 스키마도 같은 값을 쓴다. */
+export const INSIGHT_LIMITS = {
+  summary: 800,
+  strengths: 6,
+  improvements: 6,
+  factorNotes: 8,
+  checkNotes: 8,
+  nextSteps: 5,
+} as const;
+
+/**
+ * recommendation_insights.payload. 항목이 가리키는 근거는 refs 에 있어야 한다.
+ * v0.2 새 칸(factorNotes·checkNotes·nextSteps·staffing)은 없어도 된다. 옛 v0.1 결과도 같은 스키마로 읽힌다.
+ */
 export const insightPayloadSchema = z
   .object({
-    summary: z.string().min(1).max(400),
-    strengths: z.array(insightItemSchema).max(4),
-    improvements: z.array(insightItemSchema).max(4),
+    summary: z.string().min(1).max(INSIGHT_LIMITS.summary),
+    strengths: z.array(insightItemSchema).max(INSIGHT_LIMITS.strengths),
+    improvements: z.array(insightItemSchema).max(INSIGHT_LIMITS.improvements),
+    factorNotes: z.array(insightFactorNoteSchema).max(INSIGHT_LIMITS.factorNotes).optional(),
+    checkNotes: z.array(insightCheckNoteSchema).max(INSIGHT_LIMITS.checkNotes).optional(),
+    nextSteps: z.array(insightItemSchema).max(INSIGHT_LIMITS.nextSteps).optional(),
+    staffing: insightStaffingSchema.nullable().optional(),
     refs: z.array(insightRefSchema).max(24),
   })
   .superRefine((payload, ctx) => {
@@ -75,8 +118,11 @@ export const insightPayloadSchema = z
     for (const [group, items] of [
       ["strengths", payload.strengths],
       ["improvements", payload.improvements],
+      ["factorNotes", payload.factorNotes ?? []],
+      ["checkNotes", payload.checkNotes ?? []],
+      ["nextSteps", payload.nextSteps ?? []],
     ] as const) {
-      items.forEach((item, index) => {
+      items.forEach((item: InsightItem, index) => {
         item.refIds.forEach((refId, refIndex) => {
           if (!known.has(refId)) {
             ctx.addIssue({
@@ -110,6 +156,8 @@ export type InsightView = {
   payload: InsightPayload | null;
   fallbackReason: InsightFallbackReason | null;
   modelName: string | null;
+  /** 출력 형식 버전(ADR-078). DONE 때 worker 가 쓴다. 옛 행·PENDING·FAILED 는 null 일 수 있다. */
+  promptVersion: string | null;
   /** FAILED 일 때만 값이 있다. */
   errorCode: InsightErrorCode | null;
   createdAt: string;

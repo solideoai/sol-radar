@@ -387,6 +387,10 @@ class InsightCheck(BaseModel):
     reason: str
 
 
+# 자격 해설·확인할 것을 다는 자격 판정
+REVIEW_STATUSES = frozenset({"NOT_SATISFIED", "NEEDS_REVIEW"})
+
+
 class InsightRules(BaseModel):
     score: int | float
     recommendation: Recommendation
@@ -395,6 +399,19 @@ class InsightRules(BaseModel):
     qualificationChecks: list[InsightCheck] = Field(max_length=20)
     reviewFlags: list[str]
     missingFactors: list[str]
+
+    def review_checks(self) -> list[InsightCheck]:
+        """자격 해설(checkNotes)을 다는 자격: 미충족·확인 필요. 같은 label 은 요청 순서의 첫 자격만 남긴다.
+
+        요청 자격에는 id 가 없어 화면이 label 로 짝짓는다(ADR-078, 계획 "자격 해설 짝짓기"). 순서는 요청 그대로다.
+        """
+        seen: set[str] = set()
+        checks = []
+        for check in self.qualificationChecks:
+            if check.status in REVIEW_STATUSES and check.label not in seen:
+                seen.add(check.label)
+                checks.append(check)
+        return checks
 
 
 class InsightBosun(BaseModel):
@@ -463,14 +480,32 @@ class InsightItem(BaseModel):
         return value
 
 
+class InsightFactorNote(InsightItem):
+    """점수 요소별 해설. factor 는 요청 rules.factors[].factor 중 하나여야 한다(아니면 gateway 가 그 항목을 뺀다)."""
+
+    factor: str = Field(min_length=1, max_length=40)
+
+
+class InsightCheckNote(InsightItem):
+    """자격 요건 해설. label 은 요청 rules.qualificationChecks 중 미충족·확인 필요 자격의 label 과 글자가 같아야 한다."""
+
+    label: str = Field(min_length=1, max_length=80)
+
+
 class InsightBody(BaseModel):
-    """모델 출력과 템플릿이 같은 모양이다. 강점·보완할 점은 각각 0~4개."""
+    """모델 출력과 템플릿이 같은 모양이다(출력 v0.2, ADR-078). 상한은 web insight.model.ts INSIGHT_LIMITS 와 같다.
+
+    새 칸(factorNotes·checkNotes·nextSteps)이 모델 본문에 없으면 빈 목록으로 본다(모양 오류가 아니다).
+    """
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    summary: str = Field(min_length=1, max_length=400)
-    strengths: list[InsightItem] = Field(max_length=4)
-    improvements: list[InsightItem] = Field(max_length=4)
+    summary: str = Field(min_length=1, max_length=800)
+    strengths: list[InsightItem] = Field(max_length=6)
+    improvements: list[InsightItem] = Field(max_length=6)
+    factorNotes: list[InsightFactorNote] = Field(default_factory=list, max_length=8)
+    checkNotes: list[InsightCheckNote] = Field(default_factory=list, max_length=8)
+    nextSteps: list[InsightItem] = Field(default_factory=list, max_length=5)
 
     @field_validator("summary")
     @classmethod
@@ -481,7 +516,10 @@ class InsightBody(BaseModel):
 
 
 class InsightResponse(InsightBody):
-    """언제나 200. fallback=false 면 fallbackReason=null·model=어댑터 모델 이름, true 면 model=null(템플릿)."""
+    """언제나 200. fallback=false 면 fallbackReason=null·model=어댑터 모델 이름, true 면 model=null(템플릿).
+
+    MODEL·TEMPLATE 모두 새 칸 세 키를 늘 보낸다(비면 []). promptVersion 은 출력 형식 버전("insight/v0.2")이다.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -489,6 +527,7 @@ class InsightResponse(InsightBody):
     fallbackReason: InsightFallbackReason | None
     model: str | None
     promptHash: str
+    promptVersion: str
 
 
 # ---------------------------------------------------------------- /parse

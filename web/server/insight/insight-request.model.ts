@@ -16,6 +16,8 @@ export type InsightRepo = {
   findRun(orgId: string, runId: string): Promise<InsightRunRef | null>;
   /** 그 run 의 가장 최근 요청 1건. 없으면 null. */
   latestInsight(orgId: string, runId: string): Promise<InsightView | null>;
+  /** 그 run 의 DONE·MODEL 가운데 가장 최근 1건(버전 무관). 없으면 null. */
+  latestModelInsight(orgId: string, runId: string): Promise<InsightView | null>;
   /** PENDING 행을 넣고 id 를 돌려준다. 같은 run 에 PENDING·모델 설명이 이미 있으면(유일·제외 위반) null. */
   insertPending(orgId: string, runId: string): Promise<string | null>;
 };
@@ -44,5 +46,9 @@ type InsightFailure = {
 
 export type InsightRequestResult =
   { ok: true; status: 202; data: InsightAccepted } | InsightFailure;
-export type InsightReadResult =
-  { ok: true; status: 200; data: { insight: InsightView | null } } | InsightFailure;
+/**
+ * GET 본문. insight = 그 run 의 최신 1건. previous = 최신이 FAILED 일 때만 그 run 의 마지막 DONE·MODEL(버전 무관),
+ * 그 밖에는 null. 새 형식 재요청이 실패해도 화면이 옛 결과를 계속 보인다(ADR-078 Q2).
+ */
+export type InsightReadData = { insight: InsightView | null; previous: InsightView | null };
+export type InsightReadResult = { ok: true; status: 200; data: InsightReadData } | InsightFailure;

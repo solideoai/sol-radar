@@ -22,6 +22,8 @@ export type InsightFinishDone = {
   fallbackReason: InsightFallbackReason | null;
   modelName: string | null;
   promptHash: string;
+  /** 출력 형식 버전(ADR-078). 옛 gateway 는 보내지 않으므로 null 이다. */
+  promptVersion: string | null;
   finishedAt: string;
 };
 
@@ -92,9 +94,11 @@ export function createInsightStore(supabase: SupabaseClient<Database>): InsightS
           .select("requirement_name, outcome, reason")
           .eq("score_run_id", scoreRunId)
           .eq("org_id", orgId)
-          // 같은 run 이면 늘 같은 순서로 보낸다(필수 먼저, 이름 순).
+          // 같은 run 이면 늘 같은 순서로 보낸다(필수 먼저, 이름 순, 같은 이름은 id 순).
+          // 화면이 자격 해설을 같은 순서로 짝짓는다(recommendation-insight-sections.tsx pairChecks, 사전 리뷰 W-1).
           .order("mandatory", { ascending: false })
-          .order("requirement_name"),
+          .order("requirement_name")
+          .order("id"),
       ]);
       if (factors.error) throw failure("score_factors", "읽기", factors.error.code);
       if (checks.error) throw failure("qualification_checks", "읽기", checks.error.code);
@@ -110,6 +114,7 @@ export function createInsightStore(supabase: SupabaseClient<Database>): InsightS
           fallback_reason: input.fallbackReason,
           model_name: input.modelName,
           prompt_hash: input.promptHash,
+          prompt_version: input.promptVersion,
           finished_at: input.finishedAt,
         })
         .eq("id", input.insightId)

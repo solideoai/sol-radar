@@ -250,21 +250,34 @@ export function toInsightRequest(
 }
 
 /**
- * gateway 응답 → recommendation_insights.payload. 항목이 가리킨 근거만 남긴다.
+ * gateway 응답과 보낸 요청 → recommendation_insights.payload. 항목이 가리킨 근거만 남긴다.
+ * v0.2 새 칸(요소 해설·자격 해설·확인할 것)은 응답에 키가 있을 때만 옮긴다. 옛 gateway 응답이면 키를 넣지 않는다.
+ * staffing(인력 가용)은 모델 문장이 아니라 요청 company.staff 와 같은 규칙 값이다(ADR-078).
  * 요청에 없던 근거 번호·상한 위반은 insightPayloadSchema 가 던진다(worker 는 GATEWAY_INVALID 로 닫는다).
  */
 export function toInsightPayload(
   response: InsightGatewayResponse,
-  refs: InsightRef[],
+  request: InsightGatewayRequest,
 ): InsightPayload {
+  const { factorNotes, checkNotes, nextSteps } = response;
   const cited = new Set(
-    [...response.strengths, ...response.improvements].flatMap((item) => item.refIds),
+    [
+      ...response.strengths,
+      ...response.improvements,
+      ...(factorNotes ?? []),
+      ...(checkNotes ?? []),
+      ...(nextSteps ?? []),
+    ].flatMap((item) => item.refIds),
   );
   return insightPayloadSchema.parse({
     summary: response.summary,
     strengths: response.strengths,
     improvements: response.improvements,
-    refs: refs.filter((ref) => cited.has(ref.id)),
+    ...(factorNotes === undefined ? {} : { factorNotes }),
+    ...(checkNotes === undefined ? {} : { checkNotes }),
+    ...(nextSteps === undefined ? {} : { nextSteps }),
+    staffing: request.company.staff,
+    refs: request.refs.filter((ref) => cited.has(ref.id)),
   });
 }
 

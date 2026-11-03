@@ -1,6 +1,13 @@
 import "server-only";
 import { z } from "zod";
-import { insightFallbackReasonSchema, insightItemSchema, type InsightRef } from "@/server/insight";
+import {
+  INSIGHT_LIMITS,
+  insightCheckNoteSchema,
+  insightFactorNoteSchema,
+  insightFallbackReasonSchema,
+  insightItemSchema,
+  type InsightRef,
+} from "@/server/insight";
 import type { QualificationOutcome, Recommendation } from "@/server/scoring";
 
 // ── AI gateway 계약 모델: 설정 읽기·응답 봉투 검증·실패 분류의 순수 규칙 (03 §2.1·§3, 02 장애 원칙) ──
@@ -178,13 +185,19 @@ export const explainResponseSchema = z.object({
  */
 export const insightResponseSchema = z
   .object({
-    summary: z.string().min(1).max(400),
-    strengths: z.array(insightItemSchema).max(4),
-    improvements: z.array(insightItemSchema).max(4),
+    summary: z.string().min(1).max(INSIGHT_LIMITS.summary),
+    strengths: z.array(insightItemSchema).max(INSIGHT_LIMITS.strengths),
+    improvements: z.array(insightItemSchema).max(INSIGHT_LIMITS.improvements),
+    // v0.2 gateway 는 세 칸을 늘 보낸다(ADR-078). 옛 gateway 는 보내지 않으므로 선택 항목이다.
+    factorNotes: z.array(insightFactorNoteSchema).max(INSIGHT_LIMITS.factorNotes).optional(),
+    checkNotes: z.array(insightCheckNoteSchema).max(INSIGHT_LIMITS.checkNotes).optional(),
+    nextSteps: z.array(insightItemSchema).max(INSIGHT_LIMITS.nextSteps).optional(),
     fallback: z.boolean(),
     fallbackReason: insightFallbackReasonSchema.nullable(),
     model: z.string().nullable(),
     promptHash: z.string().regex(/^[0-9a-f]{64}$/),
+    /** 출력 형식 버전. 옛 gateway 는 보내지 않는다. */
+    promptVersion: z.string().min(1).max(40).optional(),
   })
   .superRefine((body, ctx) => {
     if (body.fallback !== (body.fallbackReason !== null)) {

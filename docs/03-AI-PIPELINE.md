@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - pipeline
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 03. AI 파이프라인: Qwen + Bosun
@@ -27,7 +27,7 @@ updated: 2026-11-01
 |결정 모델 Bosun v3.1 0.6B(`POST /kev`. 경로 이름은 호환 유지, ADR-034)|비정형 요구사항의 충족 분류, 기술 적합성, 실적 연관성, 수행 리스크|영어 state 텍스트(§5.6·§5.11) + 질문 세트(§5.5·§5.10)|질문별 확률(선택지 분포·yes 확률·등급. typed decision `choice`/`score`/`noul`)|없음. 참고 지표·`reviewFlags`만|
 |SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.2.1` 결정론 점수([[16-DECISIONS\|ADR-071]]), 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
 |설명(`POST /explain`. 분석 job 안의 Qwen 설명은 **미구현**)|규칙 결과·점수·인용·결정 모델 참고 지표를 한국어 2~4문장으로 설명. 지금은 모든 모드가 템플릿 문장이다(`explain.py`, `fallback=true`)|위 결과|`explanation` 텍스트|없음. 입력 밖 숫자가 나오면 폐기하고 템플릿으로 대체|
-|추천 분석(`POST /insight`, 버튼을 눌렀을 때만, [[16-DECISIONS\|ADR-066]])|공고 상세 [추천 분석]으로 Qwen3.8-Flash-Next 가 판단 이유·강점·보완할 점을 근거 번호(B 공고 인용·C 회사 자료)와 함께 쓴다. 판정은 바꾸지 않는다|저장된 run 의 규칙 결과·`input_snapshot`(공고·추출·회사 프로필·인력 가용)|`recommendation_insights.payload`|모양·숨은 문자·근거 번호·금지어·다른 판정 이름·참여를 권하거나 말리는 표현·입력 밖 숫자 중 하나라도 어기면 규칙 결과 템플릿(`source=TEMPLATE`, `fallbackReason`). 인젝션 의심 run 이나 guard 가 지시문을 찾은 입력은 모델을 부르지 않는다(`INJECTION_SUSPECTED`, 공고 인용 없음)|
+|추천 분석(`POST /insight`, 버튼을 눌렀을 때만, [[16-DECISIONS\|ADR-066]]·[[16-DECISIONS\|ADR-078]])|공고 상세 [추천 분석]으로 Qwen3.8-Flash-Next 가 판단 이유·점수 요소별 해설·자격 요건 해설·강점·보완할 점·참여 전 확인할 것을 근거 번호(B 공고 인용·C 회사 자료)와 함께 쓴다(출력 `insight/v0.2`, §2.1). 판정은 바꾸지 않는다|저장된 run 의 규칙 결과·`input_snapshot`(공고·추출·회사 프로필·인력 가용)|`recommendation_insights.payload`(사업 기간 인력 가용 `staffing`은 모델이 아니라 Worker 가 규칙 값으로 넣는다)|모양·숨은 문자가 틀리거나 판단 이유가 금지어·다른 판정 이름·참여를 권하거나 말리는 표현·입력 밖 숫자에 걸리면 전체를 규칙 결과 템플릿으로 바꾼다(`source=TEMPLATE`, `fallbackReason`). 세부 항목이 걸리면 그 항목만 뺀다. 인젝션 의심 run 이나 guard 가 지시문을 찾은 입력은 모델을 부르지 않는다(`INJECTION_SUSPECTED`, 공고 인용 없음)|
 |Embedding + Qdrant(**미구현**, 해커톤 컷 밖)|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|
 |사람|최종 참여 결정|화면|`bid_reviews`|**최종**|
 
@@ -63,10 +63,10 @@ worker job 순서:
 2. **documents**: 새 revision의 첨부를 다운로드하고 `POST /parse`를 부른다. 텍스트는 Supabase Storage에 쓰고 `bid_documents`에 다운로드·파싱 상태를 기록한다. documents 전용 Worker(`web/worker/documents-only-main.ts`)가 처리하고, ingest가 첨부 있는 revision마다 documents job을 넣으며 1분마다 `PENDING` 첨부를 다시 넣는다(`web/worker/documents-reconcile.ts`). analysis는 `PARSED`·`PARTIAL` 텍스트를 첨부로 넣는다(`ANALYSIS_READS_ATTACHMENT_TEXT`, [[07-DATA-PIPELINE|07 수집]] 계약).
 3. **extract**: `POST /extract`. 재사용 키는 `(revision_id, model_name, prompt_hash)` 그대로다. 지금은 별도 extract job이 없다. analysis job이 캐시된 추출이 없을 때 같은 job 안에서 `/extract`를 부른다(`web/server/analysis/analysis.service.ts`).
 4. **analysis**: 규칙 → `POST /kev` → 플래그 병합 → 점수·권고 → `POST /explain` → 저장.
-5. **insight**(추천 분석, [[16-DECISIONS|ADR-066]]): 화면 [추천 분석]이 넣은 job만 `POST /insight`를 부른다. 분석 job은 부르지 않는다. Analysis Worker가 같은 gateway 클라이언트로 처리한다(`web/worker/insight-job.ts`).
+5. **insight**(추천 분석, [[16-DECISIONS|ADR-066]]·[[16-DECISIONS|ADR-078]]): 화면 [추천 분석]이 넣은 job만 `POST /insight`를 부른다. 분석 job은 부르지 않는다. Analysis Worker가 같은 gateway 클라이언트로 처리하고, 결과 행에 응답의 `promptVersion`을 `prompt_version`으로 남긴다(`web/worker/insight-job.ts`).
 
 > [!warning] 구현 상태
-> 위 그림과 job 순서는 v0.2 설계다. 코드에 있는 job은 ingest·documents·analysis·insight(과 system job)다. 첨부 처리(다운로더·documents worker·gateway `/parse`)와 분석의 첨부 텍스트 입력은 운영에서 돈다. 회사 Documents Worker가 운영 중이고([기동 기록](evidence/attachment-pipeline/20261028-documents-worker.md)), 회사 AI gateway는 첨부 조립 v0.2(§4.3)로 실공고를 분석했다([gateway 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 회사 쪽 절차의 정본은 [회사 런타임 배포](../infra/company/README.md) §8(Documents)이다. 추천 분석(`/insight`)도 회사 AI gateway·Analysis Worker에 반영됐다([[PROGRESS]] 운영 상태 표). Qwen 설명(`/explain`)과 Qdrant 색인·검색은 미구현이다. 설명은 템플릿 문장이다.
+> 위 그림과 job 순서는 v0.2 설계다. 코드에 있는 job은 ingest·documents·analysis·insight(과 system job)다. 첨부 처리(다운로더·documents worker·gateway `/parse`)와 분석의 첨부 텍스트 입력은 운영에서 돈다. 회사 Documents Worker가 운영 중이고([기동 기록](evidence/attachment-pipeline/20261028-documents-worker.md)), 회사 AI gateway는 첨부 조립 v0.2(§4.3)로 실공고를 분석했다([gateway 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 회사 쪽 절차의 정본은 [회사 런타임 배포](../infra/company/README.md) §8(Documents)이다. 추천 분석(`/insight`)은 1단계 출력(`insight/v0.1`)으로 회사 AI gateway·Analysis Worker에 반영됐다([[PROGRESS]] 운영 상태 표). 출력 `insight/v0.2`·`prompt_version` 열([[16-DECISIONS|ADR-078]])은 2026-11-03 기준 운영 반영 전이다. 반영 상태의 정본은 ADR-078 "반영 상태"다. Qwen 설명(`/explain`)과 Qdrant 색인·검색은 미구현이다. 설명은 템플릿 문장이다.
 
 - job은 따로 재시도할 수 있게 나눈다. 앞 단계가 실패해도 다음 단계는 가진 정보로 진행한다. 예: 첨부가 실패하면 본문만으로 추출하고 경고를 단다.
 - 추출(`/extract`)은 **공고 revision 단위**로 1회 실행하고 조직과 무관하게 재사용한다(ADR-011). 파싱(`/parse`)은 첨부 문서 단위다. 자격 판정·점수·결정 모델·설명은 **조직 × revision × 프로필 revision** 단위다.
@@ -84,7 +84,7 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 |`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(local 번역, mock은 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → 결정 모델 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6). 지금은 모든 모드가 템플릿이다(Qwen 설명 미구현)|새로|
-|`POST /insight`|insight job(Analysis Worker, 화면 [추천 분석]이 넣는다)|분석 run(요청마다 새 행)|요청: 공고 요약·규칙 결과·Bosun 검토 플래그·회사 요약(기술·인력 가용)·근거 목록. 응답: `summary`·`strengths[]`·`improvements[]`(각 0~4, `refIds`)·`fallback`·`fallbackReason`·`model`·`promptHash`(`insight/v0.1`). 계약 정본은 `services/ai/src/sol_ai/contracts.py` `InsightRequest`·`InsightResponse`([[15-DATA-CONTRACTS\|15]]). 언제나 200, 모델 실패는 템플릿. `gateway_down` 은 다른 경로처럼 503|새로|
+|`POST /insight`|insight job(Analysis Worker, 화면 [추천 분석]이 넣는다)|분석 run(요청마다 새 행)|요청: 공고 요약·규칙 결과·Bosun 검토 플래그·회사 요약(기술·인력 가용)·근거 목록. 응답: `summary`·`strengths[]`·`improvements[]`·`factorNotes[]`·`checkNotes[]`·`nextSteps[]`(상한은 아래 "추천 분석 출력 계약")·`fallback`·`fallbackReason`·`model`·`promptHash`·`promptVersion`(`insight/v0.2`, [[16-DECISIONS\|ADR-078]]). 계약 정본은 `services/ai/src/sol_ai/contracts.py` `InsightRequest`·`InsightResponse`([[15-DATA-CONTRACTS\|15]]). 언제나 200, 모델 실패는 템플릿. `gateway_down` 은 다른 경로처럼 503|새로|
 |`GET /health`|Worker(기동·주기), Route Handler `GET /api/v1/admin/ai/status`|—|실행 모드, Qwen 모델·프롬프트 해시, 결정 모델 id(`kev.modelId`)·레지스트리 일치, 질문 세트, 파서 목록|확장|
 
 ```ts
@@ -145,7 +145,28 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 - `fixtureId`는 `FX-NN` 또는 `FX-NN.rNN`이다(B4). worker는 늘 `FX-NN.rNN`을 보내고, mock은 그 revision 파일이 없으면 `FX-NN` 파일로 대체한다(`/extract`·`/kev`). 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다.
 - `KevResponse.errorCode`(B3): gateway → 결정 모델 서버 미접속·timeout은 200 + `KEV_UNAVAILABLE`이다. 추출이 인젝션 의심(`injectionSuspected=true`)이면 gateway는 결정 모델을 부르지 않고 `kev.enabled=false` + `INJECTION_SUSPECTED`로 돌려준다. 이때 분석은 `COMPLETED`·`RULES_ONLY`다.
 - `/explain`(B7): 지금은 세 모드 모두 템플릿 문장(`fallback=true`)이다(`explain.py`. Qwen 설명 어댑터 미구현). 화면에 보이는 설명은 분석 메타의 `explanation`이다(B24). worker는 `fallback=false`인 모델 문장만 쓰고, `fallback=true`면 gateway 템플릿 문장 대신 규칙 엔진의 `explanation`(템플릿)을 쓴다(`chooseExplanation`, `web/server/analysis/analysis.model.ts`). `ExplainRequest.scoreBreakdown.reviewFlags`는 필수이고 파이프라인 플래그(`CITATION_FAILED` 등)도 담는다(`toExplainRequest`). 알려진 한계: 규칙 엔진 `explanation`도 gateway 템플릿도 이 플래그를 문장에 쓰지 않으므로 설명 문장에 파이프라인 플래그가 반영되지 않는다([[16-DECISIONS|ADR-031]] C12(c)).
-- `/insight`(ADR-066): 분석 job 은 부르지 않는다. local 은 `LocalQwen.insight`(guided JSON 먼저, 400·422 면 unguided 1회, `max_tokens` 1024), mock 은 템플릿 내용을 모델 응답처럼 돌려주고 같은 검증을 거친다(`model` 은 `mock`이라 화면은 "Mock 응답(데모 데이터)"로 보인다, ADR-034 15번), hosted(`UnavailableQwen`)는 늘 템플릿이다. 로그에는 requestId·provider·fallback·fallbackReason 코드만 남긴다.
+- `/insight`(ADR-066·[[16-DECISIONS|ADR-078]]): 분석 job 은 부르지 않는다. local 은 `LocalQwen.insight`(guided JSON 먼저, 400·422 면 unguided 1회, `max_tokens` 는 `INSIGHT_MAX_TOKENS` 4096(추출과 같은 값), `services/ai/src/sol_ai/adapters/qwen.py`), mock 은 템플릿 내용을 모델 응답처럼 돌려주고 같은 검증을 거친다(`model` 은 `mock`이라 화면은 "Mock 응답(데모 데이터)"로 보인다, ADR-034 15번), hosted(`UnavailableQwen`)는 늘 템플릿이다. 로그에는 requestId·provider·fallback·fallbackReason 코드만 남긴다. 검사에서 뺀 항목의 내용도 로그에 남기지 않는다.
+
+**추천 분석 출력 계약 `insight/v0.2`** ([[16-DECISIONS|ADR-078]], 2026-11-03 기준 운영 반영 전): 프롬프트는 `services/ai/prompts/insight.v0.2.md`, guided JSON 스키마는 `services/ai/schemas/insight.v0.2.json`, 버전 글자는 `INSIGHT_PROMPT_VERSION = "insight/v0.2"`(`services/ai/src/sol_ai/insight.py`)다. 같은 글자가 웹 `web/server/insight/insight.model.ts`와 DB 제약(마이그레이션 `20261103000100`, [[04-DATABASE|04 DB]])에도 있고, `scripts/insight-prompt-version.test.mjs`가 세 곳이 같은지 본다. 상한은 gateway pydantic(`InsightBody`)과 웹 zod(`insightResponseSchema`·`insightPayloadSchema`)가 같다.
+
+|칸|모양|상한|뜻|
+|---|---|---|---|
+|`summary`|문자열|800자|판단 이유. 프롬프트는 4~6문장을 요구한다|
+|`strengths`·`improvements`|`[{text, refIds}]`|각 6개|강점·보완할 점|
+|`factorNotes`|`[{factor, text, refIds}]`|8개|점수 요소별 해설. `factor`는 요청 `rules.factors[].factor` 중 하나|
+|`checkNotes`|`[{label, text, refIds}]`|8개|자격 요건 해설. `label`은 요청 `rules.qualificationChecks[].label` 가운데 `NOT_SATISFIED`·`NEEDS_REVIEW`인 것이고, 같은 `label`은 한 번만 쓴다|
+|`nextSteps`|`[{text, refIds}]`|5개|참여 전 확인할 것. 프롬프트는 3~5개를 요구한다|
+
+- 모든 항목은 `text` 200자, `refIds` 4개까지다. `refIds`는 요청 `refs`(24개까지) 안에 있어야 한다.
+- v0.2 응답은 MODEL·TEMPLATE 모두 새 칸 세 키를 늘 보낸다. 채울 것이 없으면 빈 목록(`[]`)이다. 새 칸 키가 없는 옛 v0.1 결과도 웹 스키마로 그대로 읽힌다.
+- 검사 순서(`validate_insight`):
+  1. JSON·모양(모르는 키, 글자·개수 상한)이 틀리거나 숨은 문자가 있으면 전체를 TEMPLATE 로 바꾼다(`INVALID_OUTPUT`). 숨은 문자는 어느 칸에서 나와도 전체다.
+  2. 판단 이유(`summary`)에 금지어·다른 판정 이름·참여를 권하거나 말리는 표현·입력에 없는 숫자가 있으면 전체를 TEMPLATE 로 바꾼다(사유 코드는 1단계와 같다).
+  3. 세부 항목(강점·보완할 점·요소 해설·자격 해설·확인할 것)마다 금지어·다른 판정 이름·참여를 권하거나 말리는 표현·입력에 없는 숫자·없는 근거 번호·요청에 없는 `factor`·`label`·같은 `label`의 두 번째 항목을 보고, 걸린 항목만 뺀다.
+  4. 남은 본문을 MODEL 로 돌려준다.
+- 템플릿(`template_insight`)은 1단계 칸에 더해 새 칸을 규칙 값으로 채운다. `factorNotes`는 요소마다 점수와 요소 이유, `checkNotes`는 `NOT_SATISFIED`·`NEEDS_REVIEW` 자격의 판정 이유(이름마다 한 항목), `nextSteps`는 같은 자격마다 "{자격}: 참여하려면 충족 여부를 확인해야 합니다."다. 템플릿 문장도 같은 검사를 지난 것만 남긴다. mock 은 템플릿을 모델 응답처럼 돌려주므로 새 칸이 함께 채워진다.
+- 사업 기간 인력 가용(`staffing`)은 gateway 응답에 없다. Worker 가 요청 `company.staff`와 같은 규칙 값을 payload 에 넣는다([[15-DATA-CONTRACTS|15 데이터 계약]]).
+- 배포는 Worker·웹이 먼저, gateway 가 마지막이다. 옛 Worker·웹은 400자를 넘는 판단 이유를 `GATEWAY_INVALID`로 거절한다. 새 Worker 는 `promptVersion`이 없는 옛 gateway 응답을 `prompt_version = null`로 저장한다.
 
 - HTTP 200은 "gateway가 응답했다"는 뜻이다. 파싱·추출·결정 모델·설명의 개별 실패는 본문 `status`/`errorCode`/`kev.enabled`/`fallback`으로 표현한다. gateway가 직접 내는 200이 아닌 응답은 아래 둘뿐이고, 본문은 `{errorCode, message}`다([[16-DECISIONS|ADR-030]] B8).
   - 503 `{"errorCode":"AI_UNAVAILABLE","message"}`(시험 전용 예외): `AI_PROVIDER=mock` + `AI_FAULT_INJECT=gateway_down`일 때만 `/extract`·`/kev`·`/explain`·`/insight`가 gateway 연결 불가를 흉내 낸다(§3 env 표, [[16-DECISIONS|ADR-029]] A3). 데모·운영에서는 생기지 않는다
@@ -785,6 +806,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |`score_runs.model_metadata`|지금 저장하는 모양: `{provider, qwen:{name,promptVersion,promptHash} \| null, kev:{model,questionSetVersion} \| null, algorithmVersion, explanationSource}`(`toModelMeta`·`analysis-store.model.ts`, [[05-API-SPEC\|05]] `AnalysisResult.model`). 설계에 있던 `temperature`·`latencyMs`·`retries`·`requestId`·`embedding`·`citation.fuzzyMinRatio`는 저장하지 않는다|
 |`score_runs.review_flags`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `TRANSLATION_INCOMPLETE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`(규칙 엔진 및 Worker의 검토 플래그)|
 |`requirement_assessments`|요구사항 항목마다 규칙 판정·사유·양쪽 근거, 결정 모델 분포·라벨(미구현: `kev_distribution`·`kev_label` 늘 null), 플래그(참고 지표. 판정·점수·권고를 바꾸지 않는다)|
+|`recommendation_insights.payload`, `prompt_version`, `prompt_hash`, `model_name`|추천 분석 결과(§2.1 "추천 분석 출력 계약")와 규칙 값 `staffing`, 출력 형식 버전(`insight/v0.2`. `prompt_hash`가 있는 옛 행은 `insight/v0.1`, 옛 gateway 응답은 null). 같은 run 에서 지금 버전의 모델 설명은 한 번만 만든다([[04-DATABASE\|04 DB]], [[16-DECISIONS\|ADR-078]])|
 
 테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`·`bid_documents`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`·`requirement_assessments`는 `org_id`로 조직마다 나뉜다.
 
@@ -1026,7 +1048,7 @@ ADR-047 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procur
 - [[09-SECURITY|09 보안]] — 책임 있는 AI, 프롬프트 인젝션
 - [[10-DEPLOYMENT|10 배포]] — 실행 모드·프로필, 회사 GPU 추론 엔드포인트(ADR-025·034), `sol_decision` 결정 모델 런타임·회사 vLLM API
 - [[11-TESTING|11 테스트]] — 골든 시나리오, AI 시험
-- [[16-DECISIONS|16 ADR]] — ADR-020·025·034(027 폐기)·064·065·066·067, Bosun·Qwen·파서 미결정 사항(17·24·4·20번)
+- [[16-DECISIONS|16 ADR]] — ADR-020·025·034(027 폐기)·064·065·066·067·078, Bosun·Qwen·파서 미결정 사항(17·24·4·20번)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋·지표·오류 분석·파인튜닝·레지스트리 반입
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — Bosun v3.1 0.6B LoRA 실행서(ADR-034 Bosun 기준), 가중치 출처·sha256 확인. Qwen 파인튜닝은 하지 않는다
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — ADR-034 분석, Bosun 사실 §1.1·wire 변환 §4.1·서버 계약 §5.1·레지스트리 §5.3

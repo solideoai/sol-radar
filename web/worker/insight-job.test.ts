@@ -8,7 +8,7 @@ import {
   type InsightRunSource,
   type InsightStore,
 } from "@/server/analysis";
-import { INSIGHT_STALE_MS, type InsightJobData } from "@/server/insight";
+import { INSIGHT_PROMPT_VERSION, INSIGHT_STALE_MS, type InsightJobData } from "@/server/insight";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
   SCORING_CONFIG,
@@ -149,6 +149,9 @@ describe("processInsightJob", () => {
     const deps = fakeDeps();
     await processInsightJob(DATA, deps);
     expect(deps.requests[0]).toMatchObject({ requestId: INSIGHT_ID });
+    // 인력 가용(staffing)은 gateway 에 보낸 company.staff 와 같은 규칙 값이다(ADR-078).
+    const staffing = deps.requests[0].company.staff;
+    expect(staffing).not.toBeNull();
     expect(deps.done).toEqual([
       {
         insightId: INSIGHT_ID,
@@ -158,17 +161,36 @@ describe("processInsightJob", () => {
           summary: SUMMARY,
           strengths: [{ text: "요구 기술을 보유했습니다.", refIds: ["B1"] }],
           improvements: [],
+          staffing,
           refs: [expect.objectContaining({ id: "B1", kind: "BID" })],
         },
         fallbackReason: null,
         modelName: "Qwen/Qwen3.8-Flash-Next",
         promptHash: "a".repeat(64),
+        promptVersion: null,
         finishedAt: NOW.toISOString(),
       },
     ]);
     // 로그에는 식별자·결과만 싣는다. 모델 문장은 싣지 않는다.
     expect(deps.lines.join("\n")).not.toContain(SUMMARY);
     expect(deps.lines.join("\n")).toContain(INSIGHT_ID);
+  });
+
+  // ADR-078: 중복 판단(isModelDone)과 화면의 옛 형식 판별이 이 값을 본다.
+  it("응답의 promptVersion 을 finishDone 으로 넘기고, 없으면(옛 gateway) null 로 넘긴다", async () => {
+    const current = fakeDeps({
+      result: {
+        ok: true,
+        value: modelResponse({ promptVersion: INSIGHT_PROMPT_VERSION }),
+        attempts: 1,
+      },
+    });
+    await processInsightJob(DATA, current);
+    expect(current.done[0]).toMatchObject({ promptVersion: INSIGHT_PROMPT_VERSION });
+
+    const old = fakeDeps();
+    await processInsightJob(DATA, old);
+    expect(old.done[0].promptVersion).toBeNull();
   });
 
   it("fallback 이면 DONE·TEMPLATE 와 fallbackReason 으로 닫는다", async () => {

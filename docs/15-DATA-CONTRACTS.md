@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -28,16 +28,17 @@ updated: 2026-11-01
 |`RequirementExtraction`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §4.1|Qwen 추출기|규칙 엔진, `requirement_extractions.payload`|
 |판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, 결정 모델 어댑터|API, UI, 평가셋|
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
-|추천 분석 gateway 계약 `InsightRequest`·`InsightResponse`(`POST /insight`)와 저장 모양 `InsightPayload`|gateway: `services/ai/src/sol_ai/contracts.py`, 웹: `web/server/analysis/gateway.model.ts`(`InsightGatewayRequest`·`insightResponseSchema`)·`web/server/insight/insight.model.ts`(`insightPayloadSchema`), 요약 [[03-AI-PIPELINE\|03]] §2.1|Analysis Worker(요청 조립 `toInsightRequest`), AI gateway(응답)|`recommendation_insights.payload`, 공고 상세 추천 분석 패널([[16-DECISIONS\|ADR-066]])|
+|추천 분석 gateway 계약 `InsightRequest`·`InsightResponse`(`POST /insight`)와 저장 모양 `InsightPayload`|gateway: `services/ai/src/sol_ai/contracts.py`, 웹: `web/server/analysis/gateway.model.ts`(`InsightGatewayRequest`·`insightResponseSchema`)·`web/server/insight/insight.model.ts`(`insightPayloadSchema`), 요약 [[03-AI-PIPELINE\|03]] §2.1|Analysis Worker(요청 조립 `toInsightRequest`, 저장 모양 `toInsightPayload`), AI gateway(응답, 출력 `insight/v0.2`)|`recommendation_insights.payload`·`prompt_version`, 공고 상세 추천 분석 구역·팝업([[16-DECISIONS\|ADR-066]]·[[16-DECISIONS\|ADR-078]])|
 |`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
 |`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더. 녹음 응답으로 만드는 `python -m sol_eval build`(갈래 ①)는 있다. Supabase에서 읽는 `pnpm dataset:build`는 미구현이다|평가 하네스, 학습셋 내보내기|
 |소스 registry|이 문서 §8|운영자|Connector|
 
-추천 분석 계약([[16-DECISIONS|ADR-066]])에서 이 문서의 계약과 닿는 규칙은 셋이다. 길이·개수 상한은 gateway pydantic과 웹 zod가 같다.
+추천 분석 계약([[16-DECISIONS|ADR-066]]·[[16-DECISIONS|ADR-078]])에서 이 문서의 계약과 닿는 규칙은 넷이다. 출력 형식은 `insight/v0.2`이고 칸·상한·검사는 [[03-AI-PIPELINE|03]] §2.1 "추천 분석 출력 계약"이 정본이다. 길이·개수 상한은 gateway pydantic과 웹 zod가 같다. 2026-11-03 기준 운영 반영 전이다.
 
-- **근거 번호**: `refs[].id`는 `B1`~`B99`(공고 원문 인용)·`C1`~`C99`(회사 자료)이고 `quotedText`는 1~300자다. `EvidenceRef` 전달 길이(§5.3)와 같다. `B`는 `KNOWN` 추출 필드의 첫 공고 인용에서, `C`는 과거 수행 사업·보유 기술·투입 가능 인력에서 만든다(`toInsightRequest`). 인젝션 의심 run은 `B`를 보내지 않는다.
-- **인력 입력**: `company.staff`는 결정 모델 요청 `profileSummary.staffAvailability`와 같은 값이다. 둘 다 인력 요소와 같은 기간·가용 FTE·대상 인원(`web/server/scoring/factors.ts` `staffAvailabilityInput`)이고, 필요 FTE를 모르거나 명부가 비면 null이다([[08-SCORING|08]] §3.3).
-- **판정 값**: `rules`(점수·권고·자격 판정)는 저장된 run 값을 그대로 넣는 입력이다. 응답과 `InsightPayload`에는 판정 값이 없다.
+- **근거 번호**: `refs[].id`는 `B1`~`B99`(공고 원문 인용)·`C1`~`C99`(회사 자료)이고 `quotedText`는 1~300자다. `EvidenceRef` 전달 길이(§5.3)와 같다. `B`는 `KNOWN` 추출 필드의 첫 공고 인용에서, `C`는 과거 수행 사업·보유 기술·투입 가능 인력에서 만든다(`toInsightRequest`). 인젝션 의심 run은 `B`를 보내지 않는다. 다섯 목록(`strengths`·`improvements`·`factorNotes`·`checkNotes`·`nextSteps`)의 `refIds`는 모두 `refs` 안에 있어야 하고, Worker 는 이 다섯 목록이 가리킨 근거만 payload 에 남긴다(`toInsightPayload`).
+- **인력 입력**: `company.staff`는 결정 모델 요청 `profileSummary.staffAvailability`와 같은 값이다. 둘 다 인력 요소와 같은 기간·가용 FTE·대상 인원(`web/server/scoring/factors.ts` `staffAvailabilityInput`)이고, 필요 FTE를 모르거나 명부가 비면 null이다([[08-SCORING|08]] §3.3). 저장 모양의 `staffing`(`{from, to, availableFte, eligibleStaff}`, 날짜 `YYYY-MM-DD`, 또는 null)도 같은 값이다. 모델이 쓰지 않고 Worker 가 넣는다. 새 Worker 가 저장한 결과에는 gateway 버전과 상관없이 키가 있고, 그 전 결과 행에는 없다.
+- **판정 값**: `rules`(점수·권고·자격 판정)는 저장된 run 값을 그대로 넣는 입력이다. 응답과 `InsightPayload`에는 판정 값이 없다. `factorNotes[].factor`·`checkNotes[].label`은 요청의 요소 키·자격 이름을 가리키는 짝 열쇠일 뿐이다. 화면은 자격 판정을 규칙 체크리스트에서 가져온다.
+- **형식 버전**: gateway 응답 `promptVersion`과 열 `recommendation_insights.prompt_version`이 같은 글자(`insight/v0.2`)다. 옛 gateway 응답에는 `promptVersion`이 없고 Worker 는 null 로 저장한다. payload 안에는 `schemaVersion`이 없고 형식 버전은 이 열에만 있다. 새 칸 셋은 선택 칸이라 v0.1 결과(새 칸 없음)도 같은 웹 스키마로 읽힌다.
 
 다른 문서가 정본인 계약(`ParseResult`·`RequirementExtraction`·판정 라벨·`EvalItem`)은 여기에 타입을 복사하지 않는다. 이 문서의 `EvidenceRef`·`CompanyEvidenceRef`를 그 계약들이 그대로 쓴다.
 
@@ -439,5 +440,5 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 - [[08-SCORING|08 점수]] — missing 정책, 판정 라벨·사유 코드
 - [[09-SECURITY|09 보안]] — 공공 API 응답 개인정보, 서비스키
 - [[11-TESTING|11 테스트]] — 골든 시나리오
-- [[16-DECISIONS|16 ADR]] — ADR-020, ADR-064(첨부 조립 v0.2, §5.1), ADR-066(추천 분석, §1), 미결정 1·16·18·19번
+- [[16-DECISIONS|16 ADR]] — ADR-020, ADR-064(첨부 조립 v0.2, §5.1), ADR-066·ADR-078(추천 분석·출력 `insight/v0.2`, §1), 미결정 1·16·18·19번
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalItem`, 데이터셋 마스킹

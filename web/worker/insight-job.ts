@@ -60,13 +60,13 @@ async function run(data: InsightJobData, deps: InsightJobDeps): Promise<Outcome>
   const source = await deps.store.loadRunSource(pending.scoreRunId, orgId);
   if (source === null) return fail("SOURCE_INVALID");
   // 요청 id 는 행 id 다. gateway 로그의 X-Request-Id 로 행을 찾는다.
-  const { request, refs } = toInsightRequest(source, insightId);
+  const { request } = toInsightRequest(source, insightId);
 
   const result = await deps.gateway.insight(request);
   if (!result.ok) return fail(errorCodeOf(result.failure));
   const parsed = (() => {
     try {
-      return toInsightPayload(result.value, refs);
+      return toInsightPayload(result.value, request);
     } catch {
       return null;
     }
@@ -83,6 +83,8 @@ async function run(data: InsightJobData, deps: InsightJobDeps): Promise<Outcome>
     fallbackReason: response.fallbackReason,
     modelName: response.model,
     promptHash: response.promptHash,
+    // 옛 gateway 는 promptVersion 을 보내지 않는다. 그 결과는 옛 형식으로 본다(ADR-078).
+    promptVersion: response.promptVersion ?? null,
     finishedAt: deps.now().toISOString(),
   });
   return { outcome: "DONE", source: sourceKind, closed };

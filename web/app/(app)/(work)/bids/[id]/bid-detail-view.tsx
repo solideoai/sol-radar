@@ -144,8 +144,12 @@ type BidDetailViewProps = {
 export type InsightPanelInput = {
   /** 최신 점수 run 의 최신 1건. 다른 run 의 것이면 패널이 쓰지 않는다. */
   initial: InsightView | null;
+  /** 최신이 FAILED 일 때 그 run 의 마지막 모델 결과(ADR-078). 그 밖에는 null. */
+  previous: InsightView | null;
   /** INSIGHT_POLL_LIMIT_MS */
   pollLimitMs: number;
+  /** INSIGHT_PROMPT_VERSION. 저장된 버전이 다르면 옛 형식으로 그린다. */
+  currentPromptVersion: string;
   /** 역할이 INSIGHT_REQUEST_ROLES(ADMIN·SALES·ANALYST)인가. */
   canRequest: boolean;
 };
@@ -884,9 +888,19 @@ function AnalysisResult({
             key={analysis.id}
             bidId={bid.id}
             runId={analysis.id}
+            bidTitle={bid.title}
+            run={{
+              solScore: analysis.solScore,
+              recommendation: analysis.recommendation,
+              referenceScore: analysis.qualification.status === "NOT_SATISFIED",
+              factors: analysis.scoreBreakdown,
+              checks: analysis.qualification.checks,
+            }}
             canRequest={insight.canRequest}
             initialInsight={insight.initial?.scoreRunId === analysis.id ? insight.initial : null}
+            initialPrevious={insight.previous?.scoreRunId === analysis.id ? insight.previous : null}
             pollLimitMs={insight.pollLimitMs}
+            currentPromptVersion={insight.currentPromptVersion}
           />
         </Section>
       )}

@@ -2370,6 +2370,7 @@ export type Database = {
           org_id: string
           payload: Json | null
           prompt_hash: string | null
+          prompt_version: string | null
           requested_by: string
           score_run_id: string
           source: string | null
@@ -2385,6 +2386,7 @@ export type Database = {
           org_id: string
           payload?: Json | null
           prompt_hash?: string | null
+          prompt_version?: string | null
           requested_by?: string
           score_run_id: string
           source?: string | null
@@ -2400,6 +2402,7 @@ export type Database = {
           org_id?: string
           payload?: Json | null
           prompt_hash?: string | null
+          prompt_version?: string | null
           requested_by?: string
           score_run_id?: string
           source?: string | null
