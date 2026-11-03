@@ -569,7 +569,7 @@ flowchart TD
 | 상황 | 변형 |
 |---|---|
 | `PARTIAL` (AI 불가) | 상단 요약 아래 warning 배너, 문구는 [[09-SECURITY\|09 보안]] 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)". 배너 우측에 `recommendationBasis: RULES_ONLY`와 `errorCode`(예 `AI_UNAVAILABLE`). 결정 모델 섹션은 "사용 불가". 분석 요약 띠의 "AI: … · 응답 없음(규칙만)"과 이 배너가 알린다 |
-| 결정 모델 상이 (`MODEL_RULE_DISAGREEMENT`) | 결정 모델 섹션에 `규칙 우선` 배지 + "결정 모델은 추천을 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
+| 결정 모델 상이 (`MODEL_RULE_DISAGREEMENT`) | 결정 모델 섹션에 "결정 모델은 추천을 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장"(제목만). 두 곳 모두 플래그 배지·코드는 두지 않는다(2026-11-03 사용자 결정) |
 | 자격 `NEEDS_REVIEW` | 체크리스트 행 warning + "확인 필요". 근거가 없으면 09 문구 "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다." 권고 보류 |
 | `missingFactors` | 해당 요소 행 회색 바 + `미확인` 배지 + 툴팁 사유(`FX-11`) |
 | 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`). 사유(`UNSUPPORTED_FORMAT`·`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등)를 툴팁으로 |

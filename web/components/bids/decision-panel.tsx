@@ -94,7 +94,7 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
 }
 
 // 플래그 배지 + 코드(스펙 §5.4.9 "배지 옆에 코드를 type-caption font-mono 로"). 레일 320px 에서
-// "규칙 우선(결정 모델 의견 상이) MODEL_RULE_DISAGREEMENT" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
+// "영문 번역 누락 · 원문 검토 필요 TRANSLATION_INCOMPLETE" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
 function FlagItem({ flag }: { flag: ReviewFlag }) {
   return (
     <li className="flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -123,26 +123,17 @@ function RailTopSkeleton() {
   );
 }
 
+// 이유 배지·플래그 코드는 두지 않고 제목만 보인다(2026-11-03 사용자 결정). 규칙 우선은 결정 모델 패널이 따로 보인다.
 function ReviewNeeded({ analysis }: { analysis: AnalysisView }) {
-  const flags = analysis.reviewFlags.filter(isReviewRecommended);
+  const flagged = analysis.reviewFlags.some(isReviewRecommended);
   const qualificationReview = analysis.qualification.status === "NEEDS_REVIEW";
-  if (flags.length === 0 && !qualificationReview) return null;
+  if (!flagged && !qualificationReview) return null;
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-warning p-3">
+    <div className="rounded-lg border border-warning p-3">
       <p className="flex items-center gap-1.5 font-heading type-label text-warning">
         <CircleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
         사람 검토 권장
       </p>
-      <ul className="flex flex-wrap gap-1.5">
-        {qualificationReview && (
-          <li>
-            <StatusBadge kind="qualification" value="NEEDS_REVIEW" />
-          </li>
-        )}
-        {flags.map((flag) => (
-          <FlagItem key={flag} flag={flag} />
-        ))}
-      </ul>
     </div>
   );
 }

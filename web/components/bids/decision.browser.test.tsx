@@ -5,6 +5,7 @@ import { page, userEvent } from "vitest/browser";
 import { DecisionPanel, type SubmitResult } from "@/components/bids/decision-panel";
 import { EvidenceDrawer } from "@/components/bids/evidence-drawer";
 import { useEvidenceStore } from "@/components/bids/evidence-store";
+import { REVIEW_FLAG_LABEL } from "@/components/bids/labels";
 import { FX01_VIEW, FX02_VIEW, FX03_VIEW, REVIEWS_FX01 } from "@/components/bids/test-data";
 import type { BidDocument, Review } from "@/server/bids";
 
@@ -194,10 +195,11 @@ describe("DecisionPanel 표시", () => {
     expect(page.getByText("사람 검토 권장").elements()).toHaveLength(0);
   });
 
-  it("검토 권장 플래그가 있으면 상자를 보인다(FX-02 KEV_NEEDS_REVIEW)", async () => {
+  it("검토 권장 플래그가 있으면 상자 제목만 보이고 플래그 배지·코드는 없다(FX-02 KEV_NEEDS_REVIEW)", async () => {
     render(panel({ analysis: FX02_VIEW }));
     await expect.element(page.getByText("사람 검토 권장")).toBeVisible();
-    await expect.element(page.getByText("KEV_NEEDS_REVIEW")).toBeVisible();
+    expect(page.getByText("KEV_NEEDS_REVIEW").elements()).toHaveLength(0);
+    expect(page.getByText(REVIEW_FLAG_LABEL.KEV_NEEDS_REVIEW).elements()).toHaveLength(0);
   });
 
   it("규칙 우선(FX-03)은 점수에 참고를 붙이고 검토 권장을 보인다", async () => {
@@ -206,16 +208,30 @@ describe("DecisionPanel 표시", () => {
     await expect.element(page.getByText("참고", { exact: true })).toBeVisible();
   });
 
-  it("긴 플래그 라벨과 코드(규칙 우선 MODEL_RULE_DISAGREEMENT)도 320px 레일을 넘지 않는다", async () => {
+  it("규칙 우선 플래그는 레일에 문구를 남기지 않고, 중립 플래그 라벨과 코드는 320px 레일을 넘지 않는다", async () => {
     const host = render(
       panel({
         analysis: {
           ...FX03_VIEW,
-          reviewFlags: ["MODEL_RULE_DISAGREEMENT", "DOCUMENT_DOWNLOAD_FAILED", "MOCK_FALLBACK"],
+          reviewFlags: [
+            "MODEL_RULE_DISAGREEMENT",
+            "KEV_MANDATORY_RISK",
+            "TRANSLATION_INCOMPLETE",
+            "MOCK_FALLBACK",
+          ],
         },
       }),
     );
-    await expect.element(page.getByText("MODEL_RULE_DISAGREEMENT")).toBeVisible();
+    await expect.element(page.getByText("사람 검토 권장")).toBeVisible();
+    await expect.element(page.getByText("TRANSLATION_INCOMPLETE")).toBeVisible();
+    for (const hidden of [
+      "MODEL_RULE_DISAGREEMENT",
+      "KEV_MANDATORY_RISK",
+      REVIEW_FLAG_LABEL.MODEL_RULE_DISAGREEMENT,
+      REVIEW_FLAG_LABEL.KEV_MANDATORY_RISK,
+    ]) {
+      expect(page.getByText(hidden).elements()).toHaveLength(0);
+    }
     const right = host.getBoundingClientRect().right;
     const outside = Array.from(host.querySelectorAll<HTMLElement>("*")).filter(
       (el) => !el.closest(".sr-only") && el.getBoundingClientRect().right > right + 0.5,
