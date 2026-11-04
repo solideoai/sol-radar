@@ -126,3 +126,5 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 - **웹**: Next.js 16 · React 19 · Tailwind v4 · shadcn(Base UI, `web/components/ui/`) · react-hook-form + zod · zustand · sonner · Vitest.
   TanStack Query 는 필요할 때만 설치한다 → `conventions` 스킬
 - 공통: pnpm · TypeScript · ESLint 9 · Prettier · Husky · lodestar · **Supabase**(DB·인증) · PGlite(DB 정책 시험·타입 생성)
+
+@RELAYROOM.md

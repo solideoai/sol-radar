@@ -14,3 +14,7 @@
    설계와 일치하므로 따른다(ADR-017). 템플릿의 Expo·EAS 전제는 적용하지 않는다. Vercel 배포는 SOL RADAR 정본 ADR-045·049(web 단독, 회사 Compose가 redis-api·AI gateway·Worker)와 검증된 env 선택 경로를 따른다. 데모 기본 Compose와 운영 변경 승인 원칙은 유지한다. 발표 본편은 덱 20분 + 녹화 클립이고 D1 운영 사이트는 촬영 경로이자 질의응답 라이브다(ADR-054).
 
 스킬·명령은 `.claude/` 에서 읽는다. 검증 설정의 정본은 `verify.config.json` 이다.
+
+@RELAYROOM.md
+
+RelayRoom: call `recall` before non-trivial work, and `learn` when you discover a durable fact.

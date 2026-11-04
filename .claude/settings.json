@@ -2,52 +2,113 @@
   "permissions": {
     "deny": [
       "Bash(rm -rf *)",
-      "Read(**/.env)",
-      "Read(**/.env.local)",
-      "Read(**/.env.*.local)",
-      "Read(**/.env.production)",
+      "Edit(**/*.key)",
+      "Edit(**/*.pem)",
       "Edit(**/.env)",
-      "Edit(**/.env.local)",
       "Edit(**/.env.*.local)",
+      "Edit(**/.env.development)",
+      "Edit(**/.env.local)",
       "Edit(**/.env.production)",
-      "Edit(/.husky/**)",
+      "Edit(**/.env.staging)",
+      "Edit(**/.env.test)",
+      "Edit(**/.envrc)",
+      "Edit(**/secrets/**)",
+      "Edit(/.claude/hooks/**)",
       "Edit(/.claude/settings.json)",
       "Edit(/.claude/settings.local.json)",
-      "Edit(/.claude/hooks/**)",
-      "Edit(/web/lodestar.config.*)"
+      "Edit(/.husky/**)",
+      "Edit(/web/lodestar.config.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.local)",
+      "Read(**/.env.production)"
     ],
     "allow": [
-      "Bash(pnpm test *)",
-      "Bash(pnpm test:db)",
-      "Bash(pnpm test:package)",
+      "Bash(bash .claude/bin/omb-cli.sh openwiki-mcp:*)",
+      "Bash(bash .claude/bin/omb-cli.sh openwiki-read:*)",
+      "Bash(bash .claude/bin/omb-cli.sh pr-watch:*)",
+      "Bash(gh search:*)",
+      "Bash(git add *)",
+      "Bash(git blame:*)",
+      "Bash(git diff:*)",
+      "Bash(git grep:*)",
+      "Bash(git log:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git show:*)",
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(grep:*)",
+      "Bash(herdr agent get:*)",
+      "Bash(herdr agent read:*)",
+      "Bash(herdr agent wait:*)",
+      "Bash(herdr tab get:*)",
+      "Bash(ls:*)",
+      "Bash(mypy:*)",
       "Bash(node --test scripts/*)",
-      "Bash(pnpm lint)",
-      "Bash(pnpm type-check)",
-      "Bash(pnpm verify)",
-      "Bash(pnpm verify:quick)",
-      "Bash(pnpm run doctor)",
-      "Bash(pnpm tokens)",
-      "Bash(pnpm db:types)",
-      "Bash(pnpm check:tokens)",
-      "Bash(pnpm check:colors)",
-      "Bash(pnpm check:db-types)",
-      "Bash(pnpm format)",
-      "Bash(pnpm format:check)",
-      "Bash(pnpm -C web verify)",
-      "Bash(pnpm -C web verify:quick)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(pnpm -C web exec vitest run *)",
+      "Bash(pnpm -C web format)",
+      "Bash(pnpm -C web format:check)",
+      "Bash(pnpm -C web lint)",
       "Bash(pnpm -C web test *)",
       "Bash(pnpm -C web test:browser)",
       "Bash(pnpm -C web test:e2e)",
-      "Bash(pnpm -C web exec vitest run *)",
-      "Bash(pnpm -C web lint)",
       "Bash(pnpm -C web type-check)",
-      "Bash(pnpm -C web format)",
-      "Bash(pnpm -C web format:check)",
-      "Bash(git status)",
-      "Bash(git add *)"
-    ]
+      "Bash(pnpm -C web verify)",
+      "Bash(pnpm -C web verify:quick)",
+      "Bash(pnpm check:colors)",
+      "Bash(pnpm check:db-types)",
+      "Bash(pnpm check:tokens)",
+      "Bash(pnpm db:types)",
+      "Bash(pnpm format)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm run doctor)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm test:db)",
+      "Bash(pnpm test:package)",
+      "Bash(pnpm tokens)",
+      "Bash(pnpm type-check)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm verify:quick)",
+      "Bash(printenv:*)",
+      "Bash(pyright:*)",
+      "Bash(pytest:*)",
+      "Bash(python3 .claude/skills/omb-architect/scripts/architect_inventory.py:*)",
+      "Bash(python3 .claude/skills/omb-herdr/scripts/herdr_isolation.py:*)",
+      "Bash(python3 .claude/skills/omb-plan-review/scripts/plan_digest.py:*)",
+      "Bash(rg:*)",
+      "Bash(ruff:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(wc:*)",
+      "Edit(.claude/agent-memory/**)",
+      "Edit(.omb/**)",
+      "Glob",
+      "Grep",
+      "Read",
+      "Skill"
+    ],
+    "ask": [
+      "Bash(python3 .claude/skills/omb-herdr/scripts/herdr_isolation.py cwd-lock release --force:*)",
+      "ExitPlanMode"
+    ],
+    "defaultMode": "default"
   },
   "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/omb/omb-hook.sh\" PostToolUse",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
@@ -58,7 +119,82 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/leegwanghui/.relayroom/relayroom-ask-guard.mjs\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/omb/omb-hook.sh\" PreToolUse",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/omb/omb-hook.sh\" PreToolUse",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/omb/omb-hook.sh\" PreToolUse",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "ExitPlanMode"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/omb/omb-hook.sh\" SessionStart",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/leegwanghui/.relayroom/usage-report.mjs\" --agent claude --server \"http://localhost:48801\" || true"
+          }
+        ]
       }
     ]
-  }
+  },
+  "enabledMcpjsonServers": ["relayroom", "relayroom-channel"],
+  "statusLine": {
+    "type": "command",
+    "command": "\"/Users/leegwanghui/dev/hackathon/sol-radar/rr.sh\" statusline --claude",
+    "padding": 0
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "OMB_DOCUMENTATION_LANGUAGE": "ko"
+  },
+  "attribution": {
+    "commit": "",
+    "sessionUrl": false
+  },
+  "respectGitignore": true
 }

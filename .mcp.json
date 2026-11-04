@@ -3,6 +3,18 @@
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp@0.0.83", "--output-dir", ".playwright-mcp"]
+    },
+    "relayroom-channel": {
+      "command": "/opt/homebrew/Cellar/node@24/24.16.0/bin/node",
+      "args": [
+        "/Users/leegwanghui/.npm/_npx/47ef074a6532a370/node_modules/@relayroom/cli/runtime/relayroom-channel.mjs",
+        "--dir",
+        "/Users/leegwanghui/dev/hackathon/sol-radar"
+      ]
+    },
+    "openwiki": {
+      "command": "openwiki",
+      "args": ["mcp", "--host", "claude"]
     }
   }
 }
