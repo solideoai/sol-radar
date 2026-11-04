@@ -121,7 +121,7 @@ jobs:
         env:
           HUSKY: "0"
       # Python 프로젝트(ai·decision)는 uv 가 필요하다
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         if: matrix.project.name == 'ai' || matrix.project.name == 'decision'
       - name: 설정된 프로젝트 설치·검증·E2E
         env:
